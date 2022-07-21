@@ -15,15 +15,15 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>()
-            .HasMany(user => user.Tokens)
-            .WithOne(token => token.User)
-            .HasForeignKey(token => token.UserId);
+        //modelBuilder.Entity<User>()
+        //    .HasMany(user => user.Tokens)
+        //    .WithOne(token => token.User)
+        //    .HasForeignKey(token => token.UserId);
 
-        modelBuilder.Entity<RefreshToken>()
-            .HasOne(token => token.User)
-            .WithMany(user => user.Tokens)
-            .HasForeignKey(token => token.UserId);
+        //modelBuilder.Entity<RefreshToken>()
+        //    .HasOne(token => token.User)
+        //    .WithMany(user => user.Tokens)
+        //    .HasForeignKey(token => token.UserId);
 
         base.OnModelCreating(modelBuilder);
     }

@@ -18,7 +18,6 @@ else
 }
 
 builder.Services.AddScoped<IUserRepo, UserRepo>();
-builder.Services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
 builder.Services.AddScoped<IRoleRepo, RoleRepo>();
 
 builder.Services.AddSingleton<JwtManager>();

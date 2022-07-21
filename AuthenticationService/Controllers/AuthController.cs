@@ -5,6 +5,7 @@ using AuthenticationService.Dtos;
 using AuthenticationService.Manager;
 using AuthenticationService.Models.Api;
 using AuthenticationService.Models.Db;
+using AuthServiceClientApi;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +16,6 @@ namespace AuthenticationService.Controllers;
 public class AuthController : Controller
 {
     private readonly IUserRepo _userRepo;
-    private readonly IRefreshTokenRepo _refreshTokenRepo;
     private readonly IRoleRepo _roleRepo;
     private readonly IMapper _mapper;
     private readonly JwtManager _jwtManager;
@@ -24,13 +24,11 @@ public class AuthController : Controller
 
     public AuthController(
         IUserRepo userRepo, 
-        IRefreshTokenRepo refreshTokenRepo, 
         IRoleRepo roleRepo,
         IMapper mapper, 
         JwtManager jwtManager)
     {
         _userRepo = userRepo;
-        _refreshTokenRepo = refreshTokenRepo;
         _roleRepo = roleRepo;
         _mapper = mapper;
         _jwtManager = jwtManager;
@@ -42,20 +40,20 @@ public class AuthController : Controller
         return _jwtManager.GenerateJwt(authToken);
     }
 
-    private LoginResult LoginUser(User user, bool generateRefreshToken)
+    private LoginResult? LoginUser(User user, bool generateRefreshToken)
     {
         if (user.UserId == null)
             throw new ArgumentNullException(nameof(user));
 
         var jwtToken = GenerateJwtTokenForUser(user, JwtExpOffset);
-        var refreshToken = generateRefreshToken ? _refreshTokenRepo.CreateToken(user).TokenId : new Guid();
+        Guid? refreshToken = generateRefreshToken ? _userRepo.CreateToken(user).TokenId : null;
 
-        _refreshTokenRepo.SaveChanges();
+        _userRepo.SaveChanges();
 
         return new LoginResult
         {
             JwtToken = jwtToken,
-            RefreshToken = refreshToken.ToString(),
+            RefreshToken = refreshToken?.ToString(),
             Roles = user.Roles.ToList().ConvertAll(role => role.RoleName)
         };
     }
@@ -94,8 +92,6 @@ public class AuthController : Controller
             _roleRepo.SaveChanges();
         }
 
-        user.Roles.Add(defaultRole);
-
         _userRepo.CreateUser(user);
         _userRepo.SaveChanges();
 
@@ -106,6 +102,9 @@ public class AuthController : Controller
                 StatusCodes.Status500InternalServerError,
                 ApiResponse<object>.Fail("Unable to verify transaction"));
 
+        dbUser.Roles.Add(defaultRole);
+        _userRepo.SaveChanges();
+
         return Ok(ApiResponse<object>.Ok(null));
     }
 
@@ -115,7 +114,7 @@ public class AuthController : Controller
     [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
     public ActionResult<LoginResult> GetNewToken([FromBody] Guid tokenId)
     {
-        var user = _refreshTokenRepo.GetUserFromToken(tokenId);
+        var user = _userRepo.GetUserFromToken(tokenId);
         if (user == null)
             return Unauthorized(ApiResponse<LoginResult>.Fail("Invalid refresh token"));
 

@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuthenticationService.Models.Db;
@@ -17,7 +16,7 @@ public class User
     [Required]
     public string Password { get; set; }
 
-    public ICollection<Role> Roles { get; set; } = new List<Role>();
+    public IList<Role> Roles { get; set; } = new List<Role>();
 
-    public ICollection<RefreshToken> Tokens { get; set; } = new List<RefreshToken>();
+    public IList<RefreshToken> Tokens { get; set; } = new List<RefreshToken>();
 }

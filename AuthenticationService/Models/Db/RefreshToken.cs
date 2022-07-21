@@ -16,6 +16,8 @@ public class RefreshToken
     [Key]
     public Guid TokenId { get; set; }
     public DateTime IssuedTime { get; set; }
+
+
     public Guid UserId { get; set; }
     public User User { get; set; }
 }
