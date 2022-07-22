@@ -13,8 +13,8 @@ public static class UserExtension
         return new AuthToken
         {
             Issuer = "",
-            IssuedAt = now.ToUnixTimeMilliseconds(),
-            Expiration = exp.ToUnixTimeMilliseconds(),
+            IssuedAt = now.ToUnixTimeSeconds(),
+            Expiration = exp.ToUnixTimeSeconds(),
             UserId = user.UserId.ToString(),
             Roles = user.Roles.ToList().ConvertAll(c => c.RoleName)
         };
