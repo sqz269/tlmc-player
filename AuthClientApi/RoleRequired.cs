@@ -59,7 +59,7 @@ public class RoleRequired : ActionFilterAttribute
             return;
         }
 
-        if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() > token.Expiration)
+        if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > token.Expiration)
         {
             context.Result = GenerateUnauthorizedObjectResult();
             return;
