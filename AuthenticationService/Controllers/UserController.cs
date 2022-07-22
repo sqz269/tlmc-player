@@ -1,6 +1,25 @@
-﻿namespace AuthenticationService.Controllers;
+﻿using AuthenticationService.Data;
+using AuthenticationService.Models.Db;
+using AuthServiceClientApi;
+using Microsoft.AspNetCore.Mvc;
 
-public class UserController
+namespace AuthenticationService.Controllers;
+
+[Route("api/user")]
+[ApiController]
+public class UserController : Controller
 {
-    
+    private readonly IUserRepo _userRepo;
+
+    public UserController(IUserRepo userRepo)
+    {
+        _userRepo = userRepo;
+    }
+
+    [HttpGet("all")]
+    [RoleRequired(KnownRoles.Admin)]
+    public IEnumerable<User> GetAllUsers()
+    {
+        return _userRepo.GetAllUsers();
+    }
 }

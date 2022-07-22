@@ -66,7 +66,7 @@ public class UserRepo : IUserRepo
 
     public IEnumerable<User> GetAllUsers()
     {
-        throw new NotImplementedException();
+        return _context.Users.ToList();
     }
 
     public IEnumerable<User> GetUsers(int amount, int start)

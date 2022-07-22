@@ -1,7 +1,6 @@
-﻿using System.Text;
-using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.IdentityModel.Tokens;
 
-namespace AuthenticationService.Utils;
+namespace AuthServiceClientApi.Utils;
 
 public static class StringExt
 {

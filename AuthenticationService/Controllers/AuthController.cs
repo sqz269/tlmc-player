@@ -2,9 +2,9 @@
 using System.Security.Cryptography;
 using AuthenticationService.Data;
 using AuthenticationService.Dtos;
-using AuthenticationService.Manager;
 using AuthenticationService.Models.Api;
 using AuthenticationService.Models.Db;
+using AuthenticationService.Extensions;
 using AuthServiceClientApi;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +36,7 @@ public class AuthController : Controller
 
     private string GenerateJwtTokenForUser(User user, TimeSpan expirationOffset)
     {
-        var authToken = AuthToken.FromUser(user, expirationOffset);
+        var authToken = user.ToAuthToken(expirationOffset);
         return _jwtManager.GenerateJwt(authToken);
     }
 
@@ -112,6 +112,7 @@ public class AuthController : Controller
     [Route("token")]
     [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
+    [RoleRequired(KnownRoles.Default, KnownRoles.Admin)]
     public ActionResult<LoginResult> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);

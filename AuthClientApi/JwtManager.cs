@@ -1,13 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AuthenticationService.Utils;
+using AuthServiceClientApi.KeyProviders;
+using AuthServiceClientApi.Utils;
 using Microsoft.IdentityModel.Tokens;
 
-namespace AuthenticationService.Manager;
+namespace AuthServiceClientApi;
 
 internal class JwtHeader
 {
@@ -23,51 +23,23 @@ internal class JwtHeader
 
 public class JwtManager
 {
-    public string PublicKey { get; private set; }
+    public string? PublicKey { get; private set; }
 
     private byte[]? _publicKey;
     private byte[]? _privateKey;
+    private readonly IJwtKeyProvider _keyProvider;
 
-    public JwtManager(IConfiguration configuration)
+    public JwtManager(IJwtKeyProvider keyProvider)
     {
-        var jwtSection = configuration.GetSection("JwtKeys");
+        _keyProvider = keyProvider;
 
-        var valueType = jwtSection["Type"];
-        var publicKey = jwtSection["PublicKey"];
-        var privateKey = jwtSection["PrivateKey"];
-
-        switch (valueType)
-        {
-            case "File" when !File.Exists(publicKey):
-                throw new FileNotFoundException($"Invalid Path for Public Key: {publicKey}");
-            case "File" when !File.Exists(privateKey):
-                throw new FileNotFoundException($"Invalid Path for Private Key: {privateKey}");
-            case "File":
-                UseKey(
-                    File.ReadAllText(privateKey, Encoding.UTF8),
-                    File.ReadAllText(publicKey, Encoding.UTF8)
-                );
-                break;
-
-
-            case "Key" when string.IsNullOrWhiteSpace(publicKey):
-                throw new InvalidOperationException("Invalid Key for Jwt Public Key");
-            case "Key" when string.IsNullOrWhiteSpace(privateKey):
-                throw new InvalidOperationException("Invalid Key for Jwt Private Key");
-            case "Key":
-                UseKey(privateKey, publicKey);
-                break;
-
-
-            default:
-                throw new InvalidOperationException(
-                    $"Invalid Type for Jwt Key Type. Expected: \"File\" or \"Key\". Got: {valueType}");
-        }
+        UseKey(_keyProvider.GetJwtRsPrivateKey(), _keyProvider.GetJwtRsPublicKey());
     }
 
-    public static string FormatKey(string key)
+    private static string? FormatKey(string? key)
     {
-        return key
+        return key?
+            .Trim()
             .Replace("-----BEGIN PRIVATE KEY-----", "")
             .Replace("-----END PRIVATE KEY-----", "")
 
@@ -76,15 +48,15 @@ public class JwtManager
             .Replace("\n", "");
     }
 
-    public void UseKey(string privateKey, string publicKey)
+    public void UseKey(string? privateKey, string? publicKey)
     {
         PublicKey = FormatKey(publicKey);
 
-        _privateKey = Convert.FromBase64String(FormatKey(privateKey));
-        _publicKey = Convert.FromBase64String(FormatKey(publicKey));
+        _privateKey = FormatKey(privateKey)?.B64DecodeBytes();
+        _publicKey = FormatKey(publicKey)?.B64DecodeBytes();
     }
 
-    public bool ValidateData(string payload, string signature)
+    private bool ValidateData(string payload, string signature)
     {
         using var rsa = new RSACryptoServiceProvider();
         rsa.ImportSubjectPublicKeyInfo(_publicKey, out _);
@@ -95,6 +67,11 @@ public class JwtManager
 
     public string GenerateJwt<T>(T payload)
     {
+        if (_privateKey == null)
+        {
+            throw new InvalidOperationException("Cannot Generate JWT token without a private key configured");
+        }
+
         var header = new JwtHeader
         {
             Algorithm = "RS256",
@@ -115,8 +92,21 @@ public class JwtManager
         return data + "." + serializedSig;
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="serializedToken"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
     public T? DecodeJwt<T>(string serializedToken)
     {
+        if (_publicKey == null)
+        {
+            throw new InvalidOperationException("Cannot Decode and Verify Jwt token without a public key configured");
+        }
+
         var parts = serializedToken.Split(".");
 
         var header = parts[0].B64UrlDecodeString();
@@ -131,7 +121,7 @@ public class JwtManager
             throw new InvalidOperationException($"Unable to Verify signature of JWT, JWT Algorithm is not RS256 (Got: {headerStruct?.Algorithm}");
         }
 
-        var isPayloadValid = ValidateData(header + "." + payload, signature);
+        var isPayloadValid = ValidateData(parts[0] + "." + parts[1], signature);
         if (!isPayloadValid)
         {
             throw new InvalidDataException("Invalid signature for JWT");
