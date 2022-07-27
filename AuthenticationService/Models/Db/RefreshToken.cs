@@ -4,12 +4,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthenticationService.Models.Db;
 
-public class KnownRoles
-{
-    public const string Default = "default";
-    public const string Admin = "admin";
-}
-
 [Index(nameof(TokenId), IsUnique = true)]
 public class RefreshToken
 {

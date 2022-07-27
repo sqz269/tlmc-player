@@ -23,7 +23,7 @@ public class RoleRequired : ActionFilterAttribute
 
         if (jwtManager == null)
         {
-            throw new InvalidOperationException("Unable to Authorize request. JwtManager not configured");
+            throw new InvalidOperationException("Unable to Validate Authorization. JwtManager not configured");
         }
 
         if (_rolesRequired == null || _rolesRequired.Count == 0)
