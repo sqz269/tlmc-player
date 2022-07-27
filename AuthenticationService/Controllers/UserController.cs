@@ -17,7 +17,7 @@ public class UserController : Controller
     }
 
     [HttpGet("all")]
-    [RoleRequired(KnownRoles.Admin)]
+    [RoleRequired(KnownRoles.Default)]
     public IEnumerable<User> GetAllUsers()
     {
         return _userRepo.GetAllUsers();

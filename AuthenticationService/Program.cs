@@ -17,7 +17,7 @@ if (builder.Environment.IsDevelopment())
 else
 {
     Console.WriteLine("--> Using Production PostgreSQL Database");
-    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(""));
+    builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
 }
 
 builder.Services.AddScoped<IUserRepo, UserRepo>();
