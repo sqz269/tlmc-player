@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuthenticationService", "Au
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthServiceClientApi", "AuthClientApi\AuthServiceClientApi.csproj", "{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaylistService", "PlaylistService\PlaylistService.csproj", "{1699B46D-A1CC-4914-B3C0-16BB6C487020}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MusicDataService", "MusicDataService\MusicDataService.csproj", "{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
