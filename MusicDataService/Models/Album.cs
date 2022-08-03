@@ -1,17 +1,16 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MusicDataService.Models;
 
 public class Album
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.String)]
+    [Key]
     public Guid Id { get; set; }
 
-    [BsonRepresentation(BsonType.String)]
     public List<Guid>? LinkedAlbums { get; set; } = new();
 
+    [Column(TypeName = "jsonb")]
     public LocalizedField AlbumName { get; set; } = new();
 
     public DateTime? ReleaseDate { get; set; }

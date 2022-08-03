@@ -1,6 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-using MusicDataService.Models;
+﻿using MusicDataService.Models;
 
 namespace MusicDataService.Dtos;
 
@@ -24,7 +22,7 @@ public class TrackReadDto
 
     public List<string>? Lyricist { get; set; }
 
-    public List<OriginalTrack>? Original { get; set; }
+    public List<OriginalReadDto>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
 }

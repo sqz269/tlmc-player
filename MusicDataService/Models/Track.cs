@@ -1,17 +1,15 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MusicDataService.Models;
 
 public class Track
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.String)]
+    [Key]
     public Guid Id { get; set; }
 
-    [BsonRepresentation(BsonType.String)]
-    public List<Guid>? Linked { get; set; } = new();
-
+    [Column(TypeName = "jsonb")]
+    [Required]
     public LocalizedField Name { get; set; }
 
     public int? Index { get; set; }
