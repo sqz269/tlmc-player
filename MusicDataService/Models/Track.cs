@@ -6,14 +6,17 @@ namespace MusicDataService.Models;
 public class Track
 {
     [Key]
+    [Required]
     public Guid Id { get; set; }
 
-    [Column(TypeName = "jsonb")]
     [Required]
+    [Column(TypeName = "jsonb")]
     public LocalizedField Name { get; set; }
 
+    [Required]
     public int? Index { get; set; }
 
+    [Required]
     public int? Disc { get; set; }
 
     public List<string>? Genre { get; set; } = new();

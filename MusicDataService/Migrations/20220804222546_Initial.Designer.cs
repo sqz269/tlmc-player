@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MusicDataService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20220803233907_InitialMigration")]
-    partial class InitialMigration
+    [Migration("20220804222546_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -33,6 +33,7 @@ namespace MusicDataService.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<List<string>>("AlbumArtist")
+                        .IsRequired()
                         .HasColumnType("text[]");
 
                     b.Property<Guid?>("AlbumId")
@@ -49,6 +50,7 @@ namespace MusicDataService.Migrations
                         .HasColumnType("text[]");
 
                     b.Property<int?>("NumberOfDiscs")
+                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("ReleaseConvention")
@@ -98,14 +100,12 @@ namespace MusicDataService.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("AlbumId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ExtenalReference")
+                    b.Property<string>("AlbumId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("OriginalAlbumId")
+                    b.Property<string>("ExtenalReference")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<LocalizedField>("Title")
@@ -118,8 +118,6 @@ namespace MusicDataService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AlbumId");
-
-                    b.HasIndex("OriginalAlbumId");
 
                     b.HasIndex("TrackId");
 
@@ -139,12 +137,14 @@ namespace MusicDataService.Migrations
                         .HasColumnType("text[]");
 
                     b.Property<int?>("Disc")
+                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<List<string>>("Genre")
                         .HasColumnType("text[]");
 
                     b.Property<int?>("Index")
+                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<List<string>>("Lyricist")
@@ -176,15 +176,11 @@ namespace MusicDataService.Migrations
 
             modelBuilder.Entity("MusicDataService.Models.OriginalTrack", b =>
                 {
-                    b.HasOne("MusicDataService.Models.Album", "Album")
-                        .WithMany()
+                    b.HasOne("MusicDataService.Models.OriginalAlbum", "Album")
+                        .WithMany("Tracks")
                         .HasForeignKey("AlbumId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("MusicDataService.Models.OriginalAlbum", null)
-                        .WithMany("Tracks")
-                        .HasForeignKey("OriginalAlbumId");
 
                     b.HasOne("MusicDataService.Models.Track", null)
                         .WithMany("Original")

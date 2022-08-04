@@ -7,7 +7,7 @@ using MusicDataService.Models;
 
 namespace MusicDataService.Migrations
 {
-    public partial class InitialMigration : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -20,9 +20,9 @@ namespace MusicDataService.Migrations
                     ReleaseDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ReleaseConvention = table.Column<string>(type: "text", nullable: true),
                     CatalogNumber = table.Column<string>(type: "text", nullable: true),
-                    NumberOfDiscs = table.Column<int>(type: "integer", nullable: true),
+                    NumberOfDiscs = table.Column<int>(type: "integer", nullable: false),
                     Website = table.Column<string>(type: "text", nullable: true),
-                    AlbumArtist = table.Column<List<string>>(type: "text[]", nullable: true),
+                    AlbumArtist = table.Column<List<string>>(type: "text[]", nullable: false),
                     DataSource = table.Column<List<string>>(type: "text[]", nullable: true),
                     AlbumId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
@@ -57,8 +57,8 @@ namespace MusicDataService.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<LocalizedField>(type: "jsonb", nullable: false),
-                    Index = table.Column<int>(type: "integer", nullable: true),
-                    Disc = table.Column<int>(type: "integer", nullable: true),
+                    Index = table.Column<int>(type: "integer", nullable: false),
+                    Disc = table.Column<int>(type: "integer", nullable: false),
                     Genre = table.Column<List<string>>(type: "text[]", nullable: true),
                     Arrangement = table.Column<List<string>>(type: "text[]", nullable: true),
                     Vocalist = table.Column<List<string>>(type: "text[]", nullable: true),
@@ -84,24 +84,18 @@ namespace MusicDataService.Migrations
                     Id = table.Column<string>(type: "text", nullable: false),
                     Title = table.Column<LocalizedField>(type: "jsonb", nullable: false),
                     ExtenalReference = table.Column<string>(type: "text", nullable: false),
-                    AlbumId = table.Column<Guid>(type: "uuid", nullable: false),
-                    OriginalAlbumId = table.Column<string>(type: "text", nullable: true),
+                    AlbumId = table.Column<string>(type: "text", nullable: false),
                     TrackId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_OriginalTracks", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OriginalTracks_Albums_AlbumId",
+                        name: "FK_OriginalTracks_OriginalAlbums_AlbumId",
                         column: x => x.AlbumId,
-                        principalTable: "Albums",
+                        principalTable: "OriginalAlbums",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_OriginalTracks_OriginalAlbums_OriginalAlbumId",
-                        column: x => x.OriginalAlbumId,
-                        principalTable: "OriginalAlbums",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_OriginalTracks_Tracks_TrackId",
                         column: x => x.TrackId,
@@ -118,11 +112,6 @@ namespace MusicDataService.Migrations
                 name: "IX_OriginalTracks_AlbumId",
                 table: "OriginalTracks",
                 column: "AlbumId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_OriginalTracks_OriginalAlbumId",
-                table: "OriginalTracks",
-                column: "OriginalAlbumId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OriginalTracks_TrackId",

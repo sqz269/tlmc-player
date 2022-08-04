@@ -1,11 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using MusicDataService.Models;
 
-namespace MusicDataService.Models;
+namespace MusicDataService.Dtos;
 
-public class OriginalAlbum
+public class OriginalAlbumWriteDto
 {
-    [Key]
     [Required]
     public string Id { get; set; }
 
@@ -13,14 +13,10 @@ public class OriginalAlbum
     public string Type { get; set; }
 
     [Required]
-    [Column(TypeName = "jsonb")]
     public LocalizedField FullName { get; set; }
 
     [Required]
-    [Column(TypeName = "jsonb")]
     public LocalizedField ShortName { get; set; }
 
     public string ExternalReference { get; set; }
-    
-    public List<OriginalTrack> Tracks { get; set; } = new();
 }

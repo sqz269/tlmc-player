@@ -6,7 +6,7 @@ public class AlbumReadDto
 {
     public Guid Id { get; set; }
 
-    public List<Guid?>? LinkedAlbums { get; set; }
+    // public List<Guid?>? LinkedAlbums { get; set; }
 
     public LocalizedField AlbumName { get; set; }
 

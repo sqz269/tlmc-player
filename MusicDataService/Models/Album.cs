@@ -8,6 +8,7 @@ public class Album
     [Key]
     public Guid Id { get; set; }
 
+    [Required]
     [Column(TypeName = "jsonb")]
     public LocalizedField AlbumName { get; set; } = new();
 
@@ -17,10 +18,12 @@ public class Album
 
     public string? CatalogNumber { get; set; }
 
+    [Required]
     public int? NumberOfDiscs { get; set; }
 
     public string? Website { get; set; }
 
+    [Required]
     public List<string>? AlbumArtist { get; set; } = new();
 
     public List<string>? DataSource { get; set; } = new();

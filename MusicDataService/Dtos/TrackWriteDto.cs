@@ -1,13 +1,17 @@
-﻿using MusicDataService.Models;
+﻿using System.ComponentModel.DataAnnotations;
+using MusicDataService.Models;
 
 namespace MusicDataService.Dtos;
 
 public class TrackWriteDto
 {
+    [Required]
     public LocalizedField Name { get; set; }
 
+    [Required]
     public int? Index { get; set; }
 
+    [Required]
     public int? Disc { get; set; }
 
     public List<string>? Genre { get; set; }

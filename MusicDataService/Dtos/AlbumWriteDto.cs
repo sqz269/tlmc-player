@@ -1,11 +1,11 @@
-﻿using MusicDataService.Models;
+﻿using System.ComponentModel.DataAnnotations;
+using MusicDataService.Models;
 
 namespace MusicDataService.Dtos;
 
 public class AlbumWriteDto
 {
-    public List<Guid?>? LinkedAlbums { get; set; }
-
+    [Required]
     public LocalizedField AlbumName { get; set; }
 
     public DateTime? ReleaseDate { get; set; }
