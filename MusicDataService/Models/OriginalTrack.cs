@@ -13,5 +13,5 @@ public class OriginalTrack
 
     public string ExtenalReference { get; set; }
 
-    public Album Album { get; set; }
+    public OriginalAlbum Album { get; set; }
 }
