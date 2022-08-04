@@ -16,7 +16,7 @@ public class OriginalAlbum
     [Column(TypeName = "jsonb")]
     public LocalizedField ShortName { get; set; }
 
+    public string ExternalReference { get; set; }
+    
     public List<OriginalTrack> Tracks { get; set; } = new();
-
-    public string ExternalId { get; set; }
 }

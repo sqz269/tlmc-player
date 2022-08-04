@@ -24,7 +24,9 @@ public class Track
 
     public List<string>? Lyricist { get; set; } = new();
 
-    public List<OriginalTrack>? Original { get; set; } = new();
-
     public bool? OriginalNonTouhou { get; set; }
+    
+    public Album Album { get; set; }
+
+    public List<OriginalTrack>? Original { get; set; } = new();
 }

@@ -8,8 +8,10 @@ public class OriginalTrack
     [Key]
     public string Id { get; set; }
 
-    public Album Album { get; set; }
-
     [Column(TypeName = "jsonb")]
     public LocalizedField Title { get; set; }
+
+    public string ExtenalReference { get; set; }
+
+    public Album Album { get; set; }
 }
