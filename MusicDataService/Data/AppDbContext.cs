@@ -13,4 +13,13 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
     {
     }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
+        modelBuilder.Entity<Track>().Navigation(t => t.Original).AutoInclude();
+        modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
+
+        base.OnModelCreating(modelBuilder);
+    }
 }

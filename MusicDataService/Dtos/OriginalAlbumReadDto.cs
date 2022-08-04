@@ -1,4 +1,5 @@
-﻿using MusicDataService.Models;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using MusicDataService.Models;
 
 namespace MusicDataService.Dtos;
 

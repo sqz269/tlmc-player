@@ -4,8 +4,6 @@ namespace MusicDataService.Dtos;
 
 public class TrackWriteDto
 {
-    public List<Guid>? Linked { get; set; }
-
     public LocalizedField Name { get; set; }
 
     public int? Index { get; set; }
@@ -20,7 +18,7 @@ public class TrackWriteDto
 
     public List<string>? Lyricist { get; set; }
 
-    public List<OriginalTrack>? Original { get; set; }
+    public List<string>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
 }

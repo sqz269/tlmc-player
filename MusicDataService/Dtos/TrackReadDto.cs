@@ -22,7 +22,7 @@ public class TrackReadDto
 
     public List<string>? Lyricist { get; set; }
 
-    public List<OriginalReadDto>? Original { get; set; }
+    public List<OriginalTrackReadDto>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
 }
