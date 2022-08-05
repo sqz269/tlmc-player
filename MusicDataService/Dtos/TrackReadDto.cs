@@ -6,8 +6,6 @@ public class TrackReadDto
 {
     public Guid Id { get; set; }
 
-    public List<Guid>? Linked { get; set; }
-
     public LocalizedField Name { get; set; }
 
     public int? Index { get; set; }

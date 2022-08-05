@@ -12,7 +12,7 @@ public class OriginalTrack
     [Column(TypeName = "jsonb")]
     public LocalizedField Title { get; set; }
 
-    public string ExtenalReference { get; set; }
+    public string? ExternalReference { get; set; }
 
     public OriginalAlbum Album { get; set; }
 }

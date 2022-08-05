@@ -6,7 +6,9 @@ public interface IOriginalTrackRepo
 {
     public Task<bool> SaveChanges();
 
+    public Task<IEnumerable<OriginalTrack>> GetOriginalTracks(int start, int limit);
+
     public Task<OriginalTrack?> GetOriginalTrack(string trackId);
 
-    public Task<string> AddOriginalTrack(string albumId, OriginalTrack originalTrack);
+    public Task<IEnumerable<OriginalTrack>> GetOriginalTracks(IEnumerable<string> trackIds);
 }

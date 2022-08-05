@@ -83,7 +83,7 @@ namespace MusicDataService.Migrations
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
                     Title = table.Column<LocalizedField>(type: "jsonb", nullable: false),
-                    ExtenalReference = table.Column<string>(type: "text", nullable: false),
+                    ExternalReference = table.Column<string>(type: "text", nullable: true),
                     AlbumId = table.Column<string>(type: "text", nullable: false),
                     TrackId = table.Column<Guid>(type: "uuid", nullable: true)
                 },

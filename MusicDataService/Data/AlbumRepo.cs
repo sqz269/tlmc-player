@@ -17,6 +17,11 @@ public class AlbumRepo : IAlbumRepo
         return await _context.SaveChangesAsync() >= 1;
     }
 
+    public async Task<IEnumerable<Album>> GetAlbums(int start, int limit)
+    {
+        return await _context.Albums.OrderBy(a => a.Id).Skip(start).Take(limit).ToListAsync();
+    }
+
     public async Task<Album?> GetAlbum(Guid id)
     {
         return await _context.Albums.Where(a => a.Id == id).FirstOrDefaultAsync();
@@ -39,9 +44,19 @@ public class AlbumRepo : IAlbumRepo
         return addedAlbum.Entity.Id;
     }
 
-    public Task AddTrackToAlbum(Guid albumId, Track track)
+    public async Task AddTrackToAlbum(Guid albumId, Track track)
     {
-        throw new NotImplementedException();
+        var album = await GetAlbum(albumId);
+        if (album == null)
+            throw new ArgumentNullException(nameof(albumId), "No such album with Id");
+
+        if (track.Id == Guid.Empty)
+        {
+            track.Id = new Guid();
+        }
+
+        var addedTrack = await _context.Tracks.AddAsync(track);
+        album.Tracks.Add(addedTrack.Entity);
     }
 
     public Task<Track> GetTrack(Guid id)

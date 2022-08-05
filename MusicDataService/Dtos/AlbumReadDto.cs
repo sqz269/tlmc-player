@@ -22,8 +22,6 @@ public class AlbumReadDto
 
     public List<string>? AlbumArtist { get; set; }
 
-    public List<string>? Genre { get; set; }
-
     public List<string>? DataSource { get; set; }
 
     public List<TrackReadDto>? Tracks { get; set; }

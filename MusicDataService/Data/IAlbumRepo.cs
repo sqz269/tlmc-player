@@ -6,6 +6,8 @@ public interface IAlbumRepo
 {
     public Task<bool> SaveChanges();
 
+    public Task<IEnumerable<Album>> GetAlbums(int start, int limit);
+
     public Task<Album?> GetAlbum(Guid id);
 
     public Task UpdateAlbumData(Guid id, Album album);

@@ -35,4 +35,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+PrepDb.Prep(app, builder.Environment);
+
 app.Run();

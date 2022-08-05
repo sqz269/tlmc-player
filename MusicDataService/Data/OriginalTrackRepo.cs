@@ -17,27 +17,18 @@ public class OriginalTrackRepo : IOriginalTrackRepo
         return await _context.SaveChangesAsync() >= 1;
     }
 
+    public async Task<IEnumerable<OriginalTrack>> GetOriginalTracks(int start, int limit)
+    {
+        return await _context.OriginalTracks.OrderBy(t => t.Id).Skip(start).Take(limit).ToListAsync();
+    }
+
     public async Task<OriginalTrack?> GetOriginalTrack(string trackId)
     {
         return await _context.OriginalTracks.Where(t => t.Id == trackId).FirstOrDefaultAsync();
     }
 
-    public async Task<string> AddOriginalTrack(string albumId, OriginalTrack originalTrack)
+    public async Task<IEnumerable<OriginalTrack>> GetOriginalTracks(IEnumerable<string> trackIds)
     {
-        if (originalTrack.Id == null)
-        {
-            throw new ArgumentNullException(nameof(originalTrack.Id), "An Id for [OriginalTrack] must be provided when adding a track");
-        }
-
-        var album = await _context.OriginalAlbums.Where(a => a.Id == albumId).FirstOrDefaultAsync();
-        if (album == null)
-        {
-            throw new ArgumentException($"No Original Album found with given Original Album Id: {albumId}", nameof(albumId));
-        }
-
-        originalTrack.Album = album;
-        album.Tracks.Add(originalTrack);
-        var addedTrack = await _context.OriginalTracks.AddAsync(originalTrack);
-        return addedTrack.Entity.Id;
+        return await _context.OriginalTracks.Where(t => trackIds.Contains(t.Id)).ToListAsync();
     }
 }

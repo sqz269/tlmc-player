@@ -102,8 +102,7 @@ namespace MusicDataService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ExtenalReference")
-                        .IsRequired()
+                    b.Property<string>("ExternalReference")
                         .HasColumnType("text");
 
                     b.Property<LocalizedField>("Title")

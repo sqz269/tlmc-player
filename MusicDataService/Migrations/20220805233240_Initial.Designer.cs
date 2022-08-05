@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MusicDataService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20220804222546_Initial")]
+    [Migration("20220805233240_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -104,8 +104,7 @@ namespace MusicDataService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ExtenalReference")
-                        .IsRequired()
+                    b.Property<string>("ExternalReference")
                         .HasColumnType("text");
 
                     b.Property<LocalizedField>("Title")
