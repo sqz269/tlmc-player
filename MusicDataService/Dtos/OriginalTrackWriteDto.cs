@@ -12,5 +12,5 @@ public class OriginalTrackWriteDto
     [Required]
     public LocalizedField Title { get; set; }
 
-    public string ExtenalReference { get; set; }
+    public string? ExternalReference { get; set; }
 }
