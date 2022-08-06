@@ -12,6 +12,7 @@ public class Album
     [Column(TypeName = "jsonb")]
     public LocalizedField AlbumName { get; set; } = new();
 
+    [Column(TypeName = "date")]
     public DateTime? ReleaseDate { get; set; }
 
     public string? ReleaseConvention { get; set; }
