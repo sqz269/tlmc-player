@@ -38,7 +38,7 @@ public class OriginalAlbumRepo : IOriginalAlbumRepo
         return orgAlbum.Entity.Id;
     }
 
-    public async Task<string> AddOriginalTrackToAlbum(string albumId, OriginalTrack originalTrack)
+    public async Task<OriginalTrack> AddOriginalTrackToAlbum(string albumId, OriginalTrack originalTrack)
     {
         if (originalTrack.Id == null)
         {
@@ -54,6 +54,6 @@ public class OriginalAlbumRepo : IOriginalAlbumRepo
         originalTrack.Album = album;
         album.Tracks.Add(originalTrack);
         var addedTrack = await _context.OriginalTracks.AddAsync(originalTrack);
-        return addedTrack.Entity.Id;
+        return addedTrack.Entity;
     }
 }

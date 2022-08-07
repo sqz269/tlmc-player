@@ -14,7 +14,7 @@ public interface IAlbumRepo
 
     public Task<Guid> AddAlbum(Album album);
 
-    public Task AddTrackToAlbum(Guid albumId, Track track);
+    public Task<Track> AddTrackToAlbum(Guid albumId, Track track);
 
     public Task<Track> GetTrack(Guid id);
 

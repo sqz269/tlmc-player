@@ -22,6 +22,7 @@ public class OriginalAlbumController : Controller
     }
 
     [HttpGet("album")]
+    [ProducesResponseType(typeof(IEnumerable<OriginalAlbumReadDto>), StatusCodes.Status200OK)]
     public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _originalAlbumRepo.GetOriginalAlbums(start, limit);
@@ -29,6 +30,7 @@ public class OriginalAlbumController : Controller
     }
 
     [HttpGet("album/{id}", Name = nameof(GetOriginalAlbum))]
+    [ProducesResponseType(typeof(OriginalAlbumReadDto), StatusCodes.Status200OK)]
     public async Task<OriginalAlbumReadDto> GetOriginalAlbum(string id)
     {
         var album = await _originalAlbumRepo.GetOriginalAlbum(id);
@@ -45,27 +47,32 @@ public class OriginalAlbumController : Controller
 
         var result = await _originalAlbumRepo.GetOriginalAlbum(id);
 
-        return CreatedAtRoute(nameof(GetOriginalAlbum), new { id = result.Id }, _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(result));
+        return CreatedAtRoute(nameof(GetOriginalAlbum), new { id = result.Id }, 
+            _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(result));
     }
 
     [HttpPost("album/{albumId}/track")]
-    public async Task<IActionResult> AddOriginTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
+    [ProducesResponseType(typeof(ActionResult<OriginalTrackReadDto>), StatusCodes.Status201Created)]
+    public async Task<ActionResult<OriginalTrackReadDto>> AddOriginTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
     {
-        await _originalAlbumRepo.AddOriginalTrackToAlbum(albumId, _mapper.Map<OriginalTrackWriteDto, OriginalTrack>(track));
+        var addedTrack = await _originalAlbumRepo.AddOriginalTrackToAlbum(albumId, _mapper.Map<OriginalTrackWriteDto, OriginalTrack>(track));
 
         await _originalAlbumRepo.SaveChanges();
 
-        return Ok();
+        return CreatedAtRoute(nameof(GetOriginalTrack), new { id = addedTrack.Id },
+            _mapper.Map<OriginalTrack, OriginalTrackReadDto>(addedTrack));
     }
 
     [HttpGet("track")]
+    [ProducesResponseType(typeof(IEnumerable<OriginalTrackReadDto>), StatusCodes.Status200OK)]
     public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var tracks = await _originalTrackRepo.GetOriginalTracks(start, limit);
         return _mapper.Map<IEnumerable<OriginalTrack>, IEnumerable<OriginalTrackReadDto>>(tracks);
     }
 
-    [HttpGet("track/{id}")]
+    [HttpGet("track/{id}", Name = nameof(GetOriginalTrack))]
+    [ProducesResponseType(typeof(OriginalTrackReadDto), StatusCodes.Status200OK)]
     public async Task<OriginalTrackReadDto?> GetOriginalTrack(string id)
     {
         var track = await _originalTrackRepo.GetOriginalTrack(id);

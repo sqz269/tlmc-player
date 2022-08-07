@@ -25,21 +25,26 @@ public class AlbumController : Controller
     }
 
     [HttpGet("album")]
-    public async Task<IEnumerable<AlbumReadDto?>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
+    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
+    public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _albumRepo.GetAlbums(start, limit);
         return _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
     }
 
     [HttpGet("album/{id:Guid}", Name = nameof(GetAlbum))]
+    [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(AlbumWriteDto), StatusCodes.Status200OK)]
     public async Task<AlbumReadDto> GetAlbum(Guid id)
     {
         var album = await _albumRepo.GetAlbum(id);
-
+        if (album == null)
+            NotFound();
         return _mapper.Map<Album, AlbumReadDto>(album);
     }
 
     [HttpPost("album")]
+    [ProducesResponseType(typeof(ActionResult<AlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<AlbumReadDto>> AddAlbum([FromBody] AlbumWriteDto album)
     {
         var id = await _albumRepo.AddAlbum(_mapper.Map<AlbumWriteDto, Album>(album));
@@ -53,7 +58,8 @@ public class AlbumController : Controller
     }
 
     [HttpPost("album/{albumId:Guid}/track")]
-    public async Task<IActionResult> AddTrack(Guid albumId, [FromBody] TrackWriteDto track)
+    [ProducesResponseType(typeof(ActionResult<TrackReadDto>), StatusCodes.Status201Created)]
+    public async Task<ActionResult<TrackReadDto>> AddTrack(Guid albumId, [FromBody] TrackWriteDto track)
     {
         var trackModel = _mapper.Map<TrackWriteDto, Track>(track);
 
@@ -73,14 +79,16 @@ public class AlbumController : Controller
             trackModel.Original = originalTracks;
         }
 
-        await _albumRepo.AddTrackToAlbum(albumId, trackModel);
+        var addedTrack = await _albumRepo.AddTrackToAlbum(albumId, trackModel);
 
         await _albumRepo.SaveChanges();
 
-        return Ok();
+        return CreatedAtRoute(nameof(GetTrack), new { id = addedTrack.Id },
+            _mapper.Map<Track, TrackReadDto>(addedTrack));
     }
 
-    [HttpGet("track/{id:Guid}")]
+    [HttpGet("track/{id:Guid}", Name = nameof(GetTrack))]
+    [ProducesResponseType(typeof(TrackReadDto), StatusCodes.Status200OK)]
     public async Task<TrackReadDto?> GetTrack(Guid id)
     {
         var track = await _trackRepo.GetTrack(id);

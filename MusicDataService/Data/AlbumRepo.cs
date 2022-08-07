@@ -44,7 +44,7 @@ public class AlbumRepo : IAlbumRepo
         return addedAlbum.Entity.Id;
     }
 
-    public async Task AddTrackToAlbum(Guid albumId, Track track)
+    public async Task<Track> AddTrackToAlbum(Guid albumId, Track track)
     {
         var album = await GetAlbum(albumId);
         if (album == null)
@@ -57,6 +57,8 @@ public class AlbumRepo : IAlbumRepo
 
         var addedTrack = await _context.Tracks.AddAsync(track);
         album.Tracks.Add(addedTrack.Entity);
+
+        return addedTrack.Entity;
     }
 
     public Task<Track> GetTrack(Guid id)

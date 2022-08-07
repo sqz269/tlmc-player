@@ -12,5 +12,5 @@ public interface IOriginalAlbumRepo
 
     public Task<string> AddOriginalAlbum(OriginalAlbum originalAlbum);
 
-    public Task<string> AddOriginalTrackToAlbum(string albumId, OriginalTrack originalTrack);
+    public Task<OriginalTrack> AddOriginalTrackToAlbum(string albumId, OriginalTrack originalTrack);
 }
