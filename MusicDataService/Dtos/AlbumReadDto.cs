@@ -25,4 +25,8 @@ public class AlbumReadDto
     public List<string>? DataSource { get; set; }
 
     public List<TrackReadDto>? Tracks { get; set; }
+
+    public string AlbumImage { get; set; }
+
+    public List<AssetReadDto> AlbumFiles { get; set; }
 }

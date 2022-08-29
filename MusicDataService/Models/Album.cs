@@ -32,4 +32,8 @@ public class Album
     public List<Track>? Tracks { get; set; } = new();
 
     public List<Album>? LinkedAlbums { get; set; } = new();
+
+    public Asset? AlbumImage { get; set; }
+
+    public List<Asset> OtherImages { get; set; } = new();
 }

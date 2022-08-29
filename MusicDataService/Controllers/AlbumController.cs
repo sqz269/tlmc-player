@@ -1,8 +1,10 @@
 ﻿using AuthServiceClientApi;
 using AutoMapper;
+using AutoMapper.QueryableExtensions.Impl;
 using Microsoft.AspNetCore.Mvc;
-using MusicDataService.Data;
+using MusicDataService.Data.Api;
 using MusicDataService.Dtos;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Controllers;
@@ -16,12 +18,22 @@ public class AlbumController : Controller
     private readonly IOriginalTrackRepo _originalTrackRepo;
     private readonly IMapper _mapper;
 
+    private readonly LinkGenerator _linkGenerator;
+    private readonly Func<Guid, string?> _assetLinkGenerator;
+
     public AlbumController(IAlbumRepo albumRepo, ITrackRepo trackRepo, IOriginalTrackRepo originalTrackRepo, IMapper mapper)
     {
         _albumRepo = albumRepo;
         _trackRepo = trackRepo;
         _originalTrackRepo = originalTrackRepo;
         _mapper = mapper;
+
+        _linkGenerator = HttpContext.RequestServices.GetRequiredService<LinkGenerator>();
+        _assetLinkGenerator = assetId =>
+            _linkGenerator.GetUriByName(HttpContext,
+                nameof(AssetController.GetAsset),
+                new { Id = assetId },
+                fragment: FragmentString.Empty);
     }
 
     [HttpGet("album")]
@@ -29,18 +41,26 @@ public class AlbumController : Controller
     public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _albumRepo.GetAlbums(start, limit);
-        return _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
+        var mapped = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
+
+        var albumReadDtos = mapped.ToList();
+        foreach (var albumReadDto in albumReadDtos)
+        {
+            albumReadDto.AlbumFiles.ForEach(file => file.MapAssetUrl(_assetLinkGenerator));
+        }
+
+        return albumReadDtos;
     }
 
     [HttpGet("album/{id:Guid}", Name = nameof(GetAlbum))]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(AlbumWriteDto), StatusCodes.Status200OK)]
-    public async Task<AlbumReadDto> GetAlbum(Guid id)
+    [ProducesResponseType(typeof(AlbumReadDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<Album>> GetAlbum(Guid id)
     {
         var album = await _albumRepo.GetAlbum(id);
         if (album == null)
-            NotFound();
-        return _mapper.Map<Album, AlbumReadDto>(album);
+            return NotFound();
+        return Ok(_mapper.Map<Album, AlbumReadDto>(album));
     }
 
     [HttpPost("album")]
@@ -89,11 +109,12 @@ public class AlbumController : Controller
 
     [HttpGet("track/{id:Guid}", Name = nameof(GetTrack))]
     [ProducesResponseType(typeof(TrackReadDto), StatusCodes.Status200OK)]
-    public async Task<TrackReadDto?> GetTrack(Guid id)
+    [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTrack(Guid id)
     {
         var track = await _trackRepo.GetTrack(id);
         if (track == null)
-            return null;
-        return _mapper.Map<Track, TrackReadDto>(track);
+            return NotFound();
+        return Ok(_mapper.Map<Track, TrackReadDto>(track));
     }
 }

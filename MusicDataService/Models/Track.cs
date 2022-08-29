@@ -32,4 +32,6 @@ public class Track
     public Album Album { get; set; }
 
     public List<OriginalTrack>? Original { get; set; } = new();
+
+    public Asset? TrackFile { get; set; }
 }

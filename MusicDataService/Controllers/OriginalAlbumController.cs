@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
-using MusicDataService.Data;
+using MusicDataService.Data.Api;
 using MusicDataService.Dtos;
 using MusicDataService.Models;
 
