@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
     public DbSet<Track> Tracks { get; set; }
     public DbSet<OriginalTrack> OriginalTracks { get; set; }
     public DbSet<OriginalAlbum> OriginalAlbums { get; set; }
+    public DbSet<Asset> Assets { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
     {
@@ -17,7 +18,12 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
+        modelBuilder.Entity<Album>().Navigation(a => a.AlbumImage).AutoInclude();
+        modelBuilder.Entity<Album>().Navigation(a => a.OtherImages).AutoInclude();
+
         modelBuilder.Entity<Track>().Navigation(t => t.Original).AutoInclude();
+        modelBuilder.Entity<Track>().Navigation(t => t.TrackFile).AutoInclude();
+
         modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
 
         base.OnModelCreating(modelBuilder);

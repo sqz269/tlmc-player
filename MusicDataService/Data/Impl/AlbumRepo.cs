@@ -1,7 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MusicDataService.Data.Api;
 using MusicDataService.Models;
 
-namespace MusicDataService.Data;
+namespace MusicDataService.Data.Impl;
 
 public class AlbumRepo : IAlbumRepo
 {

@@ -1,6 +1,6 @@
 ﻿using MusicDataService.Models;
 
-namespace MusicDataService.Data;
+namespace MusicDataService.Data.Api;
 
 public interface IOriginalTrackRepo
 {
