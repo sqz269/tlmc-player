@@ -25,7 +25,7 @@ public class AlbumWriteDto
     public List<string>? DataSource { get; set; }
 
     // Needs to be converted into Asset
-    public string? AlbumImage { get; set; }
+    public Guid? AlbumImage { get; set; }
 
-    public List<string>? OtherImages { get; set; }
+    public List<Guid>? OtherImages { get; set; }
 }

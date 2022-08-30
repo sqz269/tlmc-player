@@ -21,14 +21,15 @@ public class AlbumController : Controller
     private readonly LinkGenerator _linkGenerator;
     private readonly Func<Guid, string?> _assetLinkGenerator;
 
-    public AlbumController(IAlbumRepo albumRepo, ITrackRepo trackRepo, IOriginalTrackRepo originalTrackRepo, IMapper mapper)
+    public AlbumController(IAlbumRepo albumRepo, ITrackRepo trackRepo, IOriginalTrackRepo originalTrackRepo, IMapper mapper,
+        LinkGenerator linkGenerator)
     {
         _albumRepo = albumRepo;
         _trackRepo = trackRepo;
         _originalTrackRepo = originalTrackRepo;
         _mapper = mapper;
 
-        _linkGenerator = HttpContext.RequestServices.GetRequiredService<LinkGenerator>();
+        _linkGenerator = linkGenerator;
         _assetLinkGenerator = assetId =>
             _linkGenerator.GetUriByName(HttpContext,
                 nameof(AssetController.GetAsset),

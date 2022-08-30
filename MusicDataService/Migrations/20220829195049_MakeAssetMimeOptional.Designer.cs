@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MusicDataService.Data;
 using MusicDataService.Models;
@@ -13,9 +14,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MusicDataService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20220829195049_MakeAssetMimeOptional")]
+    partial class MakeAssetMimeOptional
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -188,9 +190,6 @@ namespace MusicDataService.Migrations
 
                     b.Property<bool?>("OriginalNonTouhou")
                         .HasColumnType("boolean");
-
-                    b.Property<List<string>>("Staff")
-                        .HasColumnType("text[]");
 
                     b.Property<Guid?>("TrackFileAssetId")
                         .HasColumnType("uuid");

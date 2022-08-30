@@ -11,6 +11,6 @@ public class Asset
     public string AssetName { get; set; }
     [Required]
     public string AssetPath { get; set; }
-    public string AssetMime { get; set; }
+    public string? AssetMime { get; set; }
     public bool Large { get; set; }
 }

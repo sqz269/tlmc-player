@@ -14,6 +14,9 @@ public class TrackReadDto
 
     public List<string>? Genre { get; set; }
 
+    // all/unknown contributors
+    public List<string>? Staff { get; set; }
+
     public List<string>? Arrangement { get; set; }
 
     public List<string>? Vocalist { get; set; }
@@ -23,4 +26,6 @@ public class TrackReadDto
     public List<OriginalTrackReadDto>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
+
+    public AssetReadDto? TrackFile { get; set; }
 }

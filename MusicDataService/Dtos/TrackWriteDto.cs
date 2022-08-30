@@ -16,6 +16,8 @@ public class TrackWriteDto
 
     public List<string>? Genre { get; set; }
 
+    public List<string>? Staff { get; set; }
+
     public List<string>? Arrangement { get; set; }
 
     public List<string>? Vocalist { get; set; }
@@ -25,4 +27,6 @@ public class TrackWriteDto
     public List<string>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
+
+    public Guid? TrackFile { get; set; }
 }

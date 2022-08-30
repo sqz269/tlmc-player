@@ -21,6 +21,8 @@ public class Track
 
     public List<string>? Genre { get; set; } = new();
 
+    public List<string>? Staff { get; set; } = new();
+
     public List<string>? Arrangement { get; set; } = new();
 
     public List<string>? Vocalist { get; set; } = new();

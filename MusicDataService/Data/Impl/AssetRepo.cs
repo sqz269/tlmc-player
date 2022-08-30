@@ -23,6 +23,11 @@ public class AssetRepo : IAssetRepo
         return await _context.Assets.Where(a => a.AssetId == id).FirstOrDefaultAsync();
     }
 
+    public async Task<IEnumerable<Asset>> GetAssetsById(IEnumerable<Guid> ids)
+    {
+        return await _context.Assets.Where(a => ids.Contains(a.AssetId)).ToListAsync();
+    }
+
     public async Task<Guid> AddAsset(Asset asset)
     {
         if (asset.AssetId == Guid.Empty)

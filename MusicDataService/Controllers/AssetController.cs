@@ -28,12 +28,4 @@ public class AssetController : Controller
 
         return File(fileStream, "application/octet-stream", asset.AssetName);
     }
-
-    [DevelopmentOnly]
-    [HttpPost]
-    public async Task<IActionResult> AddAsset([FromBody] Asset asset)
-    {
-        await _assetRepo.AddAsset(asset);
-        return Ok();
-    }
 }
