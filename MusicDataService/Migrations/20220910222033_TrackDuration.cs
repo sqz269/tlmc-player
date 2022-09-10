@@ -1,25 +1,25 @@
-﻿using System.Collections.Generic;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace MusicDataService.Migrations
 {
-    public partial class AddedStaffToTrack : Migration
+    public partial class TrackDuration : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<List<string>>(
-                name: "Staff",
+            migrationBuilder.AddColumn<TimeSpan>(
+                name: "Duration",
                 table: "Tracks",
-                type: "text[]",
+                type: "interval",
                 nullable: true);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Staff",
+                name: "Duration",
                 table: "Tracks");
         }
     }

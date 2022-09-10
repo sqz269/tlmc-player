@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MusicDataService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20220829195049_MakeAssetMimeOptional")]
-    partial class MakeAssetMimeOptional
+    [Migration("20220909122416_InitialMigration")]
+    partial class InitialMigration
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -62,8 +62,8 @@ namespace MusicDataService.Migrations
                     b.Property<DateTime?>("ReleaseDate")
                         .HasColumnType("date");
 
-                    b.Property<string>("Website")
-                        .HasColumnType("text");
+                    b.Property<List<string>>("Website")
+                        .HasColumnType("text[]");
 
                     b.HasKey("Id");
 
@@ -146,14 +146,9 @@ namespace MusicDataService.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
-                    b.Property<Guid?>("TrackId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AlbumId");
-
-                    b.HasIndex("TrackId");
 
                     b.ToTable("OriginalTracks");
                 });
@@ -168,20 +163,21 @@ namespace MusicDataService.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<List<string>>("Arrangement")
+                        .IsRequired()
                         .HasColumnType("text[]");
 
-                    b.Property<int?>("Disc")
-                        .IsRequired()
+                    b.Property<int>("Disc")
                         .HasColumnType("integer");
 
                     b.Property<List<string>>("Genre")
+                        .IsRequired()
                         .HasColumnType("text[]");
 
-                    b.Property<int?>("Index")
-                        .IsRequired()
+                    b.Property<int>("Index")
                         .HasColumnType("integer");
 
                     b.Property<List<string>>("Lyricist")
+                        .IsRequired()
                         .HasColumnType("text[]");
 
                     b.Property<LocalizedField>("Name")
@@ -191,10 +187,15 @@ namespace MusicDataService.Migrations
                     b.Property<bool?>("OriginalNonTouhou")
                         .HasColumnType("boolean");
 
+                    b.Property<List<string>>("Staff")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<Guid?>("TrackFileAssetId")
                         .HasColumnType("uuid");
 
                     b.Property<List<string>>("Vocalist")
+                        .IsRequired()
                         .HasColumnType("text[]");
 
                     b.HasKey("Id");
@@ -204,6 +205,21 @@ namespace MusicDataService.Migrations
                     b.HasIndex("TrackFileAssetId");
 
                     b.ToTable("Tracks");
+                });
+
+            modelBuilder.Entity("OriginalTrackTrack", b =>
+                {
+                    b.Property<string>("OriginalId")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TracksId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("OriginalId", "TracksId");
+
+                    b.HasIndex("TracksId");
+
+                    b.ToTable("OriginalTrackTrack");
                 });
 
             modelBuilder.Entity("MusicDataService.Models.Album", b =>
@@ -234,10 +250,6 @@ namespace MusicDataService.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("MusicDataService.Models.Track", null)
-                        .WithMany("Original")
-                        .HasForeignKey("TrackId");
-
                     b.Navigation("Album");
                 });
 
@@ -258,6 +270,21 @@ namespace MusicDataService.Migrations
                     b.Navigation("TrackFile");
                 });
 
+            modelBuilder.Entity("OriginalTrackTrack", b =>
+                {
+                    b.HasOne("MusicDataService.Models.OriginalTrack", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MusicDataService.Models.Track", null)
+                        .WithMany()
+                        .HasForeignKey("TracksId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MusicDataService.Models.Album", b =>
                 {
                     b.Navigation("LinkedAlbums");
@@ -270,11 +297,6 @@ namespace MusicDataService.Migrations
             modelBuilder.Entity("MusicDataService.Models.OriginalAlbum", b =>
                 {
                     b.Navigation("Tracks");
-                });
-
-            modelBuilder.Entity("MusicDataService.Models.Track", b =>
-                {
-                    b.Navigation("Original");
                 });
 #pragma warning restore 612, 618
         }
