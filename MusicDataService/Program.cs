@@ -58,4 +58,6 @@ app.MapControllers();
 
 PrepDb.Prep(app, builder.Environment);
 
+await UpdateDb.Update(app, app.Environment);
+
 app.Run();
