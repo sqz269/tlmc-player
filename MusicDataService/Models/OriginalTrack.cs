@@ -15,4 +15,6 @@ public class OriginalTrack
     public string? ExternalReference { get; set; }
 
     public OriginalAlbum Album { get; set; }
+
+    public List<Track> Tracks { get; set; }
 }

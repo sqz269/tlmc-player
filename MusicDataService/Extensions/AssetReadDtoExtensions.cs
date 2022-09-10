@@ -13,4 +13,9 @@ public static class AssetReadDtoExtensions
         }
         asset.Url = assetUrl;
     }
+
+    public static void MapAssetUrl(this List<AssetReadDto> assets, Func<Guid, string?> assetUrlGenerator)
+    {
+        assets.ForEach(a => a.MapAssetUrl(assetUrlGenerator));
+    }
 }

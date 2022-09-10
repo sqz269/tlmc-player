@@ -26,6 +26,11 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
 
+        //modelBuilder.Entity<OriginalTrack>()
+        //    .HasMany(t => t.Tracks)
+        //    .WithMany(r => r.Original)
+        //    .UsingEntity(opt => opt.ToTable("OgTrackTrackRelation"));
+
         base.OnModelCreating(modelBuilder);
     }
 }

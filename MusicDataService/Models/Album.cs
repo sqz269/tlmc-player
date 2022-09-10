@@ -22,7 +22,7 @@ public class Album
     [Required]
     public int? NumberOfDiscs { get; set; }
 
-    public string? Website { get; set; }
+    public List<string>? Website { get; set; } = new();
 
     [Required]
     public List<string>? AlbumArtist { get; set; } = new();

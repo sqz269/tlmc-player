@@ -14,26 +14,28 @@ public class Track
     public LocalizedField Name { get; set; }
 
     [Required]
-    public int? Index { get; set; }
+    public int Index { get; set; }
 
     [Required]
-    public int? Disc { get; set; }
+    public int Disc { get; set; }
 
-    public List<string>? Genre { get; set; } = new();
+    public TimeSpan? Duration { get; set; }
 
-    public List<string>? Staff { get; set; } = new();
+    public List<string> Genre { get; set; } = new();
 
-    public List<string>? Arrangement { get; set; } = new();
+    public List<string> Staff { get; set; } = new();
 
-    public List<string>? Vocalist { get; set; } = new();
+    public List<string> Arrangement { get; set; } = new();
 
-    public List<string>? Lyricist { get; set; } = new();
+    public List<string> Vocalist { get; set; } = new();
+
+    public List<string> Lyricist { get; set; } = new();
 
     public bool? OriginalNonTouhou { get; set; }
     
     public Album Album { get; set; }
 
-    public List<OriginalTrack>? Original { get; set; } = new();
+    public List<OriginalTrack> Original { get; set; } = new();
 
     public Asset? TrackFile { get; set; }
 }

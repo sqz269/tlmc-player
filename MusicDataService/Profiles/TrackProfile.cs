@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using MusicDataService.Data;
+using MusicDataService.Data.Impl;
 using MusicDataService.Dtos;
 using MusicDataService.Models;
 
@@ -11,7 +12,7 @@ public class TrackProfile : Profile
     {
         CreateMap<Track, TrackReadDto>();
         CreateMap<TrackWriteDto, Track>()
-            .ForMember(t => t.Original, t => t.Ignore())
+            //.ForMember(t => t.Original, t => t.Ignore())
             .ForMember(t => t.TrackFile, t => t.Ignore());
     }
 }

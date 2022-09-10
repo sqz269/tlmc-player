@@ -18,7 +18,7 @@ public class AlbumReadDto
 
     public int? NumberOfDiscs { get; set; }
 
-    public string? Website { get; set; }
+    public List<string>? Website { get; set; }
 
     public List<string>? AlbumArtist { get; set; }
 
@@ -28,5 +28,5 @@ public class AlbumReadDto
 
     public AssetReadDto AlbumImage { get; set; }
 
-    public List<AssetReadDto> AlbumFiles { get; set; }
+    public List<AssetReadDto> OtherImages { get; set; }
 }

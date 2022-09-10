@@ -21,7 +21,11 @@ public class AlbumController : Controller
     private readonly LinkGenerator _linkGenerator;
     private readonly Func<Guid, string?> _assetLinkGenerator;
 
-    public AlbumController(IAlbumRepo albumRepo, ITrackRepo trackRepo, IOriginalTrackRepo originalTrackRepo, IMapper mapper,
+    public AlbumController(
+        IAlbumRepo albumRepo, 
+        ITrackRepo trackRepo, 
+        IOriginalTrackRepo originalTrackRepo, 
+        IMapper mapper,
         LinkGenerator linkGenerator)
     {
         _albumRepo = albumRepo;
@@ -45,10 +49,6 @@ public class AlbumController : Controller
         var mapped = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
 
         var albumReadDtos = mapped.ToList();
-        foreach (var albumReadDto in albumReadDtos)
-        {
-            albumReadDto.AlbumFiles.ForEach(file => file.MapAssetUrl(_assetLinkGenerator));
-        }
 
         return albumReadDtos;
     }
@@ -61,7 +61,12 @@ public class AlbumController : Controller
         var album = await _albumRepo.GetAlbum(id);
         if (album == null)
             return NotFound();
-        return Ok(_mapper.Map<Album, AlbumReadDto>(album));
+        var mapped = _mapper.Map<Album, AlbumReadDto>(album);
+        
+        //mapped.AlbumImage.MapAssetUrl(_assetLinkGenerator);
+        //mapped.OtherImages.MapAssetUrl(_assetLinkGenerator);
+
+        return Ok(mapped);
     }
 
     [HttpPost("album")]
@@ -86,21 +91,15 @@ public class AlbumController : Controller
 
         // We ignored Track.Original mapping when converting from Dto to Model
         // we need to resolve it manually
-        if (track.Original == null)
-        {
-            trackModel.Original = new List<OriginalTrack>();
-        }
-        else
-        {
+
             var originalTracks = (await _originalTrackRepo.GetOriginalTracks(track.Original)).ToList();
             if (originalTracks.Count != track.Original.Count)
             {
                 throw new ArgumentException("One of the OriginalTracks is invalid or does not exist.");
             }
-            trackModel.Original = originalTracks;
-        }
+            trackModel.Original.AddRange(originalTracks);
 
-        var addedTrack = await _albumRepo.AddTrackToAlbum(albumId, trackModel);
+            var addedTrack = await _albumRepo.AddTrackToAlbum(albumId, trackModel);
 
         await _albumRepo.SaveChanges();
 
@@ -116,6 +115,7 @@ public class AlbumController : Controller
         var track = await _trackRepo.GetTrack(id);
         if (track == null)
             return NotFound();
-        return Ok(_mapper.Map<Track, TrackReadDto>(track));
+        var mapped = _mapper.Map<Track, TrackReadDto>(track);
+        return Ok(mapped);
     }
 }

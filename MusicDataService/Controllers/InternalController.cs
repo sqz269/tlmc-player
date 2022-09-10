@@ -1,5 +1,10 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.Internal;
+using Microsoft.VisualBasic;
+using MusicDataService.Data;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos;
 using MusicDataService.Extensions;
@@ -18,7 +23,6 @@ public class InternalController : Controller
     private readonly IMapper _mapper;
 
     private readonly LinkGenerator _linkGenerator;
-    private readonly Func<Guid, string?> _assetLinkGenerator;
     private readonly IAssetRepo _assetRepo;
 
     public InternalController(
@@ -26,22 +30,13 @@ public class InternalController : Controller
         ITrackRepo trackRepo, 
         IAssetRepo assetRepo,
         IOriginalTrackRepo originalTrackRepo, 
-        IMapper mapper,
-        LinkGenerator linkGenerator)
+        IMapper mapper)
     {
         _albumRepo = albumRepo;
         _trackRepo = trackRepo;
         _assetRepo = assetRepo;
         _originalTrackRepo = originalTrackRepo;
         _mapper = mapper;
-
-        // _linkGenerator = HttpContext.RequestServices.GetRequiredService<LinkGenerator>();
-        _linkGenerator = linkGenerator;
-        _assetLinkGenerator = assetId =>
-            _linkGenerator.GetUriByName(HttpContext,
-                nameof(AssetController.GetAsset),
-                new { Id = assetId },
-                fragment: FragmentString.Empty);
     }
 
     [DevelopmentOnly]
@@ -121,5 +116,62 @@ public class InternalController : Controller
             throw new InvalidOperationException("Failed to Verify Transaction. Unable to retrieve newly added entry");
 
         return Ok(addedAsset);
+    }
+
+
+    [DevelopmentOnly]
+    [HttpPatch("album/{albumId:guid}")]
+    public async Task<IActionResult> UpdateAlbum(Guid albumId, [FromBody] JsonPatchDocument<AlbumUpdateDto> albumWrite)
+    {
+        var album = await _albumRepo.GetAlbum(albumId);
+
+        var updatedAlbum = _mapper.Map<JsonPatchDocument<AlbumUpdateDto>, JsonPatchDocument<Album>>(albumWrite);
+
+        updatedAlbum.ApplyTo(album);
+
+        await _albumRepo.SaveChanges();
+
+        return Ok();
+    }
+
+    [DevelopmentOnly]
+    [HttpPatch("track/{trackId:guid}")]
+    public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] TrackUpdateDto trackWrite)
+    {
+        var track = await _trackRepo.GetTrack(trackId);
+
+        if (trackWrite.Original != null)
+        {
+            var originals = await _originalTrackRepo.GetOriginalTracks(trackWrite.Original);
+
+            var originalTracks = originals as OriginalTrack[] ?? originals.ToArray();
+            if (originalTracks.ToList().Count != trackWrite.Original.Count)
+            {
+                return BadRequest("Certain Original Track is Invalid");
+            }
+
+            track.Original.AddRange(originalTracks);
+
+            //track.Original = track.Original.Distinct().ToList();
+        }
+
+        track.Genre.AddRange(trackWrite.Genre ?? new());
+        //track.Genre = track.Genre.Distinct().ToList();
+        track.Staff.AddRange(trackWrite.Staff ?? new());
+        //track.Staff = track.Staff.Distinct().ToList();
+        track.Arrangement.AddRange(trackWrite.Arrangement ?? new());
+        //track.Arrangement = track.Arrangement.Distinct().ToList();
+        track.Vocalist.AddRange(trackWrite.Vocalist ?? new());
+        //track.Vocalist = track.Vocalist.Distinct().ToList();
+        track.Lyricist.AddRange(trackWrite.Lyricist ?? new());
+        //track.Lyricist = track.Lyricist.Distinct().ToList();
+        track.OriginalNonTouhou = trackWrite.OriginalNonTouhou ?? track.OriginalNonTouhou;
+        var saved = await _trackRepo.SaveChanges();
+
+        Console.WriteLine($"Saved changes for: {track.Id} {saved}");
+
+        //var addedTrack = await _trackRepo.GetTrack(trackId);
+
+        return Ok();
     }
 }
