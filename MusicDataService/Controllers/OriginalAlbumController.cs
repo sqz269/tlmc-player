@@ -21,7 +21,7 @@ public class OriginalAlbumController : Controller
         _mapper = mapper;
     }
 
-    [HttpGet("album")]
+    [HttpGet("album", Name = nameof(GetOriginalAlbums))]
     [ProducesResponseType(typeof(IEnumerable<OriginalAlbumReadDto>), StatusCodes.Status200OK)]
     public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
@@ -37,7 +37,7 @@ public class OriginalAlbumController : Controller
         return _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(album);
     }
 
-    [HttpPost("album")]
+    [HttpPost("album", Name = nameof(AddOriginalAlbum))]
     [ProducesResponseType(typeof(ActionResult<OriginalAlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<OriginalAlbumReadDto>> AddOriginalAlbum([FromBody] OriginalAlbumWriteDto album)
     {
@@ -51,9 +51,9 @@ public class OriginalAlbumController : Controller
             _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(result));
     }
 
-    [HttpPost("album/{albumId}/track")]
+    [HttpPost("album/{albumId}/track", Name = nameof(AddOriginalTrack))]
     [ProducesResponseType(typeof(ActionResult<OriginalTrackReadDto>), StatusCodes.Status201Created)]
-    public async Task<ActionResult<OriginalTrackReadDto>> AddOriginTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
+    public async Task<ActionResult<OriginalTrackReadDto>> AddOriginalTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
     {
         var addedTrack = await _originalAlbumRepo.AddOriginalTrackToAlbum(albumId, _mapper.Map<OriginalTrackWriteDto, OriginalTrack>(track));
 
@@ -63,7 +63,7 @@ public class OriginalAlbumController : Controller
             _mapper.Map<OriginalTrack, OriginalTrackReadDto>(addedTrack));
     }
 
-    [HttpGet("track")]
+    [HttpGet("track", Name = nameof(GetOriginalTracks))]
     [ProducesResponseType(typeof(IEnumerable<OriginalTrackReadDto>), StatusCodes.Status200OK)]
     public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {

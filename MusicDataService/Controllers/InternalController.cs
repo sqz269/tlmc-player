@@ -15,6 +15,7 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
