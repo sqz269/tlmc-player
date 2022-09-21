@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musicdata-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: musicdata-api
+  template:
+    metadata:
+      labels:
+        app: musicdata-api
+    spec:
+      containers:
+      - name: musicdata-api
+        image: sqzd269/musicdata-api:latest

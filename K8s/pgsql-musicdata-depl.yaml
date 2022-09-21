@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgsql-musicdata-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgsql-musicdata-depl
+
+  template:
+    metadata:
+      labels:
+        app: pgsql-musicdata-depl
+
+    spec:
+      containers:
+      - name: pgsql-musicdata-depl
+        image: postgres
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 5432
+
+        env:
+          - name: POSTGRES_PASSWORD
+            value: postgrespw
+
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: postgredb
+
+      volumes:
+        - name: postgredb
+          persistentVolumeClaim:
+            claimName: pgsql-musicdata-pv-claim
