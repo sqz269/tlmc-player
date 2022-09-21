@@ -17,6 +17,6 @@ spec:
         path: "/"
         backend:
           service:
-            name: musicdata-clusterip-srv
+            name: musicdata-api-clusterip
             port: 
               number: 80
