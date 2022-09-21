@@ -12,7 +12,6 @@ public class TrackProfile : Profile
     {
         CreateMap<Track, TrackReadDto>();
         CreateMap<TrackWriteDto, Track>()
-            //.ForMember(t => t.Original, t => t.Ignore())
             .ForMember(t => t.TrackFile, t => t.Ignore());
     }
 }

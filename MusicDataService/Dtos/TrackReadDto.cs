@@ -12,6 +12,8 @@ public class TrackReadDto
 
     public int? Disc { get; set; }
 
+    public TimeSpan Duration { get; set; } = default;
+
     public List<string>? Genre { get; set; }
 
     // all/unknown contributors

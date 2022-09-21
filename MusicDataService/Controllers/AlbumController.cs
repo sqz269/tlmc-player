@@ -9,8 +9,8 @@ using MusicDataService.Models;
 
 namespace MusicDataService.Controllers;
 
-[Route("api/music")]
 [ApiController]
+[Route("api/music")]
 public class AlbumController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
@@ -62,10 +62,6 @@ public class AlbumController : Controller
         if (album == null)
             return NotFound();
         var mapped = _mapper.Map<Album, AlbumReadDto>(album);
-        
-        //mapped.AlbumImage.MapAssetUrl(_assetLinkGenerator);
-        //mapped.OtherImages.MapAssetUrl(_assetLinkGenerator);
-
         return Ok(mapped);
     }
 
