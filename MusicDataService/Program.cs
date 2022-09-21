@@ -7,6 +7,9 @@ using MusicDataService.Data.Impl;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.
+    AddEnvironmentVariables();
+
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
@@ -28,6 +31,14 @@ builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
 
+builder.Services.AddCors(opt =>
+{
+    opt.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin().Build();
+    });
+});
+
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
@@ -43,12 +54,14 @@ builder.Services.AddSwaggerGen()
 
 var app = builder.Build();
 
+app.UseCors();
+
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+//if (app.Environment.IsDevelopment())
+//{
+app.UseSwagger();
+app.UseSwaggerUI();
+//}
 
 // app.UseHttpsRedirection();
 
