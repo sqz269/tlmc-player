@@ -15,3 +15,8 @@ spec:
       containers:
       - name: musicdata-api
         image: sqzd269/musicdata-api:latest
+        env:
+          - name: FFMpegBinary
+            value: /usr/bin
+          - name: ConnectionStrings__PostgreSql
+            value: Host=pgsql-musicdata-clusterip;Port=5432;Username=postgres;Password=postgrespw
