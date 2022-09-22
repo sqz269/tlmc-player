@@ -17,10 +17,6 @@ spec:
       containers:
       - name: pgsql-musicdata-depl
         image: postgres
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
         ports:
         - containerPort: 5432
 

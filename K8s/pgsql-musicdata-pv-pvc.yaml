@@ -1,4 +1,19 @@
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pgsql-musicdata-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/k8s_data/pgsql-musicdata-pv1"
+
+---
+
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: pgsql-musicdata-pv-claim
@@ -6,6 +21,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
+  # storageClassName: local-path
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
