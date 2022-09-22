@@ -17,6 +17,21 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: pgsql-musicdata-nodeport
+spec:
+  type: NodePort
+  selector:
+    app: pgsql-musicdata-depl
+  ports:
+  - port: 15432
+    targetPort: 5432
+    protocol: TCP
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
   name: pgsql-musicdata-loadbalancer
 spec:
   type: LoadBalancer
