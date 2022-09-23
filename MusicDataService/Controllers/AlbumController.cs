@@ -65,6 +65,7 @@ public class AlbumController : Controller
         return Ok(mapped);
     }
 
+    [DevelopmentOnly]
     [HttpPost("album", Name = nameof(AddAlbum))]
     [ProducesResponseType(typeof(ActionResult<AlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<AlbumReadDto>> AddAlbum([FromBody] AlbumWriteDto album)
@@ -78,7 +79,8 @@ public class AlbumController : Controller
         //return _mapper.Map<Album, AlbumReadDto>(result);
         return CreatedAtRoute(nameof(GetAlbum), new {id = result.Id}, _mapper.Map<Album, AlbumReadDto>(result));
     }
-
+    
+    [DevelopmentOnly]
     [HttpPost("album/{albumId:Guid}/track", Name = nameof(AddTrack))]
     [ProducesResponseType(typeof(ActionResult<TrackReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<TrackReadDto>> AddTrack(Guid albumId, [FromBody] TrackWriteDto track)

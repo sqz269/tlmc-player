@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Controllers;
@@ -37,6 +38,7 @@ public class OriginalAlbumController : Controller
         return _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(album);
     }
 
+    [DevelopmentOnly]
     [HttpPost("album", Name = nameof(AddOriginalAlbum))]
     [ProducesResponseType(typeof(ActionResult<OriginalAlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<OriginalAlbumReadDto>> AddOriginalAlbum([FromBody] OriginalAlbumWriteDto album)
@@ -51,6 +53,7 @@ public class OriginalAlbumController : Controller
             _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(result));
     }
 
+    [DevelopmentOnly]
     [HttpPost("album/{albumId}/track", Name = nameof(AddOriginalTrack))]
     [ProducesResponseType(typeof(ActionResult<OriginalTrackReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<OriginalTrackReadDto>> AddOriginalTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
