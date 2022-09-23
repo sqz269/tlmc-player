@@ -22,12 +22,22 @@ public static class UpdateDb
 
         var tracks = await appDb.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
         var i = 0;
+        int saved;
         foreach (var track in tracks)
         {
             i++;
             Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration})");
             var trackInfo = await FFProbe.AnalyseAsync(track.TrackFile.AssetPath);
             track.Duration = trackInfo.Duration;
+
+            if (i % 300 == 0)
+            {
+                saved = await appDb.SaveChangesAsync();
+                Console.WriteLine($"Saved: {saved} Changes");
+            }
         }
+
+        saved = await appDb.SaveChangesAsync();
+        Console.WriteLine($"Saved: {saved} Changes");
     }
 }
