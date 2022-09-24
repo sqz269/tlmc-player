@@ -29,7 +29,7 @@ public class TrackReadDto
 
     public bool? OriginalNonTouhou { get; set; }
 
-    public Album Album { get; set; }
+    public AlbumReadDto Album { get; set; }
 
     public AssetReadDto? TrackFile { get; set; }
 }
