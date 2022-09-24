@@ -20,12 +20,30 @@ public class AlbumRepo : IAlbumRepo
 
     public async Task<IEnumerable<Album>> GetAlbums(int start, int limit)
     {
-        return await _context.Albums.OrderBy(a => a.Id).Skip(start).Take(limit).ToListAsync();
+        var albums = await _context.Albums.OrderBy(a => a.Id)
+            .Skip(start).Take(limit)
+            .Include(a => a.Tracks)
+            .Include(a => a.AlbumImage)
+            .Include(a => a.OtherImages)
+            .ToListAsync();
+
+        albums.ForEach(album => album.Tracks.ForEach(track =>
+        {
+            track.Album = default;
+        }));
+
+        return albums;
     }
 
     public async Task<Album?> GetAlbum(Guid id)
     {
-        return await _context.Albums.Where(a => a.Id == id).FirstOrDefaultAsync();
+        var album = await _context.Albums.Where(a => a.Id == id)
+            .Include(a => a.Tracks)!
+            .ThenInclude(t => t.Original)
+            .FirstOrDefaultAsync();
+
+        album.Tracks.ForEach(track => track.Album = null);
+        return album;
     }
 
     public Task UpdateAlbumData(Guid id, Album album)

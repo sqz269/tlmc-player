@@ -17,14 +17,15 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.AlbumImage).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.OtherImages).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.AlbumImage).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.OtherImages).AutoInclude();
 
-        modelBuilder.Entity<Track>().Navigation(t => t.Original).AutoInclude();
-        modelBuilder.Entity<Track>().Navigation(t => t.TrackFile).AutoInclude();
+        //modelBuilder.Entity<Track>().Navigation(t => t.Original).AutoInclude();
+        //modelBuilder.Entity<Track>().Navigation(t => t.TrackFile).AutoInclude();
+        //modelBuilder.Entity<Track>().Navigation(t => t.Album).AutoInclude(false);
 
-        modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
+        //modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
 
         //modelBuilder.Entity<OriginalTrack>()
         //    .HasMany(t => t.Tracks)

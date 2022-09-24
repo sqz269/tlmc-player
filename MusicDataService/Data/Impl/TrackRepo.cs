@@ -20,7 +20,15 @@ public class TrackRepo : ITrackRepo
 
     public async Task<Track?> GetTrack(Guid trackId)
     {
-        return await _context.Tracks.Where(t => t.Id == trackId).FirstOrDefaultAsync();
+        var track = await _context.Tracks.Where(t => t.Id == trackId)
+            .Include(t => t.Original)
+            .ThenInclude(og => og.Album)
+            .Include(t => t.Album)
+            .ThenInclude(a => a.AlbumImage)
+            .FirstOrDefaultAsync();
+
+        track.Album.Tracks = null;
+        return track;
     }
 
     public async Task<Guid> CreateTrack(Guid albumId, Track track)

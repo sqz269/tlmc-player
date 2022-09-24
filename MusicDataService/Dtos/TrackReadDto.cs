@@ -12,7 +12,7 @@ public class TrackReadDto
 
     public int? Disc { get; set; }
 
-    public TimeSpan Duration { get; set; } = default;
+    public TimeSpan Duration { get; set; }
 
     public List<string>? Genre { get; set; }
 
@@ -28,6 +28,8 @@ public class TrackReadDto
     public List<OriginalTrackReadDto>? Original { get; set; }
 
     public bool? OriginalNonTouhou { get; set; }
+
+    public Album Album { get; set; }
 
     public AssetReadDto? TrackFile { get; set; }
 }

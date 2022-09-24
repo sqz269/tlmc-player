@@ -6,6 +6,8 @@ using MusicDataService.Models;
 
 namespace MusicDataService.Profiles;
 
+//public class AlbumUrlMapper : IMemberValueResolver<Album, AlbumReadDto>
+
 public class AlbumProfile : Profile
 {
     public AlbumProfile()
