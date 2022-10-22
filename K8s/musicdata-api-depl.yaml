@@ -19,12 +19,12 @@ spec:
           - name: FFMpegBinary
             value: /usr/bin
           - name: ConnectionStrings__PostgreSql
-            value: Host=pgsql-musicdata-clusterip;Port=5432;Username=postgres;Password=postgrespw
-        volumeMounts:
-          - mountPath: /external_data/torrent/TLMC/
-            name: musicdata
-      volumes:
-        - name: musicdata
-          hostPath:
-            path: /external_data/torrent/TLMC/
-            type: Directory
+            value: Host=musicdata-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
+      #   volumeMounts:
+      #     - mountPath: /external_data/torrent/TLMC/
+      #       name: musicdata
+      # volumes:
+      #   - name: musicdata
+      #     hostPath:
+      #       path: /external_data/torrent/TLMC/
+      #       type: Directory
