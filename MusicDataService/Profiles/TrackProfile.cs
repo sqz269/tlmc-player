@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using MusicDataService.Data;
 using MusicDataService.Data.Impl;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.Track;
 using MusicDataService.Models;
 
 namespace MusicDataService.Profiles;

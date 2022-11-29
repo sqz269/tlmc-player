@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using MusicDataService.Models;
 
-namespace MusicDataService.Dtos;
+namespace MusicDataService.Dtos.Track;
 
 public class TrackWriteDto
 {

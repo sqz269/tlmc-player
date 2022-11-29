@@ -25,7 +25,7 @@ public class Album
     public List<string>? Website { get; set; } = new();
 
     [Required]
-    public List<string>? AlbumArtist { get; set; } = new();
+    public List<Circle>? Circle { get; set; } = new();
 
     public List<string>? DataSource { get; set; } = new();
 
@@ -35,5 +35,5 @@ public class Album
 
     public Asset? AlbumImage { get; set; }
 
-    public List<Asset> OtherImages { get; set; } = new();
+    public List<Asset> OtherFiles { get; set; } = new();
 }

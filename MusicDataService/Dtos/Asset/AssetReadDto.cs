@@ -1,4 +1,4 @@
-﻿namespace MusicDataService.Dtos;
+﻿namespace MusicDataService.Dtos.Asset;
 
 public class AssetReadDto
 {

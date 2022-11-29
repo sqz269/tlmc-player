@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
 using MusicDataService.Controllers;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.Asset;
 using MusicDataService.Models;
 
 namespace MusicDataService.Profiles;

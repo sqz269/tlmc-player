@@ -1,6 +1,9 @@
-﻿using MusicDataService.Models;
+﻿using MusicDataService.Dtos.Album;
+using MusicDataService.Dtos.Asset;
+using MusicDataService.Dtos.OriginalTrack;
+using MusicDataService.Models;
 
-namespace MusicDataService.Dtos;
+namespace MusicDataService.Dtos.Track;
 
 public class TrackReadDto
 {

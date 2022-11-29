@@ -1,16 +1,15 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using MusicDataService.Dtos.OriginalAlbum;
 using MusicDataService.Models;
 
-namespace MusicDataService.Dtos;
+namespace MusicDataService.Dtos.OriginalTrack;
 
-public class OriginalTrackWriteDto
+public class OriginalTrackReadDto
 {
-    [Required]
     public string Id { get; set; }
 
-    [Required]
     public LocalizedField Title { get; set; }
 
-    public string? ExternalReference { get; set; }
+    public OriginalAlbumReadDto Album { get; set; }
 }

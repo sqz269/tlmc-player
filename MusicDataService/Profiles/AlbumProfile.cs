@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.JsonPatch.Operations;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.Album;
 using MusicDataService.Models;
 
 namespace MusicDataService.Profiles;
@@ -17,7 +17,7 @@ public class AlbumProfile : Profile
                 a => a.AlbumImage,
                 o => o.Ignore())
             .ForMember(
-                a => a.OtherImages,
+                a => a.OtherFiles,
                 o => o.Ignore());
         CreateMap<Album, AlbumReadDto>();
 

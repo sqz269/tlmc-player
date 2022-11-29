@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using MusicDataService.Models;
 
-namespace MusicDataService.Dtos;
+namespace MusicDataService.Dtos.Album;
 
-public class AlbumWriteDto
+public class AlbumUpdateDto
 {
     [Required]
     public LocalizedField AlbumName { get; set; }
@@ -23,9 +23,4 @@ public class AlbumWriteDto
     public List<string>? Genre { get; set; }
 
     public List<string>? DataSource { get; set; }
-
-    // Needs to be converted into Asset
-    public Guid? AlbumImage { get; set; }
-
-    public List<Guid>? OtherImages { get; set; }
 }

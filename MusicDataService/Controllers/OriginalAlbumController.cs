@@ -1,7 +1,8 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.OriginalAlbum;
+using MusicDataService.Dtos.OriginalTrack;
 using MusicDataService.Extensions;
 using MusicDataService.Models;
 

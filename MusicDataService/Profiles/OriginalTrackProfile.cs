@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.OriginalTrack;
 using MusicDataService.Models;
 
 namespace MusicDataService.Profiles;

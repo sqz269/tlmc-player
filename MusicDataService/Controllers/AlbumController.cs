@@ -3,7 +3,8 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
-using MusicDataService.Dtos;
+using MusicDataService.Dtos.Album;
+using MusicDataService.Dtos.Track;
 using MusicDataService.Extensions;
 using MusicDataService.Models;
 

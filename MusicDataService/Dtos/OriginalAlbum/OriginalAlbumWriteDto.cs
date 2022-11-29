@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using MusicDataService.Models;
 
-namespace MusicDataService.Dtos;
+namespace MusicDataService.Dtos.OriginalAlbum;
 
 public class OriginalAlbumWriteDto
 {

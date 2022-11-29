@@ -1,4 +1,4 @@
-﻿using MusicDataService.Dtos;
+﻿using MusicDataService.Dtos.Asset;
 
 namespace MusicDataService.Extensions;
 
