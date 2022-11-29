@@ -24,9 +24,11 @@ public class AlbumRepo : IAlbumRepo
             .Skip(start).Take(limit)
             .Include(a => a.Tracks)
             .Include(a => a.AlbumImage)
-            .Include(a => a.OtherImages)
+            .Include(a => a.OtherFiles)
+            .Include(a => a.AlbumArtist)
             .ToListAsync();
 
+        // Avoid circular reference when serializing
         albums.ForEach(album => album.Tracks.ForEach(track =>
         {
             track.Album = default;
@@ -40,8 +42,12 @@ public class AlbumRepo : IAlbumRepo
         var album = await _context.Albums.Where(a => a.Id == id)
             .Include(a => a.Tracks)!
             .ThenInclude(t => t.Original)
+            .Include(a => a.AlbumImage)
+            .Include(a => a.OtherFiles)
+            .Include(a => a.AlbumArtist)
             .FirstOrDefaultAsync();
 
+        // Avoid circular reference when serializing
         album.Tracks.ForEach(track => track.Album = null);
         return album;
     }

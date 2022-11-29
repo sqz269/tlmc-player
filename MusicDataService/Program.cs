@@ -29,6 +29,7 @@ GlobalFFOptions.Configure(opt =>
 
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
 builder.Services.AddScoped<ITrackRepo, TrackRepo>();
+builder.Services.AddScoped<ICircleRepo, CircleRepo>();
 builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
@@ -72,7 +73,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-PrepDb.Prep(app, builder.Environment);
+Console.WriteLine($"Running: {app.Environment.EnvironmentName}");
+
+PrepDb.Prep(app, app.Environment);
 
 await UpdateDb.Update(app, app.Environment);
 

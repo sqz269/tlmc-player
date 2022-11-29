@@ -25,7 +25,7 @@ public class Album
     public List<string>? Website { get; set; } = new();
 
     [Required]
-    public List<Circle>? Circle { get; set; } = new();
+    public List<Circle>? AlbumArtist { get; set; } = new();
 
     public List<string>? DataSource { get; set; } = new();
 

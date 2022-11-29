@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Dtos\Circle\" />
     <Folder Include="Extensions\" />
     <Folder Include="Profiles\" />
   </ItemGroup>

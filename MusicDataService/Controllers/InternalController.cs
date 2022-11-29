@@ -7,6 +7,7 @@ using Microsoft.VisualBasic;
 using MusicDataService.Data;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
+using MusicDataService.Dtos.Circle;
 using MusicDataService.Dtos.Track;
 using MusicDataService.Extensions;
 using MusicDataService.Models;
@@ -16,26 +17,28 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
-[ApiExplorerSettings(IgnoreApi = true)]
+// [ApiExplorerSettings(IgnoreApi = true)]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
     private readonly ITrackRepo _trackRepo;
+    private readonly ICircleRepo _circleRepo;
     private readonly IOriginalTrackRepo _originalTrackRepo;
     private readonly IMapper _mapper;
 
-    private readonly LinkGenerator _linkGenerator;
     private readonly IAssetRepo _assetRepo;
 
     public InternalController(
         IAlbumRepo albumRepo, 
         ITrackRepo trackRepo, 
+        ICircleRepo circleRepo,
         IAssetRepo assetRepo,
-        IOriginalTrackRepo originalTrackRepo, 
+        IOriginalTrackRepo originalTrackRepo,
         IMapper mapper)
     {
         _albumRepo = albumRepo;
         _trackRepo = trackRepo;
+        _circleRepo = circleRepo;
         _assetRepo = assetRepo;
         _originalTrackRepo = originalTrackRepo;
         _mapper = mapper;
@@ -49,10 +52,10 @@ public class InternalController : Controller
         album.Id = albumId;
 
         // get assets
-        if (albumWrite.OtherImages != null)
+        if (albumWrite.OtherFiles != null)
         {
-            var otherImages = await _assetRepo.GetAssetsById(albumWrite.OtherImages);
-            album.OtherImages = otherImages.ToList();
+            var otherImages = await _assetRepo.GetAssetsById(albumWrite.OtherFiles);
+            album.OtherFiles = otherImages.ToList();
         }
 
         if (albumWrite.AlbumImage != Guid.Empty && albumWrite.AlbumImage != null)
@@ -175,5 +178,17 @@ public class InternalController : Controller
         //var addedTrack = await _trackRepo.GetTrack(trackId);
 
         return Ok();
+    }
+
+    [DevelopmentOnly]
+    [HttpPut("circle/add/{id:Guid}")]
+    public async Task<IActionResult> AddCircle(Guid id, [FromBody] CircleWriteDto circleWrite)
+    {
+        var circle = _mapper.Map<Circle>(circleWrite);
+        circle.Id = id;
+
+        var resultId = await _circleRepo.AddCircle(circle);
+        await _circleRepo.SaveChanges();
+        return Ok(resultId);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using MusicDataService.Dtos.Asset;
+using MusicDataService.Dtos.Circle;
 using MusicDataService.Dtos.Track;
 using MusicDataService.Models;
 
@@ -22,7 +23,7 @@ public class AlbumReadDto
 
     public List<string>? Website { get; set; }
 
-    public List<string>? AlbumArtist { get; set; }
+    public List<CircleReadDto>? AlbumArtist { get; set; }
 
     public List<string>? DataSource { get; set; }
 
@@ -30,5 +31,5 @@ public class AlbumReadDto
 
     public AssetReadDto AlbumImage { get; set; }
 
-    public List<AssetReadDto> OtherImages { get; set; }
+    public List<AssetReadDto> OtherFiles { get; set; }
 }

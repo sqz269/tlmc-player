@@ -27,5 +27,5 @@ public class AlbumWriteDto
     // Needs to be converted into Asset
     public Guid? AlbumImage { get; set; }
 
-    public List<Guid>? OtherImages { get; set; }
+    public List<Guid>? OtherFiles { get; set; }
 }
