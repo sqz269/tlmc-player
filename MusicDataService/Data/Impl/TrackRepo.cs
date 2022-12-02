@@ -27,7 +27,10 @@ public class TrackRepo : ITrackRepo
             .ThenInclude(a => a.AlbumImage)
             .FirstOrDefaultAsync();
 
-        track.Album.Tracks = null;
+        if (track != null)
+        {
+            track.Album.Tracks = null;
+        } 
         return track;
     }
 

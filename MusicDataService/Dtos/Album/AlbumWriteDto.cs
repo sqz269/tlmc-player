@@ -16,9 +16,9 @@ public class AlbumWriteDto
 
     public int? NumberOfDiscs { get; set; }
 
-    public string? Website { get; set; }
+    public List<string>? Website { get; set; }
 
-    public List<string>? AlbumArtist { get; set; }
+    public List<Guid>? AlbumArtist { get; set; }
 
     public List<string>? Genre { get; set; }
 

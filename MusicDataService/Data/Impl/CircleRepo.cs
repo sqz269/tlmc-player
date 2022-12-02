@@ -23,6 +23,11 @@ public class CircleRepo : ICircleRepo
         return await _context.Circles.Skip(start).Take(limit).OrderBy(c => c.Name).ToListAsync();
     }
 
+    public async Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids)
+    {
+        return await _context.Circles.Where(c => ids.Contains(c.Id)).ToListAsync();
+    }
+
     public async Task<Circle?> GetCircleByName(string name)
     {
         return await _context.Circles.Where(c => 

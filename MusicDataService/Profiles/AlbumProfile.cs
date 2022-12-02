@@ -18,7 +18,11 @@ public class AlbumProfile : Profile
                 o => o.Ignore())
             .ForMember(
                 a => a.OtherFiles,
+                o => o.Ignore())
+            .ForMember(
+                a => a.AlbumArtist,
                 o => o.Ignore());
+
         CreateMap<Album, AlbumReadDto>();
 
         CreateMap<JsonPatchDocument<AlbumUpdateDto>, JsonPatchDocument<Album>>();

@@ -17,13 +17,14 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
-// [ApiExplorerSettings(IgnoreApi = true)]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
     private readonly ITrackRepo _trackRepo;
     private readonly ICircleRepo _circleRepo;
     private readonly IOriginalTrackRepo _originalTrackRepo;
+    private readonly AppDbContext _dbContext;
     private readonly IMapper _mapper;
 
     private readonly IAssetRepo _assetRepo;
@@ -34,6 +35,7 @@ public class InternalController : Controller
         ICircleRepo circleRepo,
         IAssetRepo assetRepo,
         IOriginalTrackRepo originalTrackRepo,
+        AppDbContext dbContext,
         IMapper mapper)
     {
         _albumRepo = albumRepo;
@@ -41,6 +43,7 @@ public class InternalController : Controller
         _circleRepo = circleRepo;
         _assetRepo = assetRepo;
         _originalTrackRepo = originalTrackRepo;
+        _dbContext = dbContext;
         _mapper = mapper;
     }
 
@@ -48,6 +51,12 @@ public class InternalController : Controller
     [HttpPost("album/add/{albumId:Guid}")]
     public async Task<IActionResult> AddAlbum(Guid albumId, [FromBody] AlbumWriteDto albumWrite)
     {
+        var a = await _dbContext.Albums.Where(a => a.Id == albumId).FirstOrDefaultAsync();
+        if (a != null)
+        {
+            return Ok(new {Id = a.Id});
+        }
+
         var album = _mapper.Map<AlbumWriteDto, Album>(albumWrite);
         album.Id = albumId;
 
@@ -62,6 +71,13 @@ public class InternalController : Controller
         {
             var albumThumb = await _assetRepo.GetAssetById((Guid)albumWrite.AlbumImage);
             album.AlbumImage = albumThumb;
+        }
+
+        // get artists
+        if (albumWrite.AlbumArtist != null && albumWrite.AlbumArtist.Count != 0)
+        {
+            var artists = await _circleRepo.GetCircles(albumWrite.AlbumArtist);
+            album.AlbumArtist = artists.ToList();
         }
 
         var addedGuid = await _albumRepo.AddAlbum(album);
@@ -79,6 +95,12 @@ public class InternalController : Controller
     [HttpPost("album/{albumId:Guid}/track/add/{trackId:guid}")]
     public async Task<IActionResult> AddTrack(Guid albumId, Guid trackId, [FromBody] TrackWriteDto trackWrite)
     {
+        var t = await _trackRepo.GetTrack(trackId);
+        if (t != null)
+        {
+            return Ok(new { Id = t.Id });
+        }
+
         var targetAlbum = await _albumRepo.GetAlbum(albumId);
         if (targetAlbum == null)
         {
@@ -113,6 +135,12 @@ public class InternalController : Controller
     [HttpPost("asset/add")]
     public async Task<IActionResult> AddAssetUnchecked([FromBody] Asset asset)
     {
+        var a = await _assetRepo.GetAssetById(asset.AssetId);
+        if (a != null)
+        {
+            Ok(asset);
+        }
+
         var addedId = await _assetRepo.AddAsset(asset);
         await _assetRepo.SaveChanges();
         var addedAsset = await _assetRepo.GetAssetById(addedId);
