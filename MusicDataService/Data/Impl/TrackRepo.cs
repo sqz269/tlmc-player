@@ -25,12 +25,15 @@ public class TrackRepo : ITrackRepo
             .ThenInclude(og => og.Album)
             .Include(t => t.Album)
             .ThenInclude(a => a.AlbumImage)
+            .Include(t => t.Album)
+            .ThenInclude(a => a.AlbumArtist)
+            .Include(t => t.TrackFile)
             .FirstOrDefaultAsync();
 
         if (track != null)
         {
             track.Album.Tracks = null;
-        } 
+        }
         return track;
     }
 

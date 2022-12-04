@@ -42,13 +42,19 @@ public class AlbumRepo : IAlbumRepo
         var album = await _context.Albums.Where(a => a.Id == id)
             .Include(a => a.Tracks)!
             .ThenInclude(t => t.Original)
+            .Include(a => a.Tracks)
+            .ThenInclude(t => t.TrackFile)
             .Include(a => a.AlbumImage)
             .Include(a => a.OtherFiles)
             .Include(a => a.AlbumArtist)
             .FirstOrDefaultAsync();
 
         // Avoid circular reference when serializing
-        album.Tracks.ForEach(track => track.Album = null);
+        if (album != null)
+        {
+            album.Tracks.ForEach(track => track.Album = null);
+            return album;
+        }
         return album;
     }
 
@@ -79,6 +85,8 @@ public class AlbumRepo : IAlbumRepo
         {
             track.Id = new Guid();
         }
+        
+        track.Album = album;
 
         var addedTrack = await _context.Tracks.AddAsync(track);
         album.Tracks.Add(addedTrack.Entity);
