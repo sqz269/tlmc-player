@@ -26,6 +26,6 @@ public class AssetController : Controller
 
         FileStream fileStream = new FileStream(asset.AssetPath, FileMode.Open);
 
-        return File(fileStream, asset.AssetMime, asset.AssetName);
+        return File(fileStream, asset.AssetMime, asset.AssetName, enableRangeProcessing: asset.Large);
     }
 }
