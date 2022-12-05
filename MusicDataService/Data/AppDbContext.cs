@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<OriginalTrack> OriginalTracks { get; set; }
     public DbSet<OriginalAlbum> OriginalAlbums { get; set; }
     public DbSet<Asset> Assets { get; set; }
+    public DbSet<Thumbnail> Thumbnails { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
     {

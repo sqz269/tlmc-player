@@ -35,5 +35,7 @@ public class Album
 
     public Asset? AlbumImage { get; set; }
 
+    public Thumbnail? Thumbnail { get; set; }
+
     public List<Asset> OtherFiles { get; set; } = new();
 }
