@@ -19,6 +19,14 @@ public class AppDbContext : DbContext
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        //modelBuilder.Entity<Album>().Navigation(a => a.Thumbnail).AutoInclude();
+
+        modelBuilder.Entity<Thumbnail>().Navigation(t => t.Tiny).AutoInclude();
+        modelBuilder.Entity<Thumbnail>().Navigation(t => t.Small).AutoInclude();
+        modelBuilder.Entity<Thumbnail>().Navigation(t => t.Medium).AutoInclude();
+        modelBuilder.Entity<Thumbnail>().Navigation(t => t.Large).AutoInclude();
+        modelBuilder.Entity<Thumbnail>().Navigation(t => t.Original).AutoInclude();
+        
         //modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
         //modelBuilder.Entity<Album>().Navigation(a => a.AlbumImage).AutoInclude();
         //modelBuilder.Entity<Album>().Navigation(a => a.OtherImages).AutoInclude();

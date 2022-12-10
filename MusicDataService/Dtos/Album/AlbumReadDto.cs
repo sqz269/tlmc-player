@@ -30,7 +30,7 @@ public class AlbumReadDto
 
     public List<TrackReadDto>? Tracks { get; set; }
 
-    public ThumbnailReadDto? Thumbnails { get; set; }
+    public ThumbnailReadDto? Thumbnail { get; set; }
 
     public List<AssetReadDto> OtherFiles { get; set; }
 }

@@ -24,6 +24,7 @@ public class AlbumRepo : IAlbumRepo
             .Skip(start).Take(limit)
             .Include(a => a.Tracks)
             .Include(a => a.AlbumImage)
+            .Include(a => a.Thumbnail)
             .Include(a => a.OtherFiles)
             .Include(a => a.AlbumArtist)
             .ToListAsync();
@@ -44,7 +45,7 @@ public class AlbumRepo : IAlbumRepo
             .ThenInclude(t => t.Original)
             .Include(a => a.Tracks)
             .ThenInclude(t => t.TrackFile)
-            .Include(a => a.AlbumImage)
+            .Include(a => a.Thumbnail)
             .Include(a => a.OtherFiles)
             .Include(a => a.AlbumArtist)
             .FirstOrDefaultAsync();

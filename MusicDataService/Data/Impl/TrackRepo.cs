@@ -24,7 +24,7 @@ public class TrackRepo : ITrackRepo
             .Include(t => t.Original)
             .ThenInclude(og => og.Album)
             .Include(t => t.Album)
-            .ThenInclude(a => a.AlbumImage)
+            .ThenInclude(a => a.Thumbnail)
             .Include(t => t.Album)
             .ThenInclude(a => a.AlbumArtist)
             .Include(t => t.TrackFile)

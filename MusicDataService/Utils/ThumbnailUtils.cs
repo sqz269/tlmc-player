@@ -7,10 +7,10 @@ namespace MusicDataService.Utils;
 
 public static class ThumbnailUtils
 {
-    public static async Task GenerateThumbImage(string src, string dst, int width, int height)
+    public static async Task GenerateThumbImage(string src, string dst, int width)
     {
         using var image = await Image.LoadAsync(src);
-        image.Mutate(i => i.Resize(new Size(width, height)));
+        image.Mutate(i => i.Resize(new Size(width, 0)));
         await image.SaveAsJpegAsync(dst);
     }
 }

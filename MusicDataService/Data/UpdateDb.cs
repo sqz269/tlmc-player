@@ -68,23 +68,29 @@ public static class UpdateDb
             throw new DirectoryNotFoundException($"Invalid Thumbnail root directory: {thumbroot}");
         }
 
-        var thumbSizeFilenameMap = new Dictionary<Tuple<int, int>, string>
+        var thumbSizeFilenameMap = new Dictionary<int, string>
         {
-            { new Tuple<int, int>(50, 50), "50x50_tiny.png" },
-            { new Tuple<int, int>(125, 125), "125x125_small.png" },
-            { new Tuple<int, int>(250, 250), "250x250_medium.png" },
-            { new Tuple<int, int>(350, 350), "350x350_large.png" },
+            { 50, "tiny.jpeg" },
+            { 125, "small.jpeg" },
+            { 250, "medium.jpeg" },
+            { 350, "large.jpeg" },
         };
 
-        foreach (var album in 
-                 await dbContext.Albums.Where(a => a.Thumbnail == null && a.AlbumImage != null)
-                     .Include(a => a.AlbumImage)
-                     .ToListAsync())
+        var query = dbContext.Albums.Where(a => a.Thumbnail == null && a.AlbumImage != null)
+            .Include(a => a.AlbumImage);
+
+        var count = query.Count();
+        var i = 0;
+
+        foreach (var album in await query.ToListAsync())
         {
+            i++;
             var albumThumbRoot = Path.Join(thumbroot, album.Id.ToString());
             Directory.CreateDirectory(albumThumbRoot);
 
             var assetMap = new Dictionary<string, Asset>();
+
+            Console.WriteLine($"[{i}/{count}] Generating Thumb for {album.Id}");
 
             foreach (var (size, name) in thumbSizeFilenameMap)
             {
@@ -93,27 +99,28 @@ public static class UpdateDb
                 await ThumbnailUtils.GenerateThumbImage(
                     album.AlbumImage.AssetPath, 
                     thumbPath,
-                    size.Item1, size.Item2);
+                    size);
 
                 var asset = new Asset
                 {
                     AssetId = Guid.NewGuid(),
-                    AssetMime = "image/png",
+                    AssetMime = "image/jpeg",
                     AssetName = name,
                     AssetPath = thumbPath,
                     Large = false
                 };
 
                 assetMap[name] = asset;
-
-                var thumb = MakeThumbnailFromAssetMap(assetMap, album.AlbumImage);
-
-                // Insert to db
-                await dbContext.Assets.AddRangeAsync(assetMap.Values);
-                await dbContext.Thumbnails.AddAsync(thumb);
-
-                await dbContext.SaveChangesAsync();
             }
+
+            var thumb = MakeThumbnailFromAssetMap(assetMap, album.AlbumImage);
+
+            album.Thumbnail = thumb;
+            // Insert to db
+            await dbContext.Assets.AddRangeAsync(assetMap.Values);
+            await dbContext.Thumbnails.AddAsync(thumb);
+
+            await dbContext.SaveChangesAsync();
         }
     }
 
@@ -122,11 +129,11 @@ public static class UpdateDb
         return new Thumbnail
         {
             Id = Guid.NewGuid(),
-            Large = assetMap["350x350_large.png"],
-            Medium = assetMap["250x250_medium.png"],
+            Large = assetMap["large.jpeg"],
+            Medium = assetMap["medium.jpeg"],
             Original = original,
-            Small = assetMap["125x125_small.png"],
-            Tiny = assetMap["50x50_tiny.png"]
+            Small = assetMap["small.jpeg"],
+            Tiny = assetMap["tiny.jpeg"]
         };
     }
 }
