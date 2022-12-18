@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Formats.Asn1;
+using System.Runtime.CompilerServices;
 using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
@@ -17,6 +18,7 @@ public static class UpdateDb
         var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
         await UpdateTrackDuration(dbContext, environment.IsProduction());
         await GenerateAlbumThumbnail(serviceScope, environment.IsProduction());
+        await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
 
     private static async Task UpdateTrackDuration(AppDbContext appDb, bool isProduction)
@@ -135,5 +137,37 @@ public static class UpdateDb
             Small = assetMap["small.jpeg"],
             Tiny = assetMap["tiny.jpeg"]
         };
+    }
+
+    private static async Task GenerateThumbnailDomColor(AppDbContext dbContext, bool isProduction)
+    {
+        if (!isProduction) return;
+
+        var noColorQuery = dbContext.Thumbnails
+            .Where(t => t != null && t.Colors.Count == 0)
+            .Include(t => t.Original);
+
+        var count = await noColorQuery.CountAsync();
+
+        var noColors = await noColorQuery.ToListAsync();
+
+        int i = 0;
+        foreach (Thumbnail thumbnail in noColors)
+        {
+            i++;
+            Console.WriteLine($"[{i}/{count}] Generating Dom Colors for {thumbnail.Id}");
+            var domColors = await ThumbnailUtils.CalculateNthDominantColor(thumbnail.Original.AssetPath);
+            var colors = domColors.Select(d => d.Item1.ToHex()).ToList();
+            thumbnail.Colors = colors;
+
+            if (i % 300 == 0)
+            {
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine("Saving 300 changes");
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+        Console.WriteLine("Saving Changes");
     }
 }

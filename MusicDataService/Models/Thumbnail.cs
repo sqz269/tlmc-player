@@ -13,4 +13,6 @@ public class Thumbnail
     public Asset Small { get; set; }
     // 50 x 50
     public Asset Tiny { get; set; }
+
+    public List<string> Colors { get; set; } = new();
 }
