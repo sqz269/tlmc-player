@@ -26,7 +26,7 @@ public class RoleRequired : ActionFilterAttribute
             throw new InvalidOperationException("Unable to Validate Authorization. JwtManager not configured");
         }
 
-        if (_rolesRequired == null || _rolesRequired.Count == 0)
+        if (_rolesRequired == null || _rolesRequired.Count == 0 || _rolesRequired.Contains(KnownRoles.Guest))
             return;
 
         // Get Authorization header
