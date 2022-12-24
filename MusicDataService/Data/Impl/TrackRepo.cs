@@ -30,10 +30,10 @@ public class TrackRepo : ITrackRepo
             .Include(t => t.TrackFile)
             .FirstOrDefaultAsync();
 
-        if (track != null)
-        {
-            track.Album.Tracks = null;
-        }
+        //if (track != null)
+        //{
+        //    track.Album.Tracks = null;
+        //}
         return track;
     }
 

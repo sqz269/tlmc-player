@@ -30,10 +30,10 @@ public class AlbumRepo : IAlbumRepo
             .ToListAsync();
 
         // Avoid circular reference when serializing
-        albums.ForEach(album => album.Tracks.ForEach(track =>
-        {
-            track.Album = default;
-        }));
+        //albums.ForEach(album => album.Tracks.ForEach(track =>
+        //{
+        //    track.Album = default;
+        //}));
 
         return albums;
     }
@@ -51,11 +51,11 @@ public class AlbumRepo : IAlbumRepo
             .FirstOrDefaultAsync();
 
         // Avoid circular reference when serializing
-        if (album != null)
-        {
-            album.Tracks.ForEach(track => track.Album = null);
-            return album;
-        }
+        //if (album != null)
+        //{
+        //    album.Tracks.ForEach(track => track.Album = null);
+        //    return album;
+        //}
         return album;
     }
 
