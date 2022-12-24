@@ -44,6 +44,7 @@ public class AlbumController : Controller
 
     [HttpGet("album", Name = nameof(GetAlbums))]
     [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
+    [RoleRequired(KnownRoles.Guest)]
     public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _albumRepo.GetAlbums(start, limit);

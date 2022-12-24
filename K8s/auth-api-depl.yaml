@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-api
+  template:
+    metadata:
+      labels:
+        app: auth-api
+    spec:
+      containers:
+      - name: auth-api
+        image: sqzd269/auth-api:latest
+        env:
+          - name: ConnectionStrings__PostgreSql
+            value: Host=auth-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw

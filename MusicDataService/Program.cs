@@ -1,10 +1,15 @@
 using System.Text.Json.Serialization;
+using AuthServiceClientApi;
+using AuthServiceClientApi.KeyProviders;
 using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MusicDataService.Data;
 using MusicDataService.Data.Api;
 using MusicDataService.Data.Impl;
+using MusicDataService.DataService;
+using MusicDataService.DataService.SyncDataService.Grpc;
+using MusicDataService.Utils;
 using Newtonsoft.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +39,10 @@ builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
 
+builder.Services.AddSingleton<IAuthDataClient, GrpcAuthDataClient>();
+builder.Services.AddSingleton<IJwtKeyProvider, JwtKeyFromHttpAuthDataService>();
+builder.Services.AddSingleton<JwtManager>();
+
 builder.Services.AddCors(opt =>
 {
     opt.AddDefaultPolicy(policy =>
@@ -49,8 +58,11 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddControllers()
-    .AddNewtonsoftJson(opt => 
-        opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore);
+    .AddNewtonsoftJson(opt =>
+    {
+        opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        opt.SerializerSettings.PreserveReferencesHandling = PreserveReferencesHandling.None;
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen()
