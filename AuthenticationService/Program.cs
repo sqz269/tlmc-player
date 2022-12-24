@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using AuthenticationService.Data;
 using AuthenticationService.SyncDataService.Grpc;
 using AuthServiceClientApi;
@@ -12,9 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(opt =>
 {
     // this allows gRPC calls over http (without TLS)
-    opt.ListenAnyIP(5000, options =>
+    opt.ConfigureEndpointDefaults(option =>
     {
-        options.Protocols = HttpProtocols.Http2;
+        option.Protocols = HttpProtocols.Http2;
     });
 });
 
@@ -44,7 +45,11 @@ builder.Services.AddSingleton<JwtManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(opt =>
+    {
+        opt.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
