@@ -13,4 +13,6 @@ public class ThumbnailReadDto
     public AssetReadDto? Small { get; set; }
     // 50 x 50
     public AssetReadDto? Tiny { get; set; }
+
+    public List<string> Colors { get; set; }
 }
