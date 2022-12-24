@@ -19,4 +19,10 @@ public static class UserExtension
             Roles = user.Roles.ToList().ConvertAll(c => c.RoleName)
         };
     }
+
+    public static string GetJwtToken(this User user, JwtManager jwtManager, TimeSpan expTime)
+    {
+        var authToken = user.ToAuthToken(expTime);
+        return jwtManager.GenerateJwt(authToken);
+    }
 }

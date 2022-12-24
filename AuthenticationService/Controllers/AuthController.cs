@@ -40,24 +40,6 @@ public class AuthController : Controller
         return _jwtManager.GenerateJwt(authToken);
     }
 
-    private LoginResult? LoginUser(User user, bool generateRefreshToken)
-    {
-        if (user.UserId == null)
-            throw new ArgumentNullException(nameof(user));
-
-        var jwtToken = GenerateJwtTokenForUser(user, JwtExpOffset);
-        Guid? refreshToken = generateRefreshToken ? _userRepo.CreateToken(user).TokenId : null;
-
-        _userRepo.SaveChanges();
-
-        return new LoginResult
-        {
-            JwtToken = jwtToken,
-            RefreshToken = refreshToken?.ToString(),
-            Roles = user.Roles.ToList().ConvertAll(role => role.RoleName)
-        };
-    }
-
     [HttpGet]
     [Route("jwt/key")]
     [ProducesResponseType(typeof(ApiResponse<JwtKeyResponse>), StatusCodes.Status200OK)]
@@ -70,75 +52,17 @@ public class AuthController : Controller
     }
 
     [HttpPost]
-    [Route("register")]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status500InternalServerError)]
-    public ActionResult<LoginResult> Register([FromBody] UserCredentialsDto userCredentials)
-    {
-        if (_userRepo.DoesUserExist(userCredentials.UserName))
-        {
-            return Conflict(ApiResponse<object>.Fail("User with same username already exists"));
-        }
-
-        userCredentials.Password = BCrypt.Net.BCrypt.HashPassword(userCredentials.Password);
-        var user = _mapper.Map<User>(userCredentials);
-
-        var defaultRole = new Role { RoleName = KnownRoles.Guest };
-
-        if (!_roleRepo.DoesRoleExist(defaultRole))
-        {
-            _roleRepo.AddRole(defaultRole);
-            _roleRepo.SaveChanges();
-        }
-
-        _userRepo.CreateUser(user);
-        _userRepo.SaveChanges();
-
-        var dbUser = _userRepo.GetUserFromUsername(user.UserName);
-
-        if (dbUser == null)
-            return StatusCode(
-                StatusCodes.Status500InternalServerError,
-                ApiResponse<object>.Fail("Unable to verify transaction"));
-
-        dbUser.Roles.Add(defaultRole);
-        _userRepo.SaveChanges();
-
-        return Ok(ApiResponse<object>.Ok(null));
-    }
-
-    [HttpPost]
     [Route("token")]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
-    [RoleRequired(KnownRoles.Guest, KnownRoles.Admin)]
-    public ActionResult<LoginResult> GetNewToken([FromBody] Guid tokenId)
+    [ProducesResponseType(typeof(ApiResponse<JwtRenewResult>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<JwtRenewResult>), StatusCodes.Status401Unauthorized)]
+    [RoleRequired(KnownRoles.User)]
+    public ActionResult<JwtRenewResult> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);
         if (user == null)
-            return Unauthorized(ApiResponse<LoginResult>.Fail("Invalid refresh token"));
+            return Unauthorized(ApiResponse<JwtRenewResult>.Fail("Invalid refresh token"));
 
-        return Ok(ApiResponse<LoginResult>.Ok(LoginUser(user, false)));
+        // TODO: Revoke current token
+        return Ok(ApiResponse<JwtRenewResult>.Ok(new JwtRenewResult { Token = user.GetJwtToken(_jwtManager, JwtExpOffset) }));
     }
-
-    [HttpPost]
-    [Route("login")]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
-    public ActionResult<ApiResponse<LoginResult>> Login([FromBody] UserCredentialsDto userCredentials)
-    {
-        var user = _userRepo.GetUserFromUsername(userCredentials.UserName);
-        if (user == null)
-            return ApiResponse<LoginResult>.Fail("Invalid Username or Password");
-
-
-        var isPasswordValid = BCrypt.Net.BCrypt.Verify(userCredentials.Password, user.Password);
-        if (!isPasswordValid)
-            return ApiResponse<LoginResult>.Fail("Invalid Username or Password");
-
-        return ApiResponse<LoginResult>.Ok(LoginUser(user, true));
-    }
-
-
 }
