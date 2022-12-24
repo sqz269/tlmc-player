@@ -12,9 +12,16 @@ public class RoleRequired : ActionFilterAttribute
         if (roles != null) _rolesRequired = new HashSet<string>(roles);
     }
 
-    private UnauthorizedObjectResult GenerateUnauthorizedObjectResult()
+    private static ObjectResult Unauthorized()
     {
-        return new UnauthorizedObjectResult(new { Success = false, Message = "Authorization Required" });
+        return new ObjectResult(new { Success = false, Message = "Authorization Required" })
+            { StatusCode = StatusCodes.Status401Unauthorized };
+    }
+
+    private static ObjectResult NoAccess()
+    {
+        return new ObjectResult(new { Success = false, Message = "Insufficient Access" })
+            { StatusCode = StatusCodes.Status403Forbidden };
     }
 
     public override void OnActionExecuting(ActionExecutingContext context)
@@ -36,32 +43,38 @@ public class RoleRequired : ActionFilterAttribute
 
         if (string.IsNullOrWhiteSpace(jwt))
         {
-            context.Result = GenerateUnauthorizedObjectResult();
+            context.Result = Unauthorized();
             return;
         }
 
-        AuthToken? token = null;
+        AuthToken? token;
         try
         {
             token = jwtManager.DecodeJwt<AuthToken>(jwt);
         }
-        catch (Exception e) when(e is InvalidOperationException or InvalidDataException)
+        catch (Exception e) when (e is InvalidOperationException or InvalidDataException)
         {
             Console.WriteLine($"--> Error while decoding Jwt: {e.Message}");
             // Cannot decode JWT because either invalid jwt is provided or the signature is invalid
-            context.Result = GenerateUnauthorizedObjectResult();
+            context.Result = Unauthorized();
+            return;
+        }
+        // Probably just plain broken jwt
+        catch (Exception e)
+        {
+            context.Result = Unauthorized();
             return;
         }
 
         if (token == null)
         {
-            context.Result = GenerateUnauthorizedObjectResult();
+            context.Result = Unauthorized();
             return;
         }
 
         if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > token.Expiration)
         {
-            context.Result = GenerateUnauthorizedObjectResult();
+            context.Result = Unauthorized();
             return;
         }
         
@@ -71,9 +84,6 @@ public class RoleRequired : ActionFilterAttribute
             return;
         }
 
-        context.Result = new JsonResult(new { Success = false, Message = "You do not have sufficient privileges to access this resource" })
-        {
-            StatusCode = StatusCodes.Status403Forbidden
-        };
+        context.Result = NoAccess();
     }
 }
