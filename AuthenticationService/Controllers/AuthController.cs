@@ -84,7 +84,7 @@ public class AuthController : Controller
         userCredentials.Password = BCrypt.Net.BCrypt.HashPassword(userCredentials.Password);
         var user = _mapper.Map<User>(userCredentials);
 
-        var defaultRole = new Role { RoleName = KnownRoles.Default };
+        var defaultRole = new Role { RoleName = KnownRoles.Guest };
 
         if (!_roleRepo.DoesRoleExist(defaultRole))
         {
@@ -112,7 +112,7 @@ public class AuthController : Controller
     [Route("token")]
     [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
-    [RoleRequired(KnownRoles.Default, KnownRoles.Admin)]
+    [RoleRequired(KnownRoles.Guest, KnownRoles.Admin)]
     public ActionResult<LoginResult> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);

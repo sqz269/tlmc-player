@@ -1,11 +1,22 @@
 using System.Reflection;
 using AuthenticationService.Data;
+using AuthenticationService.SyncDataService.Grpc;
 using AuthServiceClientApi;
 using AuthServiceClientApi.KeyProviders;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(opt =>
+{
+    // this allows gRPC calls over http (without TLS)
+    opt.ListenAnyIP(5000, options =>
+    {
+        options.Protocols = HttpProtocols.Http2;
+    });
+});
 
 // Add services to the container.
 
@@ -19,6 +30,11 @@ else
     Console.WriteLine("--> Using Production PostgreSQL Database");
     builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
 }
+
+builder.Services.AddGrpc(options =>
+{
+    options.EnableDetailedErrors = true;
+});
 
 builder.Services.AddScoped<IUserRepo, UserRepo>();
 builder.Services.AddScoped<IRoleRepo, RoleRepo>();
@@ -73,9 +89,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.MapGrpcService<GrpcAuthDataService>();
 
 app.MapControllers();
 

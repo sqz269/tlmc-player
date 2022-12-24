@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>().Navigation(u => u.Roles).AutoInclude();
+
         //modelBuilder.Entity<User>()
         //    .HasMany(user => user.Tokens)
         //    .WithOne(token => token.User)
