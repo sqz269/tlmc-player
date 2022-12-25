@@ -42,27 +42,28 @@ public class AuthController : Controller
 
     [HttpGet]
     [Route("jwt/key")]
-    [ProducesResponseType(typeof(ApiResponse<JwtKeyResponse>), StatusCodes.Status200OK)]
-    public ActionResult<ApiResponse<JwtKeyResponse>> GetJwtPublicKey()
+    [ProducesResponseType(typeof(JwtKeyResponse), StatusCodes.Status200OK)]
+    public ActionResult<JwtKeyResponse> GetJwtPublicKey()
     {
-        return ApiResponse<JwtKeyResponse>.Ok(new JwtKeyResponse()
+        return new JwtKeyResponse()
         {
             PublicKey = _jwtManager.PublicKey
-        });
+        };
     }
 
     [HttpPost]
     [Route("token")]
-    [ProducesResponseType(typeof(ApiResponse<JwtRenewResult>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<JwtRenewResult>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(JwtRenewResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [RoleRequired(KnownRoles.User)]
     public ActionResult<JwtRenewResult> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);
         if (user == null)
-            return Unauthorized(ApiResponse<JwtRenewResult>.Fail("Invalid refresh token"));
+        {
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid Refresh Token");
+        }
 
-        // TODO: Revoke current token
-        return Ok(ApiResponse<JwtRenewResult>.Ok(new JwtRenewResult { Token = user.GetJwtToken(_jwtManager, JwtExpOffset) }));
+        return Ok(new JwtRenewResult { Token = user.GetJwtToken(_jwtManager, JwtExpOffset) });
     }
 }

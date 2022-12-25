@@ -13,10 +13,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(opt =>
 {
     // this allows gRPC calls over http (without TLS)
-    opt.ConfigureEndpointDefaults(option =>
+    //opt.ConfigureEndpointDefaults(option =>
+    //{
+    //    option.Protocols = HttpProtocols.Http2;
+    //});
+
+    opt.ListenAnyIP(80, options =>
     {
-        option.Protocols = HttpProtocols.Http2;
+        options.Protocols = HttpProtocols.Http1;
     });
+
+    //opt.ListenAnyIP(443, options =>
+    //{
+    //    options.Protocols = HttpProtocols.Http2;
+    //});
 });
 
 // Add services to the container.
@@ -96,7 +106,7 @@ if (app.Environment.IsDevelopment())
 
 //app.UseHttpsRedirection();
 
-app.UseAuthorization();
+// app.UseAuthorization();
 
 app.MapGrpcService<GrpcAuthDataService>();
 

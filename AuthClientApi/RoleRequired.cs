@@ -12,16 +12,28 @@ public class RoleRequired : ActionFilterAttribute
         if (roles != null) _rolesRequired = new HashSet<string>(roles);
     }
 
-    private static ObjectResult Unauthorized()
+    private static ObjectResult Unauthenticated()
     {
-        return new ObjectResult(new { Success = false, Message = "Authorization Required" })
-            { StatusCode = StatusCodes.Status401Unauthorized };
+        return new ObjectResult(new ProblemDetails
+        {
+            Status = StatusCodes.Status401Unauthorized,
+            Title = "Not Authenticated"
+        })
+        {
+            StatusCode = StatusCodes.Status401Unauthorized,
+        };
     }
 
     private static ObjectResult NoAccess()
     {
-        return new ObjectResult(new { Success = false, Message = "Insufficient Access" })
-            { StatusCode = StatusCodes.Status403Forbidden };
+        return new ObjectResult(new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "Not Authenticated"
+        })
+        {
+            StatusCode = StatusCodes.Status403Forbidden,
+        };
     }
 
     public override void OnActionExecuting(ActionExecutingContext context)
@@ -43,7 +55,7 @@ public class RoleRequired : ActionFilterAttribute
 
         if (string.IsNullOrWhiteSpace(jwt))
         {
-            context.Result = Unauthorized();
+            context.Result = Unauthenticated();
             return;
         }
 
@@ -56,25 +68,25 @@ public class RoleRequired : ActionFilterAttribute
         {
             Console.WriteLine($"--> Error while decoding Jwt: {e.Message}");
             // Cannot decode JWT because either invalid jwt is provided or the signature is invalid
-            context.Result = Unauthorized();
+            context.Result = Unauthenticated();
             return;
         }
         // Probably just plain broken jwt
         catch (Exception e)
         {
-            context.Result = Unauthorized();
+            context.Result = Unauthenticated();
             return;
         }
 
         if (token == null)
         {
-            context.Result = Unauthorized();
+            context.Result = Unauthenticated();
             return;
         }
 
         if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > token.Expiration)
         {
-            context.Result = Unauthorized();
+            context.Result = Unauthenticated();
             return;
         }
         
