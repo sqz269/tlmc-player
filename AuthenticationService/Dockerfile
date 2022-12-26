@@ -9,7 +9,7 @@ FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
 COPY ["AuthenticationService/AuthenticationService.csproj", "AuthenticationService/"]
 COPY ["AuthClientApi/AuthServiceClientApi.csproj", "AuthClientApi/"]
-RUN dotnet restore "AutheServiceClientApi/AuthServiceClientApi.csproj"
+RUN dotnet restore "AuthenticationService/AuthenticationService.csproj"
 COPY . .
 WORKDIR "/src/AuthenticationService"
 RUN dotnet build "AuthenticationService.csproj" -c Release -o /app/build
