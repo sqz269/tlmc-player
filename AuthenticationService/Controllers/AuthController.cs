@@ -41,7 +41,7 @@ public class AuthController : Controller
     }
 
     [HttpGet]
-    [Route("jwt/key")]
+    [Route("jwt/key", Name = nameof(GetJwtPublicKey))]
     [ProducesResponseType(typeof(JwtKeyResponse), StatusCodes.Status200OK)]
     public ActionResult<JwtKeyResponse> GetJwtPublicKey()
     {
@@ -52,7 +52,7 @@ public class AuthController : Controller
     }
 
     [HttpPost]
-    [Route("token")]
+    [Route("token", Name = nameof(GetNewToken))]
     [ProducesResponseType(typeof(JwtRenewResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [RoleRequired(KnownRoles.User)]
@@ -64,6 +64,7 @@ public class AuthController : Controller
             return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid Refresh Token");
         }
 
-        return Ok(new JwtRenewResult { Token = user.GetJwtToken(_jwtManager, JwtExpOffset) });
+        var token = user.GetJwtToken(_jwtManager, JwtExpOffset);
+        return Ok(new JwtRenewResult { Token = token.Item1, AuthInfo = token.Item2 });
     }
 }

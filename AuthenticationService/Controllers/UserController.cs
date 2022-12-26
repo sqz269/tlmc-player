@@ -33,7 +33,7 @@ public class UserController : Controller
         _jwtManager = jwtManager;
     }
 
-    [HttpGet("all")]
+    [HttpGet("all", Name = nameof(GetAllUsers))]
     [RoleRequired(KnownRoles.Admin)]
     public IEnumerable<User> GetAllUsers()
     {
@@ -41,7 +41,7 @@ public class UserController : Controller
     }
 
     [HttpPost]
-    [Route("register")]
+    [Route("register", Name = nameof(Register))]
     [ProducesResponseType(typeof(RegisterResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
@@ -81,21 +81,21 @@ public class UserController : Controller
 
     private LoginResult LoginUser(User user)
     {
-        var jwtToken = user.GetJwtToken(_jwtManager, JwtExpOffset);
+        var token = user.GetJwtToken(_jwtManager, JwtExpOffset);
         Guid? refreshToken = _userRepo.CreateToken(user).TokenId;
 
         _userRepo.SaveChanges();
 
         return new LoginResult
         {
-            JwtToken = jwtToken,
+            JwtToken = token.Item1,
             RefreshToken = refreshToken?.ToString(),
-            Roles = user.Roles.ToList().ConvertAll(role => role.RoleName)
+            AuthInfo = token.Item2
         };
     }
 
     [HttpPost]
-    [Route("login")]
+    [Route("login", Name = nameof(Login))]
     [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public ActionResult<LoginResult> Login([FromBody] UserCredentialsDto userCredentials)

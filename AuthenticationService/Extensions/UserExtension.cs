@@ -15,14 +15,15 @@ public static class UserExtension
             Issuer = "",
             IssuedAt = now.ToUnixTimeSeconds(),
             Expiration = exp.ToUnixTimeSeconds(),
+            User = user.UserName,
             UserId = user.UserId.ToString(),
             Roles = user.Roles.ToList().ConvertAll(c => c.RoleName)
         };
     }
 
-    public static string GetJwtToken(this User user, JwtManager jwtManager, TimeSpan expTime)
+    public static Tuple<string, AuthToken> GetJwtToken(this User user, JwtManager jwtManager, TimeSpan expTime)
     {
         var authToken = user.ToAuthToken(expTime);
-        return jwtManager.GenerateJwt(authToken);
+        return new Tuple<string, AuthToken>(jwtManager.GenerateJwt(authToken), authToken);
     }
 }
