@@ -13,6 +13,9 @@ public class AuthToken
     [JsonPropertyName("exp")]
     public long Expiration { get; set; }
 
+    [JsonPropertyName("user")]
+    public string User { get; set; }
+
     [JsonPropertyName("user_id")]
     public string UserId { get; set; }
 

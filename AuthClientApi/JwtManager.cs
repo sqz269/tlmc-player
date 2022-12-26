@@ -98,6 +98,7 @@ public class JwtManager
     /// <typeparam name="T"></typeparam>
     /// <param name="serializedToken"></param>
     /// <returns></returns>
+    /// <remarks>This method does not strictly adhere to the validation steps listed at https://www.rfc-editor.org/rfc/rfc7519#section-7.2</remarks>
     /// <exception cref="InvalidOperationException"></exception>
     /// <exception cref="InvalidDataException"></exception>
     public T? DecodeJwt<T>(string serializedToken)
