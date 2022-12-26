@@ -33,7 +33,7 @@ public class UserController : Controller
         _jwtManager = jwtManager;
     }
 
-    [HttpGet("all")]
+    [HttpGet("all", Name = nameof(GetAllUsers))]
     [RoleRequired(KnownRoles.Admin)]
     public IEnumerable<User> GetAllUsers()
     {
@@ -41,15 +41,15 @@ public class UserController : Controller
     }
 
     [HttpPost]
-    [Route("register")]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(ApiResponse<>), StatusCodes.Status500InternalServerError)]
-    public ActionResult<LoginResult> Register([FromBody] UserCredentialsDto userCredentials)
+    [Route("register", Name = nameof(Register))]
+    [ProducesResponseType(typeof(RegisterResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public IActionResult Register([FromBody] UserCredentialsDto userCredentials)
     {
         if (_userRepo.DoesUserExist(userCredentials.UserName))
         {
-            return Conflict(ApiResponse<object>.Fail("User with same username already exists"));
+            return Problem(statusCode: StatusCodes.Status409Conflict, title: "User with the same username already exists");
         }
 
         userCredentials.Password = BCrypt.Net.BCrypt.HashPassword(userCredentials.Password);
@@ -69,49 +69,49 @@ public class UserController : Controller
         var dbUser = _userRepo.GetUserFromUsername(user.UserName);
 
         if (dbUser == null)
-            return StatusCode(
-                StatusCodes.Status500InternalServerError,
-                ApiResponse<object>.Fail("Unable to verify transaction"));
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Transaction failed");
+        }
 
         dbUser.Roles.Add(defaultRole);
         _userRepo.SaveChanges();
 
-        return Ok(ApiResponse<object>.Ok(null));
+        return Ok();
     }
 
-    private LoginResult? LoginUser(User user)
+    private LoginResult LoginUser(User user)
     {
-        if (user.UserId == null)
-            throw new ArgumentNullException(nameof(user));
-
-        var jwtToken = user.GetJwtToken(_jwtManager, JwtExpOffset);
+        var token = user.GetJwtToken(_jwtManager, JwtExpOffset);
         Guid? refreshToken = _userRepo.CreateToken(user).TokenId;
 
         _userRepo.SaveChanges();
 
         return new LoginResult
         {
-            JwtToken = jwtToken,
+            JwtToken = token.Item1,
             RefreshToken = refreshToken?.ToString(),
-            Roles = user.Roles.ToList().ConvertAll(role => role.RoleName)
+            AuthInfo = token.Item2
         };
     }
 
     [HttpPost]
-    [Route("login")]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<LoginResult>), StatusCodes.Status401Unauthorized)]
-    public ActionResult<ApiResponse<LoginResult>> Login([FromBody] UserCredentialsDto userCredentials)
+    [Route("login", Name = nameof(Login))]
+    [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public ActionResult<LoginResult> Login([FromBody] UserCredentialsDto userCredentials)
     {
         var user = _userRepo.GetUserFromUsername(userCredentials.UserName);
         if (user == null)
-            return ApiResponse<LoginResult>.Fail("Invalid Username or Password");
+        {
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid Username or Password");
+        }
 
 
         var isPasswordValid = BCrypt.Net.BCrypt.Verify(userCredentials.Password, user.Password);
         if (!isPasswordValid)
-            return ApiResponse<LoginResult>.Fail("Invalid Username or Password");
-
-        return ApiResponse<LoginResult>.Ok(LoginUser(user));
+        {
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid Username or Password");
+        }
+        return LoginUser(user);
     }
 }
