@@ -14,14 +14,28 @@ spec:
     http:
       paths:
       - pathType: Prefix
-        path: "/"
+        path: "/api/music"
         backend:
           service:
             name: musicdata-api-clusterip
             port: 
               number: 80
       - pathType: Prefix
-        path: "/"
+        path: "/api/auth"
+        backend:
+          service:
+            name: auth-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/api/user"
+        backend:
+          service:
+            name: auth-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/swagger"
         backend:
           service:
             name: auth-api-clusterip
