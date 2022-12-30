@@ -95,7 +95,21 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddCors(opt =>
+{
+    opt.AddDefaultPolicy(policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowAnyOrigin()
+            .Build();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
