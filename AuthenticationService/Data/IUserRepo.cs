@@ -9,7 +9,7 @@ public interface IUserRepo
     public RefreshToken CreateToken(User user);
     public IEnumerable<RefreshToken> GetUserRefreshTokens(User user);
     public User? GetUserFromToken(Guid tokenId);
-    public void DeleteToken(Guid token);
+    public bool RevokeRefreshToken(Guid tokenId);
 
     public bool DoesUserExist(string username);
     public User? GetUserFromUsername(string username);

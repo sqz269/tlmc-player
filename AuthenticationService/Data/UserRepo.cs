@@ -22,7 +22,7 @@ public class UserRepo : IUserRepo
         var token = new RefreshToken
         {
             TokenId = Guid.NewGuid(),
-            IssuedTime = DateTime.Now,
+            IssuedTime = DateTime.UtcNow,
             UserId = user.UserId
         };
 
@@ -44,9 +44,16 @@ public class UserRepo : IUserRepo
 
     }
 
-    public void DeleteToken(Guid token)
+    public bool RevokeRefreshToken(Guid tokenId)
     {
-        _context.RefreshTokens.Remove(new RefreshToken { TokenId = token });
+        var query = _context.RefreshTokens.Where(t => t.TokenId == tokenId).FirstOrDefault();
+        if (query != null)
+        {
+            _context.RefreshTokens.Remove(query);
+            return true;
+        }
+
+        return false;
     }
 
     public bool DoesUserExist(string username)

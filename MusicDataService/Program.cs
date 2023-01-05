@@ -75,8 +75,16 @@ app.UseCors();
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
-app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwagger(opt =>
+{
+    opt.RouteTemplate = "/swagger/music-data/{documentName}/swagger.json";
+});
+
+app.UseSwaggerUI(opt =>
+{
+    opt.RoutePrefix = "swagger/music-data";
+    opt.SwaggerEndpoint("/swagger/music-data/v1/swagger.json", "Auth API");
+});
 //}
 
 // app.UseHttpsRedirection();
