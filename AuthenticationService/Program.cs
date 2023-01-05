@@ -18,10 +18,10 @@ builder.WebHost.ConfigureKestrel(opt =>
     //    option.Protocols = HttpProtocols.Http2;
     //});
 
-    opt.ListenAnyIP(80, options =>
-    {
-        options.Protocols = HttpProtocols.Http1;
-    });
+    //opt.ListenAnyIP(80, options =>
+    //{
+    //    options.Protocols = HttpProtocols.Http1;
+    //});
 
     //opt.ListenAnyIP(443, options =>
     //{
@@ -112,11 +112,19 @@ var app = builder.Build();
 app.UseCors();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
+//{
+app.UseSwagger(opt =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    opt.RouteTemplate = "/swagger/auth/{documentName}/swagger.json";
+});
+
+app.UseSwaggerUI(opt =>
+{
+    opt.RoutePrefix = "swagger/auth";
+    opt.SwaggerEndpoint("/swagger/auth/v1/swagger.json", "Auth API");
+});
+//}
 
 //app.UseHttpsRedirection();
 
@@ -125,5 +133,7 @@ if (app.Environment.IsDevelopment())
 app.MapGrpcService<GrpcAuthDataService>();
 
 app.MapControllers();
+
+PrepDb.Prep(app, app.Environment);
 
 app.Run();
