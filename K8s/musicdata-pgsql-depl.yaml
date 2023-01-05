@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: musicdata-pgsql-depl
-        image: postgrse:14.0
+        image: postgres:latest
         ports:
         - containerPort: 5432
 

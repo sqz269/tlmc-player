@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: auth-pgsql-depl
-        image: postgrse:latest
+        image: postgres:latest
         ports:
         - containerPort: 5432
 
