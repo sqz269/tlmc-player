@@ -26,6 +26,8 @@ public class AssetController : Controller
 
         FileStream fileStream = new FileStream(asset.AssetPath, FileMode.Open);
 
-        return File(fileStream, asset.AssetMime, asset.AssetName, enableRangeProcessing: asset.Large);
+        string mime = asset.AssetMime ?? "application/octet-stream";
+
+        return File(fileStream, asset.AssetMime, mime, enableRangeProcessing: asset.Large);
     }
 }
