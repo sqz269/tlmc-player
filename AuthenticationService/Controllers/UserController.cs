@@ -35,6 +35,7 @@ public class UserController : Controller
     }
 
     [HttpGet("all", Name = nameof(GetAllUsers))]
+    [RoleRequired(KnownRoles.Admin)]
     public IEnumerable<User> GetAllUsers()
     {
         return _userRepo.GetAllUsers();
@@ -190,5 +191,24 @@ public class UserController : Controller
         }
 
         return LoginUser(user);
+    }
+
+    [HttpPost]
+    [Route("logout")]
+    [ProducesResponseType(typeof(OkResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public ActionResult Logout([FromBody] Guid refreshToken)
+    {
+        var success = _userRepo.RevokeRefreshToken(refreshToken);
+
+        if (success)
+        {
+            return Ok();
+        }
+
+        return Problem(
+            statusCode: StatusCodes.Status400BadRequest,
+            title: "Logout Failed",
+            detail: "Failed to revoke refresh token. Maybe the token was already invalid?");
     }
 }
