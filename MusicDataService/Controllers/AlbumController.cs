@@ -2,6 +2,7 @@
 using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
 using MusicDataService.Dtos.Track;
@@ -9,6 +10,25 @@ using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Controllers;
+
+public class AlbumFilter
+{
+    public string? Title { get; set; }
+    public DateTime? ReleaseDateBegin { get; set; }
+    public DateTime? ReleaseDateEnd { get; set; }
+    public string? Convention { get; set; }
+    public string? Catalog { get; set; }
+    public string? Artist { get; set; }
+    public Guid? ArtistId { get; set; }
+}
+
+public class TrackFilter
+{
+    public string? Title { get; set; }
+    public List<string>? Original { get; set; } = new();
+    public List<string>? OriginalId { get; set; } = new();
+    public List<string>? Staff { get; set; } = new();
+}
 
 [ApiController]
 [Route("api/music")]
@@ -21,6 +41,8 @@ public class AlbumController : Controller
 
     private readonly LinkGenerator _linkGenerator;
     private readonly Func<Guid, string?> _assetLinkGenerator;
+
+    private readonly long _totalAlbums;
 
     public AlbumController(
         IAlbumRepo albumRepo, 
@@ -67,6 +89,13 @@ public class AlbumController : Controller
         return Ok(mapped);
     }
 
+    [HttpGet("album/filter", Name = nameof(GetAlbumFiltered))]
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetAlbumFiltered([FromQuery] AlbumFilter filter, [FromQuery] int start = 0, [FromQuery] int limit = 20)
+    {
+        return Ok(
+            _mapper.Map<IEnumerable<AlbumReadDto>>(await _albumRepo.GetAlbumsFiltered(filter, start, limit)));
+    }
+
     [DevelopmentOnly]
     [HttpPost("album", Name = nameof(AddAlbum))]
     [ProducesResponseType(typeof(ActionResult<AlbumReadDto>), StatusCodes.Status201Created)]
@@ -81,7 +110,7 @@ public class AlbumController : Controller
         //return _mapper.Map<Album, AlbumReadDto>(result);
         return CreatedAtRoute(nameof(GetAlbum), new {id = result.Id}, _mapper.Map<Album, AlbumReadDto>(result));
     }
-    
+
     [DevelopmentOnly]
     [HttpPost("album/{albumId:Guid}/track", Name = nameof(AddTrack))]
     [ProducesResponseType(typeof(ActionResult<TrackReadDto>), StatusCodes.Status201Created)]
@@ -92,20 +121,29 @@ public class AlbumController : Controller
         // We ignored Track.Original mapping when converting from Dto to Model
         // we need to resolve it manually
 
-            var originalTracks = (await _originalTrackRepo.GetOriginalTracks(track.Original)).ToList();
-            if (originalTracks.Count != track.Original.Count)
-            {
-                throw new ArgumentException("One of the OriginalTracks is invalid or does not exist.");
-            }
-            trackModel.Original.AddRange(originalTracks);
+        var originalTracks = (await _originalTrackRepo.GetOriginalTracks(track.Original)).ToList();
+        if (originalTracks.Count != track.Original.Count)
+        {
+            throw new ArgumentException("One of the OriginalTracks is invalid or does not exist.");
+        }
+        trackModel.Original.AddRange(originalTracks);
 
-            var addedTrack = await _albumRepo.AddTrackToAlbum(albumId, trackModel);
+        var addedTrack = await _albumRepo.AddTrackToAlbum(albumId, trackModel);
 
         await _albumRepo.SaveChanges();
 
         return CreatedAtRoute(nameof(GetTrack), new { id = addedTrack.Id },
             _mapper.Map<Track, TrackReadDto>(addedTrack));
     }
+
+    //[HttpGet("track/filter", Name = nameof(GetTrackFiltered))]
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
 
     [HttpGet("track/{id:Guid}", Name = nameof(GetTrack))]
     [ProducesResponseType(typeof(TrackReadDto), StatusCodes.Status200OK)]
