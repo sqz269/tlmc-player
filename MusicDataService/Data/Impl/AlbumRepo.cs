@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using MusicDataService.Controllers;
 using MusicDataService.Data.Api;
 using MusicDataService.Models;
+using NpgsqlTypes;
 
 namespace MusicDataService.Data.Impl;
 
@@ -18,10 +21,16 @@ public class AlbumRepo : IAlbumRepo
         return await _context.SaveChangesAsync() >= 1;
     }
 
+    public async Task<long> CountTotalAlbums()
+    {
+        return await _context.Albums.LongCountAsync();
+    }
+
     public async Task<IEnumerable<Album>> GetAlbums(int start, int limit)
     {
         var albums = await _context.Albums.OrderBy(a => a.Id)
             .Skip(start).Take(limit)
+            // TODO: Configure Auto-include
             .Include(a => a.Tracks)
             .Include(a => a.AlbumImage)
             .Include(a => a.Thumbnail)
@@ -29,13 +38,67 @@ public class AlbumRepo : IAlbumRepo
             .Include(a => a.AlbumArtist)
             .ToListAsync();
 
-        // Avoid circular reference when serializing
-        //albums.ForEach(album => album.Tracks.ForEach(track =>
-        //{
-        //    track.Album = default;
-        //}));
-
         return albums;
+    }
+
+    public async Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit)
+    {
+        var query = _context.Albums.AsQueryable();
+        if (filter.Title != null)
+        {
+            query = query.Where(a => Regex.IsMatch(a.AlbumName.Default, filter.Title));
+        }
+
+        // TODO: Test to see if this really works
+        if (filter.ReleaseDateBegin != null || filter.ReleaseDateEnd != null)
+        {
+            var lower = filter.ReleaseDateBegin ?? DateTime.MinValue;
+            var upper = filter.ReleaseDateEnd ?? DateTime.MaxValue;
+
+            NpgsqlRange<DateTime> range = new NpgsqlRange<DateTime>(lower, upper);
+            query = query.Where(a => a.ReleaseDate != null && range.Contains(a.ReleaseDate.Value));
+        }
+
+        if (filter.Convention != null)
+        {
+            query = query.Where(a => Regex.IsMatch(a.ReleaseConvention, filter.Convention));
+        }
+
+        if (filter.Catalog != null)
+        {
+            query = query.Where(a => Regex.IsMatch(a.CatalogNumber, filter.Catalog));
+        }
+
+        // Need to first map the artist back to circles
+        if (filter is { Artist: { }, ArtistId: null })
+        {
+            // It's probably better to query circles first then filter albums if filter.Artist exists
+            var circle = await _context.Circles.Where(c => c.Name == filter.Artist).FirstOrDefaultAsync();
+            if (circle == null)
+                throw new KeyNotFoundException($"Invalid Artist '{filter.Artist}'");
+
+            query = query.Where(a => a.AlbumArtist.Contains(circle));
+        }
+
+        if (filter.ArtistId != null)
+        {
+            var circle = await _context.Circles.Where(c => c.Id == filter.ArtistId).FirstOrDefaultAsync();
+            if (circle == null)
+                throw new KeyNotFoundException($"Invalid Artist Id: '{filter.ArtistId}");
+
+            query = query.Where(a => a.AlbumArtist.Contains(circle));
+        }
+
+        query = query.OrderBy(a => a.Id)
+            .Include(a => a.Tracks)
+            .Include(a => a.AlbumImage)
+            .Include(a => a.Thumbnail)
+            .Include(a => a.OtherFiles)
+            .Include(a => a.AlbumArtist)
+            .Skip(start).Take(limit);
+
+
+        return await query.ToListAsync();
     }
 
     public async Task<Album?> GetAlbum(Guid id)
@@ -50,12 +113,6 @@ public class AlbumRepo : IAlbumRepo
             .Include(a => a.AlbumArtist)
             .FirstOrDefaultAsync();
 
-        // Avoid circular reference when serializing
-        //if (album != null)
-        //{
-        //    album.Tracks.ForEach(track => track.Album = null);
-        //    return album;
-        //}
         return album;
     }
 
@@ -96,6 +153,11 @@ public class AlbumRepo : IAlbumRepo
     }
 
     public Task<Track> GetTrack(Guid id)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<IEnumerable<Track>> GetTracksFiltered(TrackFilter filter, int start, int limit)
     {
         throw new NotImplementedException();
     }

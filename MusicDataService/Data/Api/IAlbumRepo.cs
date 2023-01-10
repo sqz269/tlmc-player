@@ -1,4 +1,5 @@
-﻿using MusicDataService.Models;
+﻿using MusicDataService.Controllers;
+using MusicDataService.Models;
 
 namespace MusicDataService.Data.Api;
 
@@ -7,6 +8,8 @@ public interface IAlbumRepo
     public Task<bool> SaveChanges();
 
     public Task<IEnumerable<Album>> GetAlbums(int start, int limit);
+
+    public Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit);
 
     public Task<Album?> GetAlbum(Guid id);
 
@@ -17,6 +20,8 @@ public interface IAlbumRepo
     public Task<Track> AddTrackToAlbum(Guid albumId, Track track);
 
     public Task<Track> GetTrack(Guid id);
+
+    public Task<IEnumerable<Track>> GetTracksFiltered(TrackFilter filter, int start, int limit);
 
     public Task UpdateTrackData(Track track);
 }
