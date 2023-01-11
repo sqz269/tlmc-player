@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
+using MusicDataService.Dtos.Album;
 using MusicDataService.Models;
 
 namespace MusicDataService.Data.Impl;
@@ -26,6 +27,25 @@ public class CircleRepo : ICircleRepo
     public async Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids)
     {
         return await _context.Circles.Where(c => ids.Contains(c.Id)).ToListAsync();
+    }
+
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit)
+    {
+        // TODO: Fix issue limit. Since album is a property .Take does not affect Album's return limit
+        return (await _context.Circles.Where(c => c.Id == id)
+                .Include(c => c.Albums)
+                .Skip(start).Take(limit)
+                .FirstOrDefaultAsync())
+                ?.Albums;
+    }
+
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit)
+    {
+        return (await _context.Circles.Where(c => c.Name == name || c.Alias.Contains(name))
+            .Include(c => c.Albums)
+            .Skip(start).Take(limit)
+            .FirstOrDefaultAsync())
+            ?.Albums;
     }
 
     public async Task<Circle?> GetCircleByName(string name)

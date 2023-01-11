@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
+using MusicDataService.Dtos.Album;
 using MusicDataService.Dtos.Circle;
 
 namespace MusicDataService.Controllers;
@@ -51,5 +52,21 @@ public class CircleController : Controller
         }
 
         return Ok(_mapper.Map<CircleReadDto>(circle));
+    }
+
+    [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, int start = 0, int limit = 20)
+    {
+        return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
+            await _circleRepo.GetCircleAlbums(name, start, limit)
+        ));
+    }
+
+    [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, int start = 0, int limit = 20)
+    {
+        return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
+            await _circleRepo.GetCircleAlbums(id, start, limit)
+        ));
     }
 }
