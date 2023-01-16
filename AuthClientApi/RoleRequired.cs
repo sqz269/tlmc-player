@@ -44,27 +44,31 @@ public class RoleRequired : ActionFilterAttribute
         return new ObjectResult(new ProblemDetails
         {
             Status = StatusCodes.Status403Forbidden,
-            Title = "Not Authenticated"
+            Title = "Insufficient Permission"
         })
         {
             StatusCode = StatusCodes.Status403Forbidden,
         };
     }
 
-    public override void OnActionExecuting(ActionExecutingContext context)
+    private Tuple<bool, UserClaim?, ObjectResult?> InvalidAuth(ObjectResult result)
     {
-        var jwtManager = context.HttpContext.RequestServices.GetService<JwtManager>();
+        return new Tuple<bool, UserClaim?, ObjectResult?>(false, null, result);
+    }
 
-        if (jwtManager == null)
-        {
-            throw new InvalidOperationException("Unable to Validate Authorization. JwtManager not configured");
-        }
+    private Tuple<bool, UserClaim?, ObjectResult?> ValidAuth(UserClaim claim)
+    {
+        return new Tuple<bool, UserClaim?, ObjectResult?>(true, claim, null);
+    }
 
+    private async Task<Tuple<bool, UserClaim?, ObjectResult?>> ValidateUserAuth(JwtManager jwtManager, 
+        ActionExecutingContext context)
+    {
         if (_rolesRequired == null || _rolesRequired.Count == 0 || _rolesRequired.Contains(KnownRoles.Guest))
         {
-            context.HttpContext.Items.Add("CustUser", new UserClaim(null, null));
-            return;
+            return ValidAuth(new UserClaim(null, null));
         }
+
 
         // Get Authorization header
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
@@ -73,49 +77,65 @@ public class RoleRequired : ActionFilterAttribute
 
         if (string.IsNullOrWhiteSpace(jwt))
         {
-            context.Result = Unauthenticated();
-            return;
+            return InvalidAuth(Unauthenticated());
         }
 
         AuthToken? token;
         try
         {
-            token = jwtManager.DecodeJwt<AuthToken>(jwt);
+            token = await jwtManager.DecodeJwt<AuthToken>(jwt);
         }
         catch (Exception e) when (e is InvalidOperationException or InvalidDataException)
         {
             Console.WriteLine($"--> Error while decoding Jwt: {e.Message}");
             // Cannot decode JWT because either invalid jwt is provided or the signature is invalid
-            context.Result = Unauthenticated();
-            return;
+            return InvalidAuth(Unauthenticated());
         }
         // Probably just plain broken jwt
         catch (Exception e)
         {
-            context.Result = Unauthenticated();
-            return;
+            return InvalidAuth(Unauthenticated());
         }
 
         if (token == null)
         {
-            context.Result = Unauthenticated();
-            return;
+            return InvalidAuth(Unauthenticated());
         }
 
         if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > token.Expiration)
         {
-            context.Result = Unauthenticated();
-            return;
+            return InvalidAuth(Unauthenticated());
         }
-        
+
         // User does not sufficient role
         if (!token.Roles.Any(role => _rolesRequired.Contains(role)))
         {
-            context.Result = NoAccess();
-            return;
+            return InvalidAuth(NoAccess());
         }
 
-        context.HttpContext.Items.Add("UserClaim", new UserClaim(Guid.Parse(token.UserId), token.User));
-        return;
+        return ValidAuth(new UserClaim(Guid.Parse(token.UserId), token.User));
+    }
+
+    public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        var jwtManager = context.HttpContext.RequestServices.GetService<JwtManager>();
+
+        if (jwtManager == null)
+        {
+            throw new InvalidOperationException("Unable to Validate Authorization. JwtManager not configured");
+        }
+
+        var (isValid, claim, errorObject) = await ValidateUserAuth(jwtManager, context);
+
+        if (isValid)
+        {
+            context.HttpContext.Items.Add("UserClaim", claim);
+
+            await next();
+        }
+        else
+        {
+            context.Result = errorObject;
+        }
     }
 }

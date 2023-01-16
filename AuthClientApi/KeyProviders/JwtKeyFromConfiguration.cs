@@ -39,13 +39,13 @@ public class JwtKeyFromConfiguration : IJwtKeyProvider
         }
     }
 
-    public string? GetJwtRsPublicKey()
+    public Task<string?> GetJwtRsPublicKey()
     {
-        return _publicKey;
+        return Task.FromResult(_publicKey);
     }
 
-    public string? GetJwtRsPrivateKey()
+    public Task<string?> GetJwtRsPrivateKey()
     {
-        return _privateKey;
+        return Task.FromResult(_privateKey);
     }
 }

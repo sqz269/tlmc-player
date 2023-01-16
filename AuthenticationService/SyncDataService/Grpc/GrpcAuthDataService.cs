@@ -13,11 +13,11 @@ public class GrpcAuthDataService : GrpcAuthenticationService.GrpcAuthenticationS
         _jwtKeyProvider = jwtKeyProvider;
     }
 
-    public override Task<JwtPublicKeyResponse> GetJwtPublicKey(GetJwtPublicKeyRequest request, ServerCallContext context)
+    public override async Task<JwtPublicKeyResponse> GetJwtPublicKey(GetJwtPublicKeyRequest request, ServerCallContext context)
     {
-        return Task.FromResult(new JwtPublicKeyResponse
+        return new JwtPublicKeyResponse
         {
-            PublicKey = _jwtKeyProvider.GetJwtRsPublicKey()
-        });
+            PublicKey = await _jwtKeyProvider.GetJwtRsPublicKey()
+        };
     }
 }
