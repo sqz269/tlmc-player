@@ -1,11 +1,83 @@
+using AuthServiceClientApi;
+using AuthServiceClientApi.KeyProviders;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using PlaylistService.Data;
+using PlaylistService.Data.Api;
+using PlaylistService.Data.Impl;
+using PlaylistService.Model;
+using PlaylistService.SyncDataService;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddHttpClient();
 
-builder.Services.AddControllers();
+// Add services to the container.
+builder.Services.AddDbContext<AppDbContext>(opt => 
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
+
+builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
+builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();
+
+builder.Services.AddSingleton<IJwtKeyProvider, HttpJwtKeyProvider>();
+builder.Services.AddSingleton<JwtManager>();
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddCors(opt =>
+{
+    opt.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin().Build();
+    });
+});
+
+builder.Services.AddControllers()
+    .AddNewtonsoftJson(opt =>
+    {
+        opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+        opt.SerializerSettings.PreserveReferencesHandling = PreserveReferencesHandling.None;
+        opt.SerializerSettings.Converters.Add(new StringEnumConverter());
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+    {
+        c.AddSecurityDefinition("Jwt", new OpenApiSecurityScheme
+        {
+            Description = @"JWT Authorization header using the Bearer scheme. <br> 
+                      Enter 'Jwt' [space] and then your token in the text input below.
+                      <br> Example: 'Jwt 12345abcdef'",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Jwt"
+        });
+
+        c.AddSecurityRequirement(new OpenApiSecurityRequirement()
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Jwt"
+                    },
+                    Scheme = "oauth2",
+                    Name = "Jwt",
+                    In = ParameterLocation.Header,
+
+                },
+                new List<string>()
+            }
+        });
+    })
+    .AddSwaggerGenNewtonsoftSupport();
 
 var app = builder.Build();
 
@@ -21,5 +93,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+PrepDb.Prep(app, builder.Environment);
 
 app.Run();
