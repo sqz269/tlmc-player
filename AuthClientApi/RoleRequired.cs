@@ -1,7 +1,22 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Net;
+using System.Security.Claims;
+using System.Security.Principal;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace AuthServiceClientApi;
+
+public class UserClaim
+{
+    public Guid? UserId { get; set; }
+    public string? Username { get; set; }
+
+    public UserClaim(Guid? userId, string? username)
+    {
+        UserId = userId;
+        Username = username;
+    }
+}
 
 public class RoleRequired : ActionFilterAttribute
 {
@@ -46,7 +61,10 @@ public class RoleRequired : ActionFilterAttribute
         }
 
         if (_rolesRequired == null || _rolesRequired.Count == 0 || _rolesRequired.Contains(KnownRoles.Guest))
+        {
+            context.HttpContext.Items.Add("CustUser", new UserClaim(null, null));
             return;
+        }
 
         // Get Authorization header
         var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
@@ -90,12 +108,14 @@ public class RoleRequired : ActionFilterAttribute
             return;
         }
         
-        // Authorization succeeds
-        if (token.Roles.Any(role => _rolesRequired.Contains(role)))
+        // User does not sufficient role
+        if (!token.Roles.Any(role => _rolesRequired.Contains(role)))
         {
+            context.Result = NoAccess();
             return;
         }
 
-        context.Result = NoAccess();
+        context.HttpContext.Items.Add("UserClaim", new UserClaim(Guid.Parse(token.UserId), token.User));
+        return;
     }
 }
