@@ -47,7 +47,14 @@ public class PlaylistController : Controller
             await _playlistRepo.GetPlaylist(playlistId, user?.UserId)));
     }
 
-    [HttpPost]
+    //[HttpDelete("{playlistId:Guid}")]
+    //[RoleRequired(KnownRoles.User)]
+    //public async Task<ActionResult> DeletePlaylist(Guid playlistId)
+    //{
+
+    //}
+
+    [HttpPost("", Name = nameof(CreatePlaylist))]
     [RoleRequired(KnownRoles.User)]
     public async Task<ActionResult<PlaylistReadDto>> CreatePlaylist([FromBody] PlaylistCreateRequest request)
     {
