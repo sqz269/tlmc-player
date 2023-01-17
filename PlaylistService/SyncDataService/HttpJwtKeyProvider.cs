@@ -1,11 +1,13 @@
 ﻿using AuthServiceClientApi.KeyProviders;
+using Newtonsoft.Json;
+using System.Security.Cryptography.X509Certificates;
 
 namespace PlaylistService.SyncDataService;
 
 public class HttpJwtKeyProvider : IJwtKeyProvider
 {
     private readonly IHttpClientFactory _httpClientFactory;
-    private string? _jwtPublicKeyGetUrl;
+    private readonly string? _jwtPublicKeyGetUrl;
 
     public HttpJwtKeyProvider(IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
@@ -13,13 +15,19 @@ public class HttpJwtKeyProvider : IJwtKeyProvider
         _jwtPublicKeyGetUrl = configuration["AuthDataService:JwtPkGetUrl"];
     }
 
-    public string? GetJwtRsPublicKey()
+    public async Task<string?> GetJwtRsPublicKey()
     {
-        _httpClientFactory.CreateClient()
+        var httpClient = _httpClientFactory.CreateClient();
+        var result = await httpClient.GetStringAsync(_jwtPublicKeyGetUrl);
+
+        var definition = new { PublicKey = "" };
+        var r = JsonConvert.DeserializeAnonymousType(result, definition);
+        Console.WriteLine($"Got Public Key: {r?.PublicKey}");
+        return r?.PublicKey;
     }
 
-    public string? GetJwtRsPrivateKey()
+    public Task<string?> GetJwtRsPrivateKey()
     {
-        return null;
+        return Task.FromResult<string?>(null);
     }
 }

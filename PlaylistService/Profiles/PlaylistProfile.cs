@@ -8,7 +8,6 @@ public class PlaylistProfile : Profile
 {
     public PlaylistProfile()
     {
-        CreateMap<PlaylistItem, PlaylistItemReadDto>();
-        CreateMap<PlaylistItemReadDto, PlaylistItem>();
+        CreateMap<Playlist, PlaylistReadDto>();
     }
 }

@@ -35,17 +35,16 @@ public class PlaylistController : Controller
     /// Retrieves a playlist
     /// </summary>
     /// <param name="playlistId">The playlist to get</param>
-    /// <param name="userId">The user that's sending the request, used for checking playlist visibility</param>
     /// <returns></returns>
     [HttpGet("{playlistId:Guid}", Name = nameof(GetPlaylist))]
     [RoleRequired(KnownRoles.User, KnownRoles.Guest)]
     [ProducesResponseType(typeof(PlaylistReadDto), StatusCodes.Status200OK)]
-    public ActionResult<PlaylistReadDto> GetPlaylist(Guid playlistId)
+    public async Task<ActionResult<PlaylistReadDto>> GetPlaylist(Guid playlistId)
     {
         var user = HttpContext.GetUserClaim();
 
         return Ok(_mapper.Map<PlaylistReadDto>(
-            _playlistRepo.GetPlaylist(playlistId, user?.UserId)));
+            await _playlistRepo.GetPlaylist(playlistId, user?.UserId)));
     }
 
     [HttpPost]
@@ -68,7 +67,6 @@ public class PlaylistController : Controller
     /// Gets all the playlist owned by a specific user
     /// </summary>
     /// <param name="userId">The user that owns the playlist</param>
-    /// <param name="userId">The user that's sending the query</param>
     /// <returns></returns>
     [HttpGet("user/{userId:Guid}", Name = nameof(GetUserPlaylist))]
     [RoleRequired(KnownRoles.User, KnownRoles.Guest)]

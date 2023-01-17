@@ -45,6 +45,10 @@ namespace PlaylistService.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Visibility")
                         .IsRequired()
                         .HasColumnType("text");

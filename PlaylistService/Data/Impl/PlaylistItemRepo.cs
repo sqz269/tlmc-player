@@ -73,7 +73,7 @@ public class PlaylistItemRepo : IPlaylistItemRepo
         return item;
     }
 
-    public async Task<PlaylistItem> GetPlaylistItem(Guid playlistId, PlaylistItem item)
+    public async Task<PlaylistItem> GetPlaylistItem(Guid playlist, Guid item)
     {
         throw new NotImplementedException();
     }

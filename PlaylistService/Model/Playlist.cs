@@ -59,7 +59,7 @@ public class Playlist
             Name = name,
             Visibility = visibility,
             Type = type,
-            LastModified = DateTime.Now,
+            LastModified = DateTime.UtcNow,
             NumberOfTracks = 0,
             Tracks = new List<PlaylistItem>()
         };

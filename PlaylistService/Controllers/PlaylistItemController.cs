@@ -108,5 +108,8 @@ public class PlaylistItemController : Controller
             return Problem(statusCode: StatusCodes.Status409Conflict, title: "Track Does Not Exist",
                 detail: $"Track with Id: {request.PlaylistItemId} Does not exists in playlist");
         }
+
+        var deleted = _playlistItemRepo.DeletePlaylistItem(request.PlaylistId, request.PlaylistItemId);
+        return Ok();
     }
 }

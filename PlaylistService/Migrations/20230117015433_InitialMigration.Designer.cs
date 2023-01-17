@@ -12,7 +12,7 @@ using PlaylistService.Data;
 namespace PlaylistService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20230115040720_InitialMigration")]
+    [Migration("20230117015433_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -47,6 +47,10 @@ namespace PlaylistService.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Visibility")
                         .IsRequired()

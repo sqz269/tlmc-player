@@ -82,11 +82,22 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+
+app.UseSwagger(opt =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    opt.RouteTemplate = "/swagger/playlist/{documentName}/swagger.json";
+});
+
+app.UseSwaggerUI(opt =>
+{
+    opt.RoutePrefix = "swagger/playlist";
+    opt.SwaggerEndpoint("/swagger/playlist/v1/swagger.json", "Auth API");
+});
 
 app.UseHttpsRedirection();
 
