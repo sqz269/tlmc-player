@@ -10,5 +10,5 @@ public class Circle
     public string Name { get; set; }
     public List<string> Alias { get; set; }
 
-    public List<Album> Albums { get; set; } = new();
+    public List<Album>? Albums { get; set; } = new();
 }

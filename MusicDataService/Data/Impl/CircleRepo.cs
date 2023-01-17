@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
+using MusicDataService.Dtos.Album;
 using MusicDataService.Models;
 
 namespace MusicDataService.Data.Impl;
@@ -26,6 +27,37 @@ public class CircleRepo : ICircleRepo
     public async Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids)
     {
         return await _context.Circles.Where(c => ids.Contains(c.Id)).ToListAsync();
+    }
+
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit)
+    {
+        Circle? circle = await _context.Circles
+            .Where(c => c.Id == id)
+            .IgnoreAutoIncludes()
+            .FirstOrDefaultAsync();
+        if (circle == null)
+        {
+            return new List<Album>();
+        }
+
+        return await _context.Albums.Where(a => a.AlbumArtist.Contains(circle))
+            .Skip(start).Take(limit)
+            .OrderBy(a => a.Id)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit)
+    {
+        var circles = await _context.Circles
+            .Where(c => c.Name == name || c.Alias.Contains(name))
+            .IgnoreAutoIncludes()
+            .ToListAsync();
+
+        return await _context.Albums
+            .Where(a => a.AlbumArtist.Any(c => circles.Contains(c)))
+            .Skip(start).Take(limit)
+            .OrderBy(a => a.Id)
+            .ToListAsync();
     }
 
     public async Task<Circle?> GetCircleByName(string name)
