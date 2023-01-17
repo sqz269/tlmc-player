@@ -43,7 +43,21 @@ spec:
             name: auth-api-clusterip
             port: 
               number: 80
-      
+      - pathType: Prefix
+        path: "/api/playlist"
+        backend:
+          service:
+            name: playlist-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/api/playlistItem"
+        backend:
+          service:
+            name: playlist-api-clusterip
+            port: 
+              number: 80
+
       # API Explorer
       - pathType: Prefix
         path: "/swagger/auth"
@@ -57,5 +71,12 @@ spec:
         backend:
           service:
             name: musicdata-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/swagger/playlist"
+        backend:
+          service:
+            name: playlist-api-clusterip
             port: 
               number: 80
