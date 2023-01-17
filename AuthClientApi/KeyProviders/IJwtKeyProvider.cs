@@ -2,6 +2,6 @@
 
 public interface IJwtKeyProvider
 {
-    public string? GetJwtRsPublicKey();
-    public string? GetJwtRsPrivateKey();
+    public Task<string?> GetJwtRsPublicKey();
+    public Task<string?> GetJwtRsPrivateKey();
 }

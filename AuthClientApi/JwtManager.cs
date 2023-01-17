@@ -23,7 +23,7 @@ internal class JwtHeader
 
 public class JwtManager
 {
-    public string? PublicKey { get; private set; }
+    private string? _publicKeyB64;
 
     private byte[]? _publicKey;
     private byte[]? _privateKey;
@@ -32,8 +32,6 @@ public class JwtManager
     public JwtManager(IJwtKeyProvider keyProvider)
     {
         _keyProvider = keyProvider;
-
-        UseKey(_keyProvider.GetJwtRsPrivateKey(), _keyProvider.GetJwtRsPublicKey());
     }
 
     private static string? FormatKey(string? key)
@@ -48,9 +46,22 @@ public class JwtManager
             .Replace("\n", "");
     }
 
+    private async Task SetKeyIfNotExist()
+    {
+        UseKey(await _keyProvider.GetJwtRsPrivateKey(), 
+            await _keyProvider.GetJwtRsPublicKey());
+    }
+
+    public async Task<string?> GetPublicKey()
+    {
+        await SetKeyIfNotExist();
+
+        return _publicKeyB64;
+    }
+
     public void UseKey(string? privateKey, string? publicKey)
     {
-        PublicKey = FormatKey(publicKey);
+        _publicKeyB64 = FormatKey(publicKey);
 
         _privateKey = FormatKey(privateKey)?.B64DecodeBytes();
         _publicKey = FormatKey(publicKey)?.B64DecodeBytes();
@@ -65,8 +76,10 @@ public class JwtManager
             RSASignaturePadding.Pkcs1);
     }
 
-    public string GenerateJwt<T>(T payload)
+    public async Task<string> GenerateJwt<T>(T payload)
     {
+        await SetKeyIfNotExist();
+
         if (_privateKey == null)
         {
             throw new InvalidOperationException("Cannot Generate JWT token without a private key configured");
@@ -101,8 +114,10 @@ public class JwtManager
     /// <remarks>This method does not strictly adhere to the validation steps listed at https://www.rfc-editor.org/rfc/rfc7519#section-7.2</remarks>
     /// <exception cref="InvalidOperationException"></exception>
     /// <exception cref="InvalidDataException"></exception>
-    public T? DecodeJwt<T>(string serializedToken)
+    public async Task<T?> DecodeJwt<T>(string serializedToken)
     {
+        await SetKeyIfNotExist();
+
         if (_publicKey == null)
         {
             throw new InvalidOperationException("Cannot Decode and Verify Jwt token without a public key configured");

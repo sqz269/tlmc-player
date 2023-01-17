@@ -139,9 +139,9 @@ public class UserController : Controller
         });
     }
 
-    private LoginResult LoginUser(User user)
+    private async Task<LoginResult> LoginUser(User user)
     {
-        var token = user.GetJwtToken(_jwtManager, JwtExpOffset);
+        var token = await user.GetJwtToken(_jwtManager, JwtExpOffset);
         Guid? refreshToken = _userRepo.CreateToken(user).TokenId;
 
         _userRepo.SaveChanges();
@@ -159,7 +159,7 @@ public class UserController : Controller
     [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public ActionResult<LoginResult> Login([FromBody] UserCredentialsDto userCredentials)
+    public async Task<ActionResult<LoginResult>> Login([FromBody] UserCredentialsDto userCredentials)
     {
         string? validationError = PreValidateUserCredentials(userCredentials);
 
@@ -190,7 +190,7 @@ public class UserController : Controller
                 detail: "Invalid Username or password");
         }
 
-        return LoginUser(user);
+        return await LoginUser(user);
     }
 
     [HttpPost]
