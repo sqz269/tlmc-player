@@ -11,3 +11,10 @@ kubectl.exe apply -f .\musicdata-pgsql-svc.yaml
 
 kubectl.exe apply -f .\musicdata-api-depl.yaml
 kubectl.exe apply -f .\musicdata-api-svc.yaml
+
+kubectl.exe apply -f .\playlist-pgsql-pv-pvc.yaml
+kubectl.exe apply -f .\playlist-pgsql-depl.yaml
+kubectl.exe apply -f .\playlist-pgsql-svc.yaml
+
+kubectl.exe apply -f .\playlist-api-depl.yaml
+kubectl.exe apply -f .\playlist-api-svc.yaml
