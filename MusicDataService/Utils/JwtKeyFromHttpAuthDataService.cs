@@ -12,13 +12,13 @@ public class JwtKeyFromHttpAuthDataService : IJwtKeyProvider
         _authDataService = authDataService;
     }
 
-    public string? GetJwtRsPublicKey()
+    public async Task<string?> GetJwtRsPublicKey()
     {
-        return _authDataService.GetPublicKey().Result;
+        return await _authDataService.GetPublicKey();
     }
 
-    public string? GetJwtRsPrivateKey()
+    public Task<string?> GetJwtRsPrivateKey()
     {
-        return null;
+        return Task.FromResult<>(null);
     }
 }
