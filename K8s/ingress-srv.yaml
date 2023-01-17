@@ -23,6 +23,13 @@ spec:
             port: 
               number: 80
       - pathType: Prefix
+        path: "/api/entity/circle"
+        backend:
+          service:
+            name: musicdata-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
         path: "/api/asset"
         backend:
           service:
