@@ -21,9 +21,9 @@ public static class UserExtension
         };
     }
 
-    public static Tuple<string, AuthToken> GetJwtToken(this User user, JwtManager jwtManager, TimeSpan expTime)
+    public static async Task<Tuple<string, AuthToken>> GetJwtToken(this User user, JwtManager jwtManager, TimeSpan expTime)
     {
         var authToken = user.ToAuthToken(expTime);
-        return new Tuple<string, AuthToken>(jwtManager.GenerateJwt(authToken), authToken);
+        return new Tuple<string, AuthToken>(await jwtManager.GenerateJwt(authToken), authToken);
     }
 }

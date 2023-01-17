@@ -46,7 +46,7 @@ public class AlbumRepo : IAlbumRepo
         var query = _context.Albums.AsQueryable();
         if (filter.Title != null)
         {
-            query = query.Where(a => Regex.IsMatch(a.AlbumName.Default, filter.Title));
+            query = query.Where(a => Regex.IsMatch(a.AlbumName.Default, filter.Title, RegexOptions.IgnoreCase));
         }
 
         // TODO: Test to see if this really works
@@ -61,12 +61,12 @@ public class AlbumRepo : IAlbumRepo
 
         if (filter.Convention != null)
         {
-            query = query.Where(a => Regex.IsMatch(a.ReleaseConvention, filter.Convention));
+            query = query.Where(a => Regex.IsMatch(a.ReleaseConvention, filter.Convention, RegexOptions.IgnoreCase));
         }
 
         if (filter.Catalog != null)
         {
-            query = query.Where(a => Regex.IsMatch(a.CatalogNumber, filter.Catalog));
+            query = query.Where(a => Regex.IsMatch(a.CatalogNumber, filter.Catalog, RegexOptions.IgnoreCase));
         }
 
         // Need to first map the artist back to circles

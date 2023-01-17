@@ -34,20 +34,20 @@ public class AuthController : Controller
         _jwtManager = jwtManager;
     }
 
-    private string GenerateJwtTokenForUser(User user, TimeSpan expirationOffset)
+    private async Task<string> GenerateJwtTokenForUser(User user, TimeSpan expirationOffset)
     {
         var authToken = user.ToAuthToken(expirationOffset);
-        return _jwtManager.GenerateJwt(authToken);
+        return await _jwtManager.GenerateJwt(authToken);
     }
 
     [HttpGet]
     [Route("jwt/key", Name = nameof(GetJwtPublicKey))]
     [ProducesResponseType(typeof(JwtKeyResponse), StatusCodes.Status200OK)]
-    public ActionResult<JwtKeyResponse> GetJwtPublicKey()
+    public async Task<ActionResult<JwtKeyResponse>> GetJwtPublicKey()
     {
         return new JwtKeyResponse()
         {
-            PublicKey = _jwtManager.PublicKey
+            PublicKey = await _jwtManager.GetPublicKey()
         };
     }
 
@@ -56,7 +56,7 @@ public class AuthController : Controller
     [ProducesResponseType(typeof(JwtRenewResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [RoleRequired(KnownRoles.User)]
-    public ActionResult<JwtRenewResult> GetNewToken([FromBody] Guid tokenId)
+    public async Task<ActionResult<JwtRenewResult>> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);
         if (user == null)
@@ -64,7 +64,7 @@ public class AuthController : Controller
             return Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Invalid Refresh Token");
         }
 
-        var token = user.GetJwtToken(_jwtManager, JwtExpOffset);
+        var token = await user.GetJwtToken(_jwtManager, JwtExpOffset);
         return Ok(new JwtRenewResult { Token = token.Item1, AuthInfo = token.Item2 });
     }
 }
