@@ -64,14 +64,16 @@ public class RoleRequired : ActionFilterAttribute
     private async Task<Tuple<bool, UserClaim?, ObjectResult?>> ValidateUserAuth(JwtManager jwtManager, 
         ActionExecutingContext context)
     {
-        if (_rolesRequired == null || _rolesRequired.Count == 0 || _rolesRequired.Contains(KnownRoles.Guest))
+        // Get Authorization header
+        var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
+
+        if ((_rolesRequired == null ||
+             _rolesRequired.Count == 0 ||
+             _rolesRequired.Contains(KnownRoles.Guest)) && authorization.Length == 0)
         {
             return ValidAuth(new UserClaim(null, null));
         }
 
-
-        // Get Authorization header
-        var authorization = context.HttpContext.Request.Headers.Authorization.ToString();
         // we only look for string begin with Jwt
         var jwt = authorization.Split("Jwt ")[^1];
 
