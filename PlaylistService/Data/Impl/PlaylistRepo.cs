@@ -18,6 +18,11 @@ public class PlaylistRepo : IPlaylistRepo
         return await _context.SaveChangesAsync() >= 1;
     }
 
+    public async Task<bool> DoesPersonalPlaylistExist(Guid userId)
+    {
+        return await _context.Playlists.AnyAsync(x => x.UserId == userId && x.Type == PlaylistType.Favorite);
+    }
+
     public async Task<IEnumerable<Playlist>> GetUserPlaylist(Guid ownerId, Guid? userId)
     {
         if (ownerId == userId)
@@ -92,5 +97,26 @@ public class PlaylistRepo : IPlaylistRepo
         var saved = await SaveChanges();
 
         return saved ? entry.Entity : null;
+    }
+
+    public async Task<bool> InsertPlaylists(IEnumerable<Playlist> playlists)
+    {
+        foreach (var playlist in playlists)
+        {
+            await _context.Playlists.AddAsync(playlist);
+        }
+
+        var saved = await SaveChanges();
+        return saved;
+    }
+
+    public async Task<bool> DeletePlaylist(Guid playlistId)
+    {
+        var playlist = await _context.Playlists.FirstOrDefaultAsync(p => p.Id == playlistId);
+
+        if (playlist != null)
+            _context.Playlists.Remove(playlist);
+
+        return await SaveChanges();
     }
 }
