@@ -9,6 +9,12 @@ using PlaylistService.Model;
 
 namespace PlaylistService.Controllers;
 
+public struct PlaylistItemKey
+{
+    public Guid PlaylistId { get; set; }
+    public Guid TrackId { get; set; }
+}
+
 public struct PlaylistItemAddRequest
 {
     public Guid PlaylistId { get; set; }
@@ -81,6 +87,30 @@ public class PlaylistItemController : Controller
         return Ok(_mapper.Map<PlaylistItem, PlaylistItemReadDto>(added));
     }
 
+    /// <summary>
+    /// Increments the play count for a video in playlist.
+    /// Note this operation is not in active use.
+    ///
+    /// TODO: move this call to musicdata controller and increment the play count only if asset is retrieved
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    [HttpPost("inc", Name = nameof(IncrementPlayCount))]
+    [RoleRequired(KnownRoles.Admin)]
+    public async Task<ActionResult> IncrementPlayCount([FromQuery] PlaylistItemKey request)
+    {
+        if (!await _playlistItemRepo.DoesPlaylistItemExist(request.PlaylistId, request.TrackId))
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Item Not Found",
+                detail:
+                $"Playlist Item (PlaylistId: {request.PlaylistId} | TrackId: {request.TrackId}) Does not exist");
+        }
+
+        var count = await _playlistItemRepo.IncPlaylistItem(request.PlaylistId, request.TrackId);
+
+        return Ok(count);
+    }
+
     [HttpDelete("", Name = nameof(DeletePlaylistItemFromPlaylist))]
     [ProducesResponseType(typeof(void), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)] // User doesn't have right to remove
@@ -109,7 +139,6 @@ public class PlaylistItemController : Controller
                 detail: $"Track with Id: {request.PlaylistItemId} Does not exists in playlist");
         }
 
-        var deleted = _playlistItemRepo.DeletePlaylistItem(request.PlaylistId, request.PlaylistItemId);
         return Ok();
     }
 }
