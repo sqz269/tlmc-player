@@ -83,7 +83,7 @@ app.UseSwagger(opt =>
 app.UseSwaggerUI(opt =>
 {
     opt.RoutePrefix = "swagger/music-data";
-    opt.SwaggerEndpoint("/swagger/music-data/v1/swagger.json", "Auth API");
+    opt.SwaggerEndpoint("/swagger/music-data/v1/swagger.json", "MusicData API");
 });
 //}
 
