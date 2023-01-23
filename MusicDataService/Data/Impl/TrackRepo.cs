@@ -37,6 +37,25 @@ public class TrackRepo : ITrackRepo
         return track;
     }
 
+    public async Task<Tuple<List<Track>, List<Guid>>> GetTracks(IList<Guid> tracks)
+    {
+        var entities = await _context.Tracks
+            .Where(t => tracks.Contains(t.Id))
+            .OrderBy(t => t.Id)
+            .AsNoTracking()
+            .ToListAsync();
+
+        if (entities.Count == tracks.Count)
+        {
+            return new Tuple<List<Track>, List<Guid>>(entities, new List<Guid>());
+        }
+
+        var diff = tracks.Except(
+                entities.Select(e => e.Id))
+            .ToList();
+        return new Tuple<List<Track>, List<Guid>>(entities, diff);
+    }
+    
     public async Task<Guid> CreateTrack(Guid albumId, Track track)
     {
         if (track.Id == Guid.Empty)
