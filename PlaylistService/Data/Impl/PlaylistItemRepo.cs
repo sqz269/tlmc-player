@@ -54,15 +54,28 @@ public class PlaylistItemRepo : IPlaylistItemRepo
             .Where(pi => pi.TrackId == trackId && pi.PlaylistId == playlistId)
             .FirstOrDefaultAsync();
 
-        await _context.PlaylistItems
-            .Where(pi => pi.PlaylistId == playlistId && pi.Index > item.Index)
-            .ExecuteUpdateAsync(e => 
-                e.SetProperty(p => p.Index, ind => ind.Index - 1));
+        try
+        {
+            var updated = await _context.PlaylistItems
+                .Where(pi => pi.PlaylistId == playlistId && pi.Index > item.Index)
+                .ExecuteUpdateAsync(e =>
+                    e.SetProperty(p => p.Index, ind => ind.Index - 1));
+            Console.WriteLine($"Updated: {updated} Records");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
 
-        await _context.Playlists
-            .Where(p => p.Id == playlistId)
-            .ExecuteUpdateAsync(p =>
-                p.SetProperty(p => p.LastModified, p => DateTime.UtcNow));
+        //await _context.Playlists
+        //    .Where(p => p.Id == playlistId)
+        //    .ExecuteUpdateAsync(p =>
+        //        p.SetProperty(p => p.LastModified, p => DateTime.UtcNow));
+
+        var playlist = await _context.Playlists.Where(p => p.Id == playlistId).FirstOrDefaultAsync();
+        playlist.LastModified = DateTime.UtcNow;
+        playlist.NumberOfTracks--;
 
         _context.PlaylistItems.Remove(item);
 

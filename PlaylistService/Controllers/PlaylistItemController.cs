@@ -82,6 +82,7 @@ public class PlaylistItemController : Controller
     }
 
     [HttpDelete("", Name = nameof(DeletePlaylistItemFromPlaylist))]
+    [RoleRequired(KnownRoles.User)]
     [ProducesResponseType(typeof(void), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)] // User doesn't have right to remove
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)] // Playlist doesn't exist or track that we are removing doesn't exist in playlist
@@ -103,13 +104,13 @@ public class PlaylistItemController : Controller
                 detail: "User Does not have write access to this playlist");
         }
 
-        if (!playlist.Tracks.Any(t => t.PlaylistId == request.PlaylistItemId))
+        if (!playlist.Tracks.Any(t => t.TrackId == request.PlaylistItemId))
         {
             return Problem(statusCode: StatusCodes.Status409Conflict, title: "Track Does Not Exist",
                 detail: $"Track with Id: {request.PlaylistItemId} Does not exists in playlist");
         }
 
-        var deleted = _playlistItemRepo.DeletePlaylistItem(request.PlaylistId, request.PlaylistItemId);
+        var deleted = await _playlistItemRepo.DeletePlaylistItem(request.PlaylistId, request.PlaylistItemId);
         return Ok();
     }
 }
