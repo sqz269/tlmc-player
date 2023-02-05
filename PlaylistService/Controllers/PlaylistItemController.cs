@@ -65,7 +65,8 @@ public class PlaylistItemController : Controller
                 detail: $"Playlist with Id: {request.PlaylistId} Does not exist");
         }
 
-        if (playlist.UserId != user?.UserId)
+        if (playlist.Visibility == PlaylistVisibility.Private && 
+            playlist.UserId != user?.UserId)
         {
             return Problem(statusCode: StatusCodes.Status403Forbidden, title: "Access Denied",
                 detail: "User Does not have write access to this playlist");
