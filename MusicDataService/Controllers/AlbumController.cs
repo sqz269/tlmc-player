@@ -73,7 +73,7 @@ public class AlbumController : Controller
 
     [HttpGet("album", Name = nameof(GetAlbums))]
     [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    [RoleRequired(KnownRoles.Guest)]
+    //[RoleRequired(KnownRoles.Guest)]
     public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _albumRepo.GetAlbums(start, limit);
@@ -164,13 +164,13 @@ public class AlbumController : Controller
         return Ok(mapped);
     }
 
-    [HttpPost("track")]
-    [ProducesResponseType(typeof(IEnumerable<TrackGetMultipleResp>), StatusCodes.Status200OK)]
+    [HttpPost("track", Name = nameof(GetTracks))]
+    [ProducesResponseType(typeof(TrackGetMultipleResp), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTracks([FromBody] IEnumerable<Guid> trackIds)
     {
         var list = trackIds.ToList();
         var result = await _trackRepo.GetTracks(list);
-        return Ok(new TrackGetMultipleResp()
+        return Ok(new TrackGetMultipleResp
         {
             NotFound = result.Item2,
             Tracks = _mapper.Map<IEnumerable<Track>, IEnumerable<TrackReadDto>>(result.Item1)

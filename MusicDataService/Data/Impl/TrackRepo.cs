@@ -42,7 +42,14 @@ public class TrackRepo : ITrackRepo
         var entities = await _context.Tracks
             .Where(t => tracks.Contains(t.Id))
             .OrderBy(t => t.Id)
-            .AsNoTracking()
+            .IgnoreAutoIncludes()
+            .Include(t => t.Album.Thumbnail)
+            .Include(t => t.Album.AlbumArtist)
+            .Include(t => t.Album.Thumbnail.Tiny)
+            .Include(t => t.Album.Thumbnail.Small)
+            .Include(t => t.Album.Thumbnail.Medium)
+            .Include(t => t.Album.Thumbnail.Large)
+            .Include(t => t.Album.Thumbnail.Original)
             .ToListAsync();
 
         if (entities.Count == tracks.Count)
