@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<Album> Albums { get; set; }
     public DbSet<Track> Tracks { get; set; }
     public DbSet<Circle> Circles { get; set; }
+    public DbSet<CircleWebsite> CircleWebsites { get; set; }
     public DbSet<OriginalTrack> OriginalTracks { get; set; }
     public DbSet<OriginalAlbum> OriginalAlbums { get; set; }
     public DbSet<Asset> Assets { get; set; }
@@ -36,6 +37,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Track>().Navigation(t => t.Album).AutoInclude(false);
 
         modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
+
+        modelBuilder.Entity<Circle>()
+            .Property(c => c.Status)
+            .HasConversion(v => v.ToString(),
+                v => (CircleStatus)Enum.Parse(typeof(CircleStatus), v));
+
+        modelBuilder.Entity<Circle>().Navigation(t => t.Website).AutoInclude();
 
         //modelBuilder.Entity<OriginalTrack>()
         //    .HasMany(t => t.Tracks)

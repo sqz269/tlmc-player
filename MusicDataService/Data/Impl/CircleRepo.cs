@@ -63,8 +63,7 @@ public class CircleRepo : ICircleRepo
     public async Task<Circle?> GetCircleByName(string name)
     {
         return await _context.Circles.Where(c => 
-                EF.Functions.ILike(name, c.Name) || 
-                c.Alias.Any(a => EF.Functions.ILike(name, a)))
+                EF.Functions.ILike(c.Name, name))
             .FirstOrDefaultAsync();
     }
 
@@ -82,5 +81,12 @@ public class CircleRepo : ICircleRepo
 
         var added = await _context.Circles.AddAsync(circle);
         return added.Entity.Id;
+    }
+
+    public async Task<string> AddCircleWebsite(Guid circleId, CircleWebsite website)
+    {
+        var circle = await _context.Circles.FindAsync(circleId);
+        circle.Website.Add(website);
+        return website.Url;
     }
 }

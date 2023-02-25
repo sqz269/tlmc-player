@@ -39,9 +39,9 @@ builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
 
-builder.Services.AddSingleton<IAuthDataClient, GrpcAuthDataClient>();
-builder.Services.AddSingleton<IJwtKeyProvider, JwtKeyFromHttpAuthDataService>();
-builder.Services.AddSingleton<JwtManager>();
+//builder.Services.AddSingleton<IAuthDataClient, GrpcAuthDataClient>();
+//builder.Services.AddSingleton<IJwtKeyProvider, JwtKeyFromHttpAuthDataService>();
+//builder.Services.AddSingleton<JwtManager>();
 
 builder.Services.AddCors(opt =>
 {
@@ -62,6 +62,9 @@ builder.Services.AddControllers()
     {
         opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
         opt.SerializerSettings.PreserveReferencesHandling = PreserveReferencesHandling.None;
+
+        // Convert enum to string
+        opt.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
     });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -87,7 +90,7 @@ app.UseSwaggerUI(opt =>
 });
 //}
 
-// app.UseHttpsRedirection();
+app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
