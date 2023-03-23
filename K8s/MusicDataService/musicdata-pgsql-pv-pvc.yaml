@@ -18,6 +18,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: musicdata-pgsql-pv-claim
+  namespace: tlmc-player
 spec:
   resources:
     requests:

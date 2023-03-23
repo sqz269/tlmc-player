@@ -19,6 +19,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: musicsearch-es-pvc
+  namespace: tlmc-player
 spec:
   resources:
     requests:
