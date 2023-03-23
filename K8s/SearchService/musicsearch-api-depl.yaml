@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-api
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search-api
+  template:
+    metadata:
+      labels:
+        app: search-api
+    spec:
+      containers:
+      - name: search-api
+        image: sqzd269/search-api:latest
+        env:
+          - name: ConnectionStrings__ElasticSearch
+            value: Host=search-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw

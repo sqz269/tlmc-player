@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: musicsearch-redis-svc
+  namespace: tlmc-player
+spec:
+  selector:
+    app: musicsearch-redis
+  ports:
+  - name: http-redis
+    protocol: TCP
+    appProcol: HTTP
+    port: 6379
+    targetPort: 6379

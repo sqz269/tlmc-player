@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musicdata-pgsql-depl
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: musicdata-pgsql-depl
+
+  template:
+    metadata:
+      labels:
+        app: musicdata-pgsql-depl
+
+    spec:
+      containers:
+      - name: musicdata-pgsql-depl
+        image: postgres:latest
+        ports:
+        - containerPort: 5432
+        env:
+          - name: POSTGRES_PASSWORD
+            value: postgrespw
+
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: postgredb
+
+          - mountPath: /docker-entrypoint-initdb.d
+            name: initdb
+
+      volumes:
+        - name: postgredb
+          persistentVolumeClaim:
+            claimName: musicdata-pgsql-pv-claim
+
+        - name: initdb
+          configMap:
+            name: pgsql-init-script-cm

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: auth-pgsql-depl
+  namespace: tlmc-player
 spec:
   replicas: 1
   selector:
@@ -19,7 +20,6 @@ spec:
         image: postgres:latest
         ports:
         - containerPort: 5432
-
         env:
           - name: POSTGRES_PASSWORD
             value: postgrespw

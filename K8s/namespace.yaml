@@ -1,0 +1,7 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: tlmc-player
+  labels:
+    name: tlmc-player
+    istio-injection: enabled

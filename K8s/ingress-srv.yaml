@@ -37,6 +37,13 @@ spec:
             port: 
               number: 80
       - pathType: Prefix
+        path: "/api/source"
+        backend:
+          service:
+            name: musicdata-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
         path: "/api/auth"
         backend:
           service:
@@ -62,6 +69,15 @@ spec:
         backend:
           service:
             name: playlist-api-clusterip
+            port: 
+              number: 80
+
+      # Search Service
+      - pathType: Prefix
+        path: "/api/search"
+        backend:
+          service:
+            name: search-api-clusterip
             port: 
               number: 80
 

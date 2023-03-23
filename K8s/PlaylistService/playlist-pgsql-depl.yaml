@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: musicdata-pgsql-depl
+  name: playlist-pgsql-depl
+  namespace: tlmc-player
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: musicdata-pgsql-depl
+      app: playlist-pgsql-depl
 
   template:
     metadata:
       labels:
-        app: musicdata-pgsql-depl
+        app: playlist-pgsql-depl
 
     spec:
       containers:
-      - name: musicdata-pgsql-depl
-        image: postgres:latest
+      - name: playlist-pgsql-depl
+        image: postgrse:latest
         ports:
         - containerPort: 5432
 
@@ -31,4 +32,4 @@ spec:
       volumes:
         - name: postgredb
           persistentVolumeClaim:
-            claimName: musicdata-pgsql-pv-claim
+            claimName: playlist-pgsql-pv-claim
