@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: playlist-pgsql-depl
-        image: postgrse:latest
+        image: postgres:latest
         ports:
         - containerPort: 5432
 
