@@ -23,17 +23,17 @@ spec:
             value: Host=musicdata-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
           - name: ThumbnailRoot
             value: /thumbdata/
-      #   volumeMounts:
-      #     - mountPath: /external_data/torrent/TLMC v2/
-      #       name: musicdata
-      #     - mountPath: /thumbdata/
-      #       name: thumbdata
-      # volumes:
-      #   - name: musicdata
-      #     hostPath:
-      #       path: /external_data/torrent/TLMC v2/
-      #       type: Directory
-      #   - name: thumbdata
-      #     hostPath:
-      #       path: /musicdata_api/thumbdata/
-      #       type: Directory
+        volumeMounts:
+          - mountPath: /external_data/torrent/TLMC v2/
+            name: musicdata
+          - mountPath: /thumbdata/
+            name: thumbdata
+      volumes:
+        - name: musicdata
+          hostPath:
+            path: /external_data/torrent/TLMC v2/
+            type: Directory
+        - name: thumbdata
+          hostPath:
+            path: /musicdata_api/thumbdata/
+            type: Directory

@@ -6,40 +6,39 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: musicsearch-pgsyn
+      app: musicsearch-pgsync
   template:
     metadata:
       labels:
-        app: musicsearch-pgsyn
-
-    env:
-      - name: PG_USER
-        value: postgres
-      - name: PG_HOST
-        value: musicdata-pgsql
-      - name: PG_PORT
-        value: 49153
-      - name: PG_PASSWORD
-        value: postgrespw
-      - name: LOG_LEVEL
-        value: INFO
-      - name: ELASTICSEARCH_PORT
-        value: 9200
-      - name: ELASTICSEARCH_SCHEME
-        value: http
-      - name: ELASTICSEARCH_HOST
-        value: elasticsearch
-      - name: REDIS_HOST
-        value: redis
-      - name: REDIS_PORT
-        value: 6379
-      - name: REDIS_AUTH
-        value: PLEASE_CHANGE_ME
-      - name: ELASTICSEARCH
-        value: true
-      - name: OPENSEARCH
-        value: false
+        app: musicsearch-pgsync
     spec:
       containers:
       - name: musicsearch-pgsync
         image: sqzd269/search-pgsync:latest
+        env:
+          - name: PG_USER
+            value: postgres
+          - name: PG_HOST
+            value: musicdata-pgsql
+          - name: PG_PORT
+            value: "49153"
+          - name: PG_PASSWORD
+            value: postgrespw
+          - name: LOG_LEVEL
+            value: INFO
+          - name: ELASTICSEARCH_PORT
+            value: "9200"
+          - name: ELASTICSEARCH_SCHEME
+            value: http
+          - name: ELASTICSEARCH_HOST
+            value: elasticsearch
+          - name: REDIS_HOST
+            value: redis
+          - name: REDIS_PORT
+            value: "6379"
+          - name: REDIS_AUTH
+            value: PLEASE_CHANGE_ME
+          - name: ELASTICSEARCH
+            value: "true"
+          - name: OPENSEARCH
+            value: "false"

@@ -9,6 +9,6 @@ spec:
   ports:
   - name: http-redis
     protocol: TCP
-    appProcol: HTTP
+    appProtocol: HTTP
     port: 6379
     targetPort: 6379
