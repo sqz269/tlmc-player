@@ -17,7 +17,7 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
-[ApiExplorerSettings(IgnoreApi = true)]
+//[ApiExplorerSettings(IgnoreApi = true)]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
@@ -218,5 +218,25 @@ public class InternalController : Controller
         var resultId = await _circleRepo.AddCircle(circle);
         await _circleRepo.SaveChanges();
         return Ok(resultId);
+    }
+
+    [DevelopmentOnly]
+    [HttpPatch("circle/{id:guid}")]
+    public async Task<IActionResult> UpdateCircle(Guid id, [FromBody] JsonPatchDocument<CircleUpdateDto> circleUpdate)
+    {
+        var circle = await _circleRepo.GetCircleById(id);
+
+        var updatedCircle = _mapper.Map<JsonPatchDocument<CircleUpdateDto>, JsonPatchDocument<Circle>>(circleUpdate);
+
+        updatedCircle.ApplyTo(circle);
+        
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await _circleRepo.SaveChanges();
+
+        return Ok();
     }
 }

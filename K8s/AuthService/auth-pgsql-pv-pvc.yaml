@@ -2,6 +2,7 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: auth-pgsql-pv
+  namespace: tlmc-player
 spec:
   capacity:
     storage: 5Gi
@@ -17,6 +18,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: auth-pgsql-pv-claim
+  namespace: tlmc-player
 spec:
   resources:
     requests:

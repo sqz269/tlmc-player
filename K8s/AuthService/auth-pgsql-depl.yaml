@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: playlist-pgsql-depl
+  name: auth-pgsql-depl
+  namespace: tlmc-player
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: playlist-pgsql-depl
+      app: auth-pgsql-depl
 
   template:
     metadata:
       labels:
-        app: playlist-pgsql-depl
+        app: auth-pgsql-depl
 
     spec:
       containers:
-      - name: playlist-pgsql-depl
+      - name: auth-pgsql-depl
         image: postgres:latest
         ports:
         - containerPort: 5432
-
         env:
           - name: POSTGRES_PASSWORD
             value: postgrespw
@@ -31,4 +31,4 @@ spec:
       volumes:
         - name: postgredb
           persistentVolumeClaim:
-            claimName: playlist-pgsql-pv-claim
+            claimName: auth-pgsql-pv-claim

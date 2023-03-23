@@ -81,6 +81,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+app.UseCors();
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
@@ -99,7 +100,7 @@ app.UseSwaggerUI(opt =>
     opt.SwaggerEndpoint("/swagger/playlist/v1/swagger.json", "Auth API");
 });
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

@@ -20,4 +20,6 @@ public interface ICircleRepo
     public Task<Circle?> GetCircleById(Guid id);
 
     public Task<Guid> AddCircle(Circle circle);
+
+    public Task<string> AddCircleWebsite(Guid circleId, CircleWebsite website);
 }

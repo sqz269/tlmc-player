@@ -1,4 +1,5 @@
-﻿using AuthServiceClientApi;
+﻿using System.Collections;
+using AuthServiceClientApi;
 using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,12 @@ public class TrackFilter
     public List<string>? Original { get; set; } = new();
     public List<string>? OriginalId { get; set; } = new();
     public List<string>? Staff { get; set; } = new();
+}
+
+public class TrackGetMultipleResp
+{
+    public IEnumerable<TrackReadDto> Tracks { get; set; }
+    public IEnumerable<Guid> NotFound { get; set; }
 }
 
 [ApiController]
@@ -66,7 +73,7 @@ public class AlbumController : Controller
 
     [HttpGet("album", Name = nameof(GetAlbums))]
     [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    [RoleRequired(KnownRoles.Guest)]
+    //[RoleRequired(KnownRoles.Guest)]
     public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] int limit = 20)
     {
         var albums = await _albumRepo.GetAlbums(start, limit);
@@ -155,5 +162,18 @@ public class AlbumController : Controller
             return NotFound();
         var mapped = _mapper.Map<Track, TrackReadDto>(track);
         return Ok(mapped);
+    }
+
+    [HttpPost("track", Name = nameof(GetTracks))]
+    [ProducesResponseType(typeof(TrackGetMultipleResp), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTracks([FromBody] IEnumerable<Guid> trackIds)
+    {
+        var list = trackIds.ToList();
+        var result = await _trackRepo.GetTracks(list);
+        return Ok(new TrackGetMultipleResp
+        {
+            NotFound = result.Item2,
+            Tracks = _mapper.Map<IEnumerable<Track>, IEnumerable<TrackReadDto>>(result.Item1)
+        });
     }
 }

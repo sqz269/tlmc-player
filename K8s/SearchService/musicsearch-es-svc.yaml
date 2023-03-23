@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: musicsearch-es-clusterip
+  namespace: tlmc-player
+spec:
+  selector:
+    app: musicsearch-es
+  ports:
+  - port: 9200
+    targetPort: 9200

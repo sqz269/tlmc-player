@@ -19,6 +19,6 @@ public class JwtKeyFromHttpAuthDataService : IJwtKeyProvider
 
     public Task<string?> GetJwtRsPrivateKey()
     {
-        return Task.FromResult<>(null);
+        return Task.FromResult<string?>(null);
     }
 }

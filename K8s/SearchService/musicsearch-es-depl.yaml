@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musicsearch-es
+  namespace: tlmc-player
+spec:
+  selector:
+    matchLabels:
+      app: musicsearch-es
+  template:
+    metadata:
+      labels:
+        app: musicsearch-es
+    spec:
+      containers:
+      - name: musicsearch-es
+        image: elasticsearch:8.6.2
+        ports:
+        - containerPort: 9200

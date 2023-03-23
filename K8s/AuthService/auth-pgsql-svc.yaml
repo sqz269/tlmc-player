@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-pgsql-clusterip
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-pgsql-depl
+  ports:
+  - name: tcp-auth-pgsql-db-port
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
+    appProtocol: TCP
