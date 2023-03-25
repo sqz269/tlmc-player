@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ingress-srv
+  namespace: tlmc-player
   annotations:
     # Uncomment if deploying on Microk8s and comment line 8
     # kubernetes.io/ingress.class: public
@@ -101,5 +102,12 @@ spec:
         backend:
           service:
             name: playlist-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/swagger/search-api"
+        backend:
+          service:
+            name: search-api-clusterip
             port: 
               number: 80

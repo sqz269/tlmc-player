@@ -18,7 +18,7 @@ spec:
         image: sqzd269/auth-api:latest
         env:
           - name: ConnectionStrings__PostgreSql
-            value: Host=auth-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
+            value: Host=auth-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
           - name: JwtKeys__PublicKey
             value: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp6fUoysWxUjynnfsi0LEWQxRJkuOZrqDQtRSoDBq/fGMAIP7fvaASrIT/7Ek30NGXXfWFw+1SFFD5x4C6zI0CFKS0PLrXRd9+dgOgcna4bCGrcMxOcs7nv/9hr0S8mdq/cPQdPaDSUv8YS6M8zGypNuCnwDQVKypBcJdcDrWxpdEzrYRxpvomzCGneJ7oCF0m1Zm4LTgyL3Vyw8IfCceOn0laizZvRrsjUlYyESc/2z7p3FHldx+rQmxFKR8UYGbGwKTfMc4jzcNxy5imU7837dO4Mioz0ymHFWJfkqY33Pu5NvcyBudE5xXNk5wHyhn361Rn7lrUyR3WdUFtoO/vQIDAQAB
           - name: JwtKeys__PrivateKey

@@ -18,6 +18,6 @@ spec:
         image: sqzd269/playlist-api:latest
         env:
           - name: ConnectionStrings__PostgreSql
-            value: Host=playlist-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
+            value: Host=playlist-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
           - name: AuthDataService__JwtPkGetUrl
             value: http://auth-api-clusterip/api/auth/jwt/key

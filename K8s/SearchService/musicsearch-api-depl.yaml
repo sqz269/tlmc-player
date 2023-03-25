@@ -17,5 +17,9 @@ spec:
       - name: search-api
         image: sqzd269/search-api:latest
         env:
-          - name: ConnectionStrings__ElasticSearch
-            value: Host=search-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
+          - name: ElasticSearch__ClusterNodes__0
+            value: "http://musicsearch-es-clusterip.tlmc-player.svc.cluster.local:9200"
+          - name: ElasticSearch__Username
+            value: "elastic"
+          - name: ElasticSearch__Password
+            value: "changeme"

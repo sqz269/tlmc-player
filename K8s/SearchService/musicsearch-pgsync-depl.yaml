@@ -15,13 +15,14 @@ spec:
       containers:
       - name: musicsearch-pgsync
         image: sqzd269/search-pgsync:latest
+        command: ["./runserver.sh"]
         env:
           - name: PG_USER
             value: postgres
           - name: PG_HOST
-            value: musicdata-pgsql
+            value: musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local
           - name: PG_PORT
-            value: "49153"
+            value: "5432"
           - name: PG_PASSWORD
             value: postgrespw
           - name: LOG_LEVEL
@@ -31,13 +32,13 @@ spec:
           - name: ELASTICSEARCH_SCHEME
             value: http
           - name: ELASTICSEARCH_HOST
-            value: elasticsearch
+            value: musicsearch-es-clusterip.tlmc-player.svc.cluster.local
           - name: REDIS_HOST
-            value: redis
+            value: musicsearch-redis-clusterip.tlmc-player.svc.cluster.local
           - name: REDIS_PORT
             value: "6379"
           - name: REDIS_AUTH
-            value: PLEASE_CHANGE_ME
+            value: EwJRwkLvJQ76eow5N4kofRj61vziS9j5kQzytxg9PAIWEVG3JWM8zAD3CqPV9eQ
           - name: ELASTICSEARCH
             value: "true"
           - name: OPENSEARCH
