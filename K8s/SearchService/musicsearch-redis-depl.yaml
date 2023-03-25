@@ -14,6 +14,8 @@ spec:
     spec:
       containers:
       - name: musicsearch-redis
-        image: redis:lastest
+        image: redis:latest
+        command: ["redis-server"]
+        args: ["--requirepass", "EwJRwkLvJQ76eow5N4kofRj61vziS9j5kQzytxg9PAIWEVG3JWM8zAD3CqPV9eQ"]
         ports:
         - containerPort: 6379

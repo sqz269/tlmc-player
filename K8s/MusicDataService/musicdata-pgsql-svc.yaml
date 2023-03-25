@@ -13,17 +13,3 @@ spec:
     port: 5432
     targetPort: 5432
     appProtocol: TCP
-
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: pgsql-musicdata-loadbalancer
-# spec:
-#   type: LoadBalancer
-#   selector:
-#     app: musicdata-pgsql-depl
-#   ports:
-#     - name: musicdata-pgsql-db-port
-#       protocol: TCP
-#       port: 15432
-#       targetPort: 5432

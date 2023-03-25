@@ -20,7 +20,7 @@ spec:
           - name: FFMpegBinary
             value: /usr/bin
           - name: ConnectionStrings__PostgreSql
-            value: Host=musicdata-pgsql-clusterip;Port=5432;Username=postgres;Password=postgrespw
+            value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
           - name: ThumbnailRoot
             value: /thumbdata/
         volumeMounts:
