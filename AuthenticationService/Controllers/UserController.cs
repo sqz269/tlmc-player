@@ -107,14 +107,21 @@ public class UserController : Controller
 
         userCredentials.Password = BCrypt.Net.BCrypt.HashPassword(userCredentials.Password);
         var user = _mapper.Map<User>(userCredentials);
+        var role = _roleRepo.GetRole(KnownRoles.User);
 
-        var defaultRole = new Role { RoleName = KnownRoles.User };
-
-        if (!_roleRepo.DoesRoleExist(defaultRole))
+        if (role == null)
         {
-            _roleRepo.AddRole(defaultRole);
-            _roleRepo.SaveChanges();
+            return Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "Registration Failed",
+                detail: "Role does not exist");
         }
+
+        //if (!_roleRepo.DoesRoleExist(defaultRole))
+        //{
+        //    _roleRepo.AddRole(defaultRole);
+        //    _roleRepo.SaveChanges();
+        //}
 
         _userRepo.CreateUser(user);
         _userRepo.SaveChanges();
@@ -129,7 +136,7 @@ public class UserController : Controller
                 detail: "Internal Server Error: User Insert Failed");
         }
 
-        dbUser.Roles.Add(defaultRole);
+        dbUser.Roles.Add(role);
         _userRepo.SaveChanges();
 
         return Ok(new RegisterResult()
