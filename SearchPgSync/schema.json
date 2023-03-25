@@ -1,0 +1,109 @@
+[
+  {
+    "database": "postgres",
+    "index": "albums",
+
+    "nodes": {
+      "table": "Albums",
+      "columns": [
+        "Id",
+        "AlbumName",
+        "ReleaseDate",
+        "ReleaseConvention",
+        "CatalogNumber",
+        "NumberOfDiscs",
+        "Website",
+        "DataSource"
+      ],
+
+      "transform": {
+        "ReleaseDate": "date",
+        "ReleaseConvention": "date",
+        "NumberOfDiscs": "int"
+      },
+
+      "children": [
+        {
+          "table": "Circles",
+          "columns": [
+            "Id",
+            "Alias",
+            "Name",
+            "Established",
+            "Status",
+            "Country"
+          ],
+          "relationship": {
+            "variant": "object",
+            "type": "one_to_many",
+            "through_tables": ["AlbumCircle"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "database": "postgres",
+    "index": "tracks",
+    "nodes": {
+      "table": "Tracks",
+      "columns": [
+        "Id",
+        "Index",
+        "Name",
+        "Duration",
+        "Staff",
+        "Genre",
+        "Lyricist",
+        "Vocalist",
+        "Arrangement"
+      ],
+      "transform": {
+        "Duration": "time",
+        "Index": "int"
+      },
+
+      "children": [
+        {
+          "table": "OriginalTracks",
+          "columns": ["Id", "Title"],
+          "relationship": {
+            "variant": "object",
+            "type": "one_to_many",
+            "through_tables": ["OriginalTrackTrack"]
+          },
+          "transform": {
+            "mapping": {
+              "Id": {
+                "type": "text"
+              }
+            }
+          },
+          "children": [
+            {
+              "table": "OriginalAlbums",
+              "columns": [
+                "Id",
+                "Type",
+                "FullName",
+                "ShortName",
+                "ExternalReference"
+              ],
+              "transform": {
+                "mapping": {
+                  "Id": {
+                    "type": "text"
+                  }
+                }
+              },
+              "relationship": {
+                "type": "one_to_one",
+                "variant": "object"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]
