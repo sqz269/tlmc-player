@@ -16,7 +16,8 @@ public class SearchController : Controller
         _elasticSearch = elasticSearch;
     }
 
-    [HttpGet("albums")]
+    [HttpGet("albums", Name = nameof(SearchAlbums))]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public async Task<ActionResult<object>> SearchAlbums(string query, int start = 0, [Range(10, 50)] int limit=20)
     {
         var result = await _elasticSearch.SearchAsync<object>(s => s
@@ -40,7 +41,8 @@ public class SearchController : Controller
         return Ok(resp);
     }
 
-    [HttpGet("tracks")]
+    [HttpGet("tracks", Name = nameof(SearchTracks))]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public async Task<object> SearchTracks(string query, int start = 0, [Range(10, 50)] int limit=20)
     {
         var result = await _elasticSearch.SearchAsync<object>(s => s
