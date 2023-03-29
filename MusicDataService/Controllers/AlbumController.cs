@@ -84,6 +84,19 @@ public class AlbumController : Controller
         return albumReadDtos;
     }
 
+    [HttpPost("album", Name = nameof(GetAlbumsByIds))]
+    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
+    public async Task<IEnumerable<AlbumReadDto>> GetAlbumsByIds([FromBody] IEnumerable<Guid> albumIds)
+    {
+        var idLists = albumIds.ToList();
+
+        var (found, notFound) = await _albumRepo.GetAlbums(idLists);
+
+        var albumReadDtos = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(found);
+
+        return albumReadDtos;
+    }
+
     [HttpGet("album/{id:Guid}", Name = nameof(GetAlbum))]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(AlbumReadDto), StatusCodes.Status200OK)]
@@ -104,7 +117,7 @@ public class AlbumController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPost("album", Name = nameof(AddAlbum))]
+    [HttpPost("album/create", Name = nameof(AddAlbum))]
     [ProducesResponseType(typeof(ActionResult<AlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<AlbumReadDto>> AddAlbum([FromBody] AlbumWriteDto album)
     {
@@ -119,7 +132,7 @@ public class AlbumController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPost("album/{albumId:Guid}/track", Name = nameof(AddTrack))]
+    [HttpPost("album/{albumId:Guid}/track/create", Name = nameof(AddTrack))]
     [ProducesResponseType(typeof(ActionResult<TrackReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<TrackReadDto>> AddTrack(Guid albumId, [FromBody] TrackWriteDto track)
     {
@@ -142,15 +155,6 @@ public class AlbumController : Controller
         return CreatedAtRoute(nameof(GetTrack), new { id = addedTrack.Id },
             _mapper.Map<Track, TrackReadDto>(addedTrack));
     }
-
-    //[HttpGet("track/filter", Name = nameof(GetTrackFiltered))]
-    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
-    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
-    //{
-    //    return Ok(
-    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
-    //        );
-    //}
 
     [HttpGet("track/{id:Guid}", Name = nameof(GetTrack))]
     [ProducesResponseType(typeof(TrackReadDto), StatusCodes.Status200OK)]

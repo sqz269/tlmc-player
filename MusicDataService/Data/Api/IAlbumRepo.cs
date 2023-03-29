@@ -13,6 +13,8 @@ public interface IAlbumRepo
 
     public Task<Album?> GetAlbum(Guid id);
 
+    public Task<Tuple<IEnumerable<Album>, IEnumerable<Guid>>> GetAlbums(IList<Guid> albumIds);
+
     public Task UpdateAlbumData(Guid id, Album album);
 
     public Task<Guid> AddAlbum(Album album);
