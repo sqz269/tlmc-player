@@ -116,6 +116,29 @@ public class AlbumRepo : IAlbumRepo
         return album;
     }
 
+    public async Task<Tuple<IEnumerable<Album>, IEnumerable<Guid>>> GetAlbums(IList<Guid> albumIds)
+    {
+        var albums = await _context.Albums.Where(a => albumIds.Contains(a.Id))
+            .OrderBy(a => a.Id)
+            .Include(a => a.Tracks)!
+            .ThenInclude(t => t.Original)
+            .Include(a => a.Tracks)
+            .ThenInclude(t => t.TrackFile)
+            .Include(a => a.Thumbnail)
+            .Include(a => a.OtherFiles)
+            .Include(a => a.AlbumArtist)
+            .ToListAsync();
+
+        if (albums.Count == albumIds.Count)
+        {
+            return new Tuple<IEnumerable<Album>, IEnumerable<Guid>>(albums, Array.Empty<Guid>());
+        }
+
+        var notFound = albumIds.Except(albums.Select(a => a.Id));
+
+        return new Tuple<IEnumerable<Album>, IEnumerable<Guid>>(albums, notFound);
+    }
+
     public Task UpdateAlbumData(Guid id, Album album)
     {
         throw new NotImplementedException();
