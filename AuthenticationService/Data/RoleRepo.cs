@@ -32,4 +32,9 @@ public class RoleRepo : IRoleRepo
     {
         return _context.Roles.Any(r => r.RoleName == role.RoleName);
     }
+
+    public Role? GetRole(string roleName)
+    {
+        return _context.Roles.Where(r => r.RoleName == roleName).FirstOrDefault();
+    }
 }

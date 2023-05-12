@@ -55,7 +55,6 @@ public class AuthController : Controller
     [Route("token", Name = nameof(GetNewToken))]
     [ProducesResponseType(typeof(JwtRenewResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [RoleRequired(KnownRoles.User)]
     public async Task<ActionResult<JwtRenewResult>> GetNewToken([FromBody] Guid tokenId)
     {
         var user = _userRepo.GetUserFromToken(tokenId);
