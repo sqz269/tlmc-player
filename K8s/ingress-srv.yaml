@@ -82,6 +82,15 @@ spec:
             port: 
               number: 80
 
+      # Radio service
+      - pathType: Prefix
+        path: "/api/radio"
+        backend:
+          service:
+            name: radio-api-clusterip
+            port: 
+              number: 80
+
       # API Explorer
       - pathType: Prefix
         path: "/swagger/auth"
@@ -109,5 +118,12 @@ spec:
         backend:
           service:
             name: search-api-clusterip
+            port: 
+              number: 80
+      - pathType: Prefix
+        path: "/swagger/radio-api"
+        backend:
+          service:
+            name: radio-api-clusterip
             port: 
               number: 80

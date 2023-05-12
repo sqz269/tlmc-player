@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: radio-api-clusterip
+  namespace: tlmc-player
+spec:
+  selector:
+    app: radio-api
+  ports:
+  - name: http-radio-api
+    port: 80
+    targetPort: 80
+    protocol: TCP
+    appProtocol: HTTP
