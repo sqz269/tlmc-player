@@ -13,6 +13,23 @@ public class PlaylistItemRepo : IPlaylistItemRepo
         _context = context;
     }
 
+    public async Task<int> IncPlaylistItem(Guid playlist, Guid trackId)
+    {
+        int newVal = await _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlist && pi.TrackId == trackId)
+            .ExecuteUpdateAsync(pi => pi.SetProperty(
+                p => p.TimesPlayed, f => f.TimesPlayed + 1));
+
+        return newVal;
+    }
+
+    public async Task<bool> DoesPlaylistItemExist(Guid playlist, Guid trackId)
+    {
+        return await _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlist && pi.TrackId == trackId)
+            .AnyAsync();
+    }
+
     public async Task<PlaylistItem> InsertPlaylistItem(Guid playlistId, Guid trackId)
     {
         var playlist = _context.Playlists

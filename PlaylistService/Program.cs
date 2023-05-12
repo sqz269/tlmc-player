@@ -97,7 +97,7 @@ app.UseSwagger(opt =>
 app.UseSwaggerUI(opt =>
 {
     opt.RoutePrefix = "swagger/playlist";
-    opt.SwaggerEndpoint("/swagger/playlist/v1/swagger.json", "Auth API");
+    opt.SwaggerEndpoint("/swagger/playlist/v1/swagger.json", "Playlist API");
 });
 
 // app.UseHttpsRedirection();
