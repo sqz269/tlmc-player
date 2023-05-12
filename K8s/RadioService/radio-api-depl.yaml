@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radio-api
+  namespace: tlmc-player
+spec:
+  selector:
+    matchLabels:
+      app: radio-api
+  template:
+    metadata:
+      labels:
+        app: radio-api
+    spec:
+      containers:
+      - name: radio-api
+        image: sqzd269/radio-api:latest
+        env:
+          - name: ClientApiBaseUrl__MusicDataService
+            value: http://api-music.marisad.me/
