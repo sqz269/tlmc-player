@@ -82,6 +82,16 @@ public class TrackRepo : ITrackRepo
         return addedTrack.Entity.Id;
     }
 
+    public async Task<IEnumerable<Track>> SampleRandomTrack()
+    {
+        return await _context.Tracks.FromSqlRaw(@"
+                SELECT *
+                FROM ""Tracks""
+                TABLESAMPLE bernoulli(0.1)
+                ORDER BY random()
+                LIMIT 100").ToListAsync();
+    }
+
     public async Task<bool> UpdateTrack(Guid trackId, Track track)
     {
         throw new NotImplementedException();

@@ -1,7 +1,9 @@
 ﻿using System.Collections;
+using System.ComponentModel.DataAnnotations;
 using AuthServiceClientApi;
 using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
+using Grpc.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
@@ -156,6 +158,46 @@ public class AlbumController : Controller
             _mapper.Map<Track, TrackReadDto>(addedTrack));
     }
 
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
+
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
+
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
+
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
+
+    //[ProducesResponseType(typeof(IEnumerable<TrackReadDto>), StatusCodes.Status200OK)]
+    //public async Task<ActionResult<IEnumerable<TrackReadDto>>> GetTrackFiltered([FromQuery] TrackFilter filter, [FromQuery] int start, [FromQuery] int limit)
+    //{
+    //    return Ok(
+    //        _mapper.Map<IEnumerable<TrackReadDto>>(_albumRepo.GetTracksFiltered(filter, start, limit))
+    //        );
+    //}
+
     [HttpGet("track/{id:Guid}", Name = nameof(GetTrack))]
     [ProducesResponseType(typeof(TrackReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
@@ -179,5 +221,12 @@ public class AlbumController : Controller
             NotFound = result.Item2,
             Tracks = _mapper.Map<IEnumerable<Track>, IEnumerable<TrackReadDto>>(result.Item1)
         });
+    }
+
+    [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
+    [ProducesResponseType(typeof(List<TrackReadDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TrackReadDto>> GetRandomSampleTrack([FromQuery] [Range(1, 100)] int limit = 20)
+    {
+        return Ok(_mapper.Map<List<TrackReadDto>>((await _trackRepo.SampleRandomTrack()).Take(limit)));
     }
 }
