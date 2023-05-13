@@ -3,6 +3,9 @@ using RadioService.SyncDataService;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration
+    .AddEnvironmentVariables();
+
 // Add services to the container.
 builder.Services.AddHttpClient();
 
@@ -40,7 +43,7 @@ app.UseSwagger(opt =>
 app.UseSwaggerUI(opt =>
 {
     opt.RoutePrefix = "swagger/radio";
-    opt.SwaggerEndpoint("/swagger/radio-api/v1/swagger.json", "Radio API");
+    opt.SwaggerEndpoint("/swagger/radio/v1/swagger.json", "Radio API");
 });
 //}
 
