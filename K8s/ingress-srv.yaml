@@ -121,7 +121,7 @@ spec:
             port: 
               number: 80
       - pathType: Prefix
-        path: "/swagger/radio-api"
+        path: "/swagger/radio"
         backend:
           service:
             name: radio-api-clusterip

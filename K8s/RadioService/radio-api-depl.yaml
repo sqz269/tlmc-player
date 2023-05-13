@@ -17,4 +17,4 @@ spec:
         image: sqzd269/radio-api:latest
         env:
           - name: ClientApiBaseUrl__MusicDataService
-            value: http://api-music.marisad.me/
+            value: http://musicdata-api-clusterip.tlmc-player.svc.cluster.local
