@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MusicDataService.Data;
 using MusicDataService.Models;
@@ -13,9 +14,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MusicDataService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230604175508_AddedDiscs")]
+    partial class AddedDiscs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -115,8 +117,8 @@ namespace MusicDataService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<long>("Size")
-                        .HasColumnType("bigint");
+                    b.Property<bool>("Large")
+                        .HasColumnType("boolean");
 
                     b.HasKey("AssetId");
 

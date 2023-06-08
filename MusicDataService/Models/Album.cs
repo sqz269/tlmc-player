@@ -22,6 +22,15 @@ public class Album
     [Required]
     public int? NumberOfDiscs { get; set; }
 
+    /// <summary>
+    /// Denotes a Disc number in a specific album
+    /// NOTE: Disc0 is reserved as a 
+    /// </summary>
+    [Required]
+    public int? DiscNumber { get; set; }
+
+    public string? DiscName { get; set; }
+
     public List<string>? Website { get; set; } = new();
 
     [Required]
@@ -31,7 +40,9 @@ public class Album
 
     public List<Track>? Tracks { get; set; } = new();
 
-    public List<Album>? LinkedAlbums { get; set; } = new();
+    public Album? ParentAlbum { get; set; }
+
+    public List<Album>? ChildAlbums { get; set; } = new();
 
     public Asset? AlbumImage { get; set; }
 
