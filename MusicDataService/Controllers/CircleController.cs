@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.ComponentModel.DataAnnotations;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
@@ -23,7 +24,7 @@ public class CircleController : Controller
     // TODO: Return 400 when limit exceeds certain number
     [ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(IEnumerable<CircleReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CircleReadDto>>> GetCircles([FromQuery] int start = 0, [FromQuery] int limit = 20)
+    public async Task<ActionResult<IEnumerable<CircleReadDto>>> GetCircles([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
         return Ok(_mapper.Map<IEnumerable<CircleReadDto>>(await _circleRepo.GetCircles(start, limit)));
     }
@@ -43,6 +44,7 @@ public class CircleController : Controller
     }
 
     [HttpGet("{name}", Name = nameof(GetCircleByName))]
+    [ProducesResponseType(typeof(CircleReadDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CircleReadDto>> GetCircleByName(string name)
     {
         var circle = await _circleRepo.GetCircleByName(name);
@@ -55,7 +57,8 @@ public class CircleController : Controller
     }
 
     [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, int start = 0, int limit = 20)
+    [ProducesResponseType(typeof(IEnumerable<CircleReadDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
             await _circleRepo.GetCircleAlbums(name, start, limit)
@@ -63,7 +66,8 @@ public class CircleController : Controller
     }
 
     [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, int start = 0, int limit = 20)
+    [ProducesResponseType(typeof(CircleReadDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
             await _circleRepo.GetCircleAlbums(id, start, limit)
