@@ -10,8 +10,6 @@ public class AlbumReadDto
 {
     public Guid Id { get; set; }
 
-    // public List<Guid?>? LinkedAlbums { get; set; }
-
     public LocalizedField AlbumName { get; set; }
 
     public DateTime? ReleaseDate { get; set; }
@@ -22,6 +20,8 @@ public class AlbumReadDto
 
     public int? NumberOfDiscs { get; set; }
 
+    public int? DiscNumber { get; set; }
+
     public List<string>? Website { get; set; }
 
     public List<CircleReadDto>? AlbumArtist { get; set; }
@@ -29,6 +29,10 @@ public class AlbumReadDto
     public List<string>? DataSource { get; set; }
 
     public List<TrackReadDto>? Tracks { get; set; }
+
+    public List<AlbumReadDto>? ChildAlbums { get; set; }
+    
+    public AlbumReadDto? ParentAlbum { get; set; }
 
     public ThumbnailReadDto? Thumbnail { get; set; }
 

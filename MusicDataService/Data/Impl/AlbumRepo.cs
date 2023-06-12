@@ -111,7 +111,10 @@ public class AlbumRepo : IAlbumRepo
             .Include(a => a.Thumbnail)
             .Include(a => a.OtherFiles)
             .Include(a => a.AlbumArtist)
-            .FirstOrDefaultAsync();
+            .Include(a => a.ChildAlbums)
+            .Include(a => a.ParentAlbum)
+            .Include(a => a.AlbumImage)
+                .FirstOrDefaultAsync();
 
         return album;
     }

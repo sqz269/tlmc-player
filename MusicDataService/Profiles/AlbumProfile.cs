@@ -23,7 +23,12 @@ public class AlbumProfile : Profile
                 a => a.AlbumArtist,
                 o => o.Ignore());
 
-        CreateMap<Album, AlbumReadDto>();
+        CreateMap<Album, AlbumReadDto>()
+            .ForMember(dest => dest.ChildAlbums, 
+                opt => opt.MapFrom(src => src.ChildAlbums))
+            .ForMember(dest => dest.ParentAlbum, 
+                opt => opt.MapFrom(src => src.ParentAlbum))
+            .MaxDepth(2);
 
         CreateMap<JsonPatchDocument<AlbumUpdateDto>, JsonPatchDocument<Album>>();
         CreateMap<Operation<AlbumUpdateDto>, Operation<Album>>();
