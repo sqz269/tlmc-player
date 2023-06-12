@@ -103,6 +103,14 @@ public class AlbumRepo : IAlbumRepo
 
     public async Task<Album?> GetAlbum(Guid id)
     {
+        // If the query uses .Include(a => a.ChildAlbums) with self referencing type, it will cause SEVERE
+        // performance penalty (without 10ms vs. with 5,000 ms exec time). Because EF Core will include all the
+        // properties like Tracks, Thumbnails, etc. in the child types which would result in MASSIVE amount of joins
+        // in the query.
+        // What we need to do is to selectively include only the necessary properties for the self-referencing
+        // navigation property ChildAlbums, excluding the related entities and their properties.
+        // However, .Include doesn't allow us to selectively load/exclude navigation properties
+        // To achieve this, we need use explicit loading like .Collection and .Reference
         var album = await _context.Albums.Where(a => a.Id == id)
             .Include(a => a.Tracks)!
             .ThenInclude(t => t.Original)
@@ -111,10 +119,26 @@ public class AlbumRepo : IAlbumRepo
             .Include(a => a.Thumbnail)
             .Include(a => a.OtherFiles)
             .Include(a => a.AlbumArtist)
-            .Include(a => a.ChildAlbums)
-            .Include(a => a.ParentAlbum)
             .Include(a => a.AlbumImage)
                 .FirstOrDefaultAsync();
+
+        switch (album)
+        {
+            case null:
+                return null;
+
+            case { NumberOfDiscs: > 1, DiscNumber: 0 }:
+                await _context.Entry(album)
+                    .Collection(a => a.ChildAlbums)
+                    .LoadAsync();
+                break;
+
+            case { NumberOfDiscs: > 1, DiscNumber: not 0}:
+                await _context.Entry(album)
+                    .Reference(a => a.ParentAlbum)
+                    .LoadAsync();
+                break;
+        }
 
         return album;
     }
