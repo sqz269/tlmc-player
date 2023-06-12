@@ -57,7 +57,7 @@ public class CircleController : Controller
     }
 
     [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
-    [ProducesResponseType(typeof(IEnumerable<CircleReadDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
@@ -66,7 +66,7 @@ public class CircleController : Controller
     }
 
     [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
-    [ProducesResponseType(typeof(CircleReadDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AlbumReadDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
