@@ -90,7 +90,7 @@ app.UseSwaggerUI(opt =>
 });
 //}
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
 

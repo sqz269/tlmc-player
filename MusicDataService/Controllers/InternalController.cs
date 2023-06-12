@@ -7,6 +7,7 @@ using Microsoft.VisualBasic;
 using MusicDataService.Data;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
+using MusicDataService.Dtos.Asset;
 using MusicDataService.Dtos.Circle;
 using MusicDataService.Dtos.Track;
 using MusicDataService.Extensions;
@@ -48,13 +49,23 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPost("album/add/{albumId:Guid}")]
-    public async Task<IActionResult> AddAlbum(Guid albumId, [FromBody] AlbumWriteDto albumWrite)
+    [HttpPut("album/add/{albumId:Guid}")]
+    public async Task<IActionResult> AddAlbum(Guid albumId, [FromQuery] Guid? parentId, [FromBody] AlbumWriteDto albumWrite)
     {
         var a = await _dbContext.Albums.Where(a => a.Id == albumId).FirstOrDefaultAsync();
         if (a != null)
         {
-            return Ok(new {Id = a.Id});
+            return Conflict($"Album with {albumId} already exists");
+        }
+
+        if (parentId != null)
+        {
+            var parent = await _dbContext.Albums.Where(p => p.Id == parentId).FirstOrDefaultAsync();
+            if (parent == null)
+            {
+                return NotFound($"Parent album with id: {parentId} does not exist");
+            }
+            // need to save the current album entity before adding to the relation, so here we are just doing a sanity check
         }
 
         var album = _mapper.Map<AlbumWriteDto, Album>(albumWrite);
@@ -86,19 +97,27 @@ public class InternalController : Controller
 
         var addedAlbum = await _albumRepo.GetAlbum(addedGuid);
 
+        if (parentId != null)
+        {
+            var parent = await _albumRepo.GetAlbum(parentId.Value);
+            parent.ChildAlbums.Add(addedAlbum);
+        }
+
+        await _albumRepo.SaveChanges();
+
         return CreatedAtRoute(nameof(AlbumController.GetAlbum), 
             new { Id = addedGuid },
             addedAlbum);
     }
 
     [DevelopmentOnly]
-    [HttpPost("album/{albumId:Guid}/track/add/{trackId:guid}")]
+    [HttpPut("album/{albumId:Guid}/track/add/{trackId:guid}")]
     public async Task<IActionResult> AddTrack(Guid albumId, Guid trackId, [FromBody] TrackWriteDto trackWrite)
     {
         var t = await _trackRepo.GetTrack(trackId);
         if (t != null)
         {
-            return Ok(new { Id = t.Id });
+            return Conflict($"Track with {trackId} already exists");
         }
 
         var targetAlbum = await _albumRepo.GetAlbum(albumId);
@@ -132,13 +151,13 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPost("asset/add")]
+    [HttpPut("asset/add")]
     public async Task<IActionResult> AddAssetUnchecked([FromBody] Asset asset)
     {
         var a = await _assetRepo.GetAssetById(asset.AssetId);
         if (a != null)
         {
-            Ok(asset);
+            return Conflict($"Asset with id: {asset.AssetId} already exists");
         }
 
         var addedId = await _assetRepo.AddAsset(asset);
@@ -148,7 +167,7 @@ public class InternalController : Controller
         if (addedAsset == null)
             throw new InvalidOperationException("Failed to Verify Transaction. Unable to retrieve newly added entry");
 
-        return Ok(addedAsset);
+        return CreatedAtRoute(nameof(AssetController.GetAsset), new { Id = asset.AssetId }, new { Id = asset.AssetId });
     }
 
 
@@ -162,6 +181,8 @@ public class InternalController : Controller
 
         updatedAlbum.ApplyTo(album);
 
+        _dbContext.Albums.Update(album);
+
         await _albumRepo.SaveChanges();
 
         return Ok();
@@ -172,6 +193,13 @@ public class InternalController : Controller
     public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] TrackUpdateDto trackWrite)
     {
         var track = await _trackRepo.GetTrack(trackId);
+
+        //var updatedTrack = _mapper.Map<JsonPatchDocument<TrackUpdateDto>, JsonPatchDocument<Track>>(trackWrite);
+        //updatedTrack.ApplyTo(track);
+
+        //_dbContext.Tracks.Update(track);
+        //await _trackRepo.SaveChanges();
+        //return Ok();
 
         if (trackWrite.Original != null)
         {
@@ -203,8 +231,21 @@ public class InternalController : Controller
 
         Console.WriteLine($"Saved changes for: {track.Id} {saved}");
 
-        //var addedTrack = await _trackRepo.GetTrack(trackId);
+        var addedTrack = await _trackRepo.GetTrack(trackId);
 
+        return Ok();
+    }
+
+    [DevelopmentOnly]
+    [HttpPatch("track/jsonpatch/{trackId:guid}")]
+    public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] JsonPatchDocument<TrackUpdateDtoForJsonPatch> trackWrite)
+    {
+        var track = await _trackRepo.GetTrack(trackId);
+        var updatedTrack = _mapper.Map<JsonPatchDocument<TrackUpdateDtoForJsonPatch>, JsonPatchDocument<Track>>(trackWrite);
+        updatedTrack.ApplyTo(track);
+
+        _dbContext.Tracks.Update(track);
+        await _trackRepo.SaveChanges();
         return Ok();
     }
 
