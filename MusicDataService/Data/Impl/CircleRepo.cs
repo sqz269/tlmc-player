@@ -40,7 +40,8 @@ public class CircleRepo : ICircleRepo
             return new List<Album>();
         }
 
-        return await _context.Albums.Where(a => a.AlbumArtist.Contains(circle))
+        return await _context.Albums.Where(a => a.AlbumArtist.Contains(circle) &&
+                                                ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
             .Skip(start).Take(limit)
             .OrderBy(a => a.Id)
             .ToListAsync();
@@ -54,7 +55,8 @@ public class CircleRepo : ICircleRepo
             .ToListAsync();
 
         return await _context.Albums
-            .Where(a => a.AlbumArtist.Any(c => circles.Contains(c)))
+            .Where(a => a.AlbumArtist.Any(c => circles.Contains(c)) &&
+                        ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
             .Skip(start).Take(limit)
             .OrderBy(a => a.Id)
             .ToListAsync();

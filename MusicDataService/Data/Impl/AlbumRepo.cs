@@ -28,7 +28,9 @@ public class AlbumRepo : IAlbumRepo
 
     public async Task<IEnumerable<Album>> GetAlbums(int start, int limit)
     {
-        var albums = await _context.Albums.OrderBy(a => a.Id)
+        var albums = await _context.Albums
+            .Where(a => ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
+            .OrderBy(a => a.Id)
             .Skip(start).Take(limit)
             // TODO: Configure Auto-include
             .Include(a => a.Tracks)
