@@ -32,5 +32,7 @@ public class AssetProfile : Profile
         CreateMap<Asset, AssetReadDto>()
             .ForMember(a => a.Url, 
                 t => t.MapFrom<AssetUrlMapper, Guid>(asset => asset.AssetId));
+
+        CreateMap<AssetWriteDto, Asset>();
     }
 }

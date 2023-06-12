@@ -103,13 +103,15 @@ public static class UpdateDb
                     thumbPath,
                     size);
 
+                long fileSize = new FileInfo(thumbPath).Length;
+
                 var asset = new Asset
                 {
                     AssetId = Guid.NewGuid(),
                     AssetMime = "image/jpeg",
                     AssetName = name,
                     AssetPath = thumbPath,
-                    Large = false
+                    Size = fileSize
                 };
 
                 assetMap[name] = asset;
