@@ -22,6 +22,8 @@ public class AlbumReadDto
 
     public int? DiscNumber { get; set; }
 
+    public string? DiscName { get; set; }
+
     public List<string>? Website { get; set; }
 
     public List<CircleReadDto>? AlbumArtist { get; set; }
