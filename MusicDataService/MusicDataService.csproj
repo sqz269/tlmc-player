@@ -43,10 +43,6 @@
     <Folder Include="Utils\" />
     <Folder Include="Profiles\" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\AuthClientApi\AuthServiceClientApi.csproj" />
-  </ItemGroup>
 	
 	<ItemGroup>
 		<Protobuf Include="DataService\SyncDataService\Grpc\Proto\*.proto" OutputDir="" GrpcServices="Client" />

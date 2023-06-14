@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using AuthServiceClientApi;
+using PlaylistService.Controllers;
 
 namespace PlaylistService.Model;
 

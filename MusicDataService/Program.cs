@@ -1,6 +1,4 @@
 using System.Text.Json.Serialization;
-using AuthServiceClientApi;
-using AuthServiceClientApi.KeyProviders;
 using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -38,10 +36,6 @@ builder.Services.AddScoped<ICircleRepo, CircleRepo>();
 builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
-
-//builder.Services.AddSingleton<IAuthDataClient, GrpcAuthDataClient>();
-//builder.Services.AddSingleton<IJwtKeyProvider, JwtKeyFromHttpAuthDataService>();
-//builder.Services.AddSingleton<JwtManager>();
 
 builder.Services.AddCors(opt =>
 {

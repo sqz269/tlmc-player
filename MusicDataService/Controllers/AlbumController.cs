@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.ComponentModel.DataAnnotations;
-using AuthServiceClientApi;
 using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
 using Grpc.Core;

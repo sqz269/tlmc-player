@@ -1,6 +1,4 @@
-﻿using AuthServiceClientApi;
-using AuthServiceClientApi.Utils;
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using PlaylistService.Data.Api;
 using PlaylistService.Data.Impl;
@@ -52,7 +50,6 @@ public class PlaylistItemController : Controller
     }
 
     [HttpPost("", Name = nameof(AddPlaylistItemToPlaylist))]
-    [RoleRequired(KnownRoles.User)]
     [ProducesResponseType(typeof(PlaylistItemReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)] // Invalid Position
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)] // User doesn't have right to add
@@ -61,8 +58,7 @@ public class PlaylistItemController : Controller
     public async Task<ActionResult<PlaylistItemReadDto>> AddPlaylistItemToPlaylist([FromBody] PlaylistItemAddRequest request)
     {
         // TODO: Communicate with MusicDataService and verify if the track id is actually valid
-        var user = HttpContext.GetUserClaim();
-
+        UserClaim user = null;
         var playlist = await _playlistRepo.GetPlaylist(request.PlaylistId, true);
 
         if (playlist == null)
@@ -97,7 +93,6 @@ public class PlaylistItemController : Controller
     /// <param name="request"></param>
     /// <returns></returns>
     [HttpPost("inc", Name = nameof(IncrementPlayCount))]
-    [RoleRequired(KnownRoles.Admin)]
     public async Task<ActionResult> IncrementPlayCount([FromQuery] PlaylistItemKey request)
     {
         if (!await _playlistItemRepo.DoesPlaylistItemExist(request.PlaylistId, request.TrackId))
@@ -113,14 +108,12 @@ public class PlaylistItemController : Controller
     }
 
     [HttpDelete("", Name = nameof(DeletePlaylistItemFromPlaylist))]
-    [RoleRequired(KnownRoles.User)]
     [ProducesResponseType(typeof(void), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)] // User doesn't have right to remove
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)] // Playlist doesn't exist or track that we are removing doesn't exist in playlist
     public async Task<ActionResult> DeletePlaylistItemFromPlaylist([FromBody] PlaylistItemDeleteRequest request)
     {
-        var user = HttpContext.GetUserClaim();
-
+        UserClaim user = null;
         var playlist = await _playlistRepo.GetPlaylist(request.PlaylistId, true);
 
         if (playlist == null)

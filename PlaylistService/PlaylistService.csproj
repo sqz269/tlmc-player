@@ -31,8 +31,4 @@
     <Folder Include="SyncDataService\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\AuthClientApi\AuthServiceClientApi.csproj" />
-  </ItemGroup>
-
 </Project>

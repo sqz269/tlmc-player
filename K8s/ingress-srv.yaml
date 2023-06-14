@@ -45,20 +45,6 @@ spec:
             port: 
               number: 80
       - pathType: Prefix
-        path: "/api/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/user"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
         path: "/api/playlist"
         backend:
           service:
@@ -92,13 +78,6 @@ spec:
               number: 80
 
       # API Explorer
-      - pathType: Prefix
-        path: "/swagger/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
       - pathType: Prefix
         path: "/swagger/music-data"
         backend:

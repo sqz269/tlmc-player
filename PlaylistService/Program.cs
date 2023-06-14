@@ -1,5 +1,3 @@
-using AuthServiceClientApi;
-using AuthServiceClientApi.KeyProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
@@ -8,7 +6,6 @@ using PlaylistService.Data;
 using PlaylistService.Data.Api;
 using PlaylistService.Data.Impl;
 using PlaylistService.Model;
-using PlaylistService.SyncDataService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,9 +17,6 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
 builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();
-
-builder.Services.AddSingleton<IJwtKeyProvider, HttpJwtKeyProvider>();
-builder.Services.AddSingleton<JwtManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
