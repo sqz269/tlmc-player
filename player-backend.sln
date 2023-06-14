@@ -3,10 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32526.322
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuthenticationService", "AuthenticationService\AuthenticationService.csproj", "{AFEBEFCA-F3EA-49F5-9CDD-DD70BBFED2A5}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuthServiceClientApi", "AuthClientApi\AuthServiceClientApi.csproj", "{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlaylistService", "PlaylistService\PlaylistService.csproj", "{1699B46D-A1CC-4914-B3C0-16BB6C487020}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MusicDataService", "MusicDataService\MusicDataService.csproj", "{6BB802C3-5AD1-47B1-BE58-B450D9EC6181}"
@@ -15,7 +11,7 @@ Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-co
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SearchService", "SearchService\SearchService.csproj", "{E47B63A6-80EC-4AB4-8FE1-F05681C4877F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RadioService", "RadioService\RadioService.csproj", "{8622F06E-2A1E-4A91-AC58-D15B33DD6721}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RadioService", "RadioService\RadioService.csproj", "{8622F06E-2A1E-4A91-AC58-D15B33DD6721}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,14 +19,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AFEBEFCA-F3EA-49F5-9CDD-DD70BBFED2A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AFEBEFCA-F3EA-49F5-9CDD-DD70BBFED2A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AFEBEFCA-F3EA-49F5-9CDD-DD70BBFED2A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AFEBEFCA-F3EA-49F5-9CDD-DD70BBFED2A5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7EBF42D7-0AB2-4E3B-A38A-B541E8FE41CF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1699B46D-A1CC-4914-B3C0-16BB6C487020}.Release|Any CPU.ActiveCfg = Release|Any CPU
