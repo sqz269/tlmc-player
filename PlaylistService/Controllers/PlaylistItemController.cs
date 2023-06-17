@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using KeycloakAuthProvider.Identity;
 using Microsoft.AspNetCore.Mvc;
 using PlaylistService.Data.Api;
 using PlaylistService.Data.Impl;

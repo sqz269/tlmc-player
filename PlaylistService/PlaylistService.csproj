@@ -31,4 +31,8 @@
     <Folder Include="SyncDataService\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\KeycloakAuthProvider\KeycloakAuthProvider.csproj" />
+  </ItemGroup>
+
 </Project>

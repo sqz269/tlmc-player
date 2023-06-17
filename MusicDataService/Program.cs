@@ -1,14 +1,13 @@
-using System.Text.Json.Serialization;
 using FFMpegCore;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 using MusicDataService.Data;
 using MusicDataService.Data.Api;
 using MusicDataService.Data.Impl;
-using MusicDataService.DataService;
-using MusicDataService.DataService.SyncDataService.Grpc;
-using MusicDataService.Utils;
 using Newtonsoft.Json;
+using KeycloakAuthProvider.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +18,12 @@ builder.Configuration.
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
 
+builder.Services.ConfigureJwt(
+        builder.Environment.IsDevelopment(),
+        builder.Configuration.GetSection("Keycloak")["RsaPublicKey"],
+        builder.Configuration.GetSection("Keycloak")["RealmUrl"]
+    );
+
 if (!Directory.Exists(builder.Configuration["FFMpegBinary"]))
 {
     throw new DirectoryNotFoundException(
@@ -28,6 +33,12 @@ if (!Directory.Exists(builder.Configuration["FFMpegBinary"]))
 GlobalFFOptions.Configure(opt =>
 {
     opt.BinaryFolder = builder.Configuration["FFMpegBinary"];
+});
+
+builder.Services.AddTransient<IClaimsTransformation>(provider =>
+{
+    var config = provider.GetService<IConfiguration>();
+    return new ClaimTransformer(config.GetSection("Keycloak")["Realm"]);
 });
 
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
@@ -62,7 +73,8 @@ builder.Services.AddControllers()
     });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen()
+builder.Services.AddSwaggerGen(c => 
+        c.ConfigureOidcSecurityDefinition())
     .AddSwaggerGenNewtonsoftSupport();
 
 var app = builder.Build();

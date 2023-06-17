@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using KeycloakAuthProvider.Identity;
 using PlaylistService.Controllers;
 
 namespace PlaylistService.Model;
