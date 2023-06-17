@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
 using KeycloakAuthProvider.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PlaylistService.Data.Api;
 using PlaylistService.Data.Impl;
@@ -35,6 +37,7 @@ public struct PlaylistItemGetRequest
 
 [ApiController]
 [Route("api/playlistItem")]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class PlaylistItemController : Controller
 {
     private readonly IPlaylistRepo _playlistRepo;
