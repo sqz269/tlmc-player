@@ -13,6 +13,17 @@ metadata:
 
 spec:
   rules:
+  - host: sso.nms.testing.internal.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: keycloak
+            port: 
+              number: 80
+
   - host: nms.testing.internal.com
     http:
       paths:

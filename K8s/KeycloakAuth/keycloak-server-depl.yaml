@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: tlmc-player
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:21.0.2
+        args: ["start-dev"]
+        env:
+        - name: KEYCLOAK_ADMIN
+          valueFrom:
+            secretKeyRef:
+              key: KEYCLOAK_ADMIN
+              name: keycloak-secrets
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: KEYCLOAK_ADMIN_PASSWORD
+              name: keycloak-secrets
+        - name: KC_PROXY
+          value: "edge"
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_HOSTNAME_STRICT_HTTPS
+          value: "false"
+        - name: KC_LOG_LEVEL
+          value: INFO
+        - name: DB_VENDOR
+          value: POSTGRES
+        - name: DB_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-postgres-credentials
+              key: POSTGRES_HOST
+        - name: DB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-postgres-credentials
+              key: POSTGRES_DB
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-postgres-credentials
+              key: POSTGRES_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-postgres-credentials
+              key: POSTGRES_PASSWORD
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_HTTP_PORT
+          value: "80"
+        ports:
+        - name: http
+          containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 80
+          initialDelaySeconds: 250
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 80
+          initialDelaySeconds: 500
+          periodSeconds: 30

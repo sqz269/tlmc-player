@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-pgsql-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak-pgsql-depl
+  ports:
+  - name: tcp-keycloak-pgsql-db-port
+    protocol: TCP
+    port: 5432
+    targetPort: 5432
+    appProtocol: TCP
