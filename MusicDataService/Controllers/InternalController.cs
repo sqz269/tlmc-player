@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,7 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
-//[ApiExplorerSettings(IgnoreApi = true)]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;

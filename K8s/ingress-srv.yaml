@@ -13,6 +13,17 @@ metadata:
 
 spec:
   rules:
+  - host: sso.nms.testing.internal.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: keycloak
+            port: 
+              number: 80
+
   - host: nms.testing.internal.com
     http:
       paths:
@@ -42,20 +53,6 @@ spec:
         backend:
           service:
             name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/user"
-        backend:
-          service:
-            name: auth-api-clusterip
             port: 
               number: 80
       - pathType: Prefix
@@ -92,13 +89,6 @@ spec:
               number: 80
 
       # API Explorer
-      - pathType: Prefix
-        path: "/swagger/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
       - pathType: Prefix
         path: "/swagger/music-data"
         backend:
