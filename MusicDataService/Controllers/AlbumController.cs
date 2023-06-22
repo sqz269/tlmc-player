@@ -43,7 +43,6 @@ public class TrackGetMultipleResp
 
 [ApiController]
 [Route("api/music")]
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class AlbumController : Controller
 {
     private readonly IAlbumRepo _albumRepo;
