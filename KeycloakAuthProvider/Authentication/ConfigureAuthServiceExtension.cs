@@ -49,14 +49,36 @@ public static class ConfigureAuthServiceExt
                 },
                 OnAuthenticationFailed = c =>
                 {
-                    c.NoResult();
-                    c.Response.StatusCode = 500;
-                    c.Response.ContentType = "text/plain";
-                    if (isDevelopment)
+                    if (c.Exception.GetType() == typeof(SecurityTokenExpiredException))
                     {
-                        return c.Response.WriteAsync(c.Exception.ToString());
+                        c.NoResult();
+                        c.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        c.Response.ContentType = "text/plain";
+                        c.Response.WriteAsync("The token is expired").Wait();
+                        c.Response.CompleteAsync().Wait();
+
+                        return Task.CompletedTask;
                     }
-                    return c.Response.WriteAsync("An error occurred processing your authentication.");
+                    else if (isDevelopment == false)
+                    {
+                        c.NoResult();
+                        c.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                        c.Response.ContentType = "text/plain";
+                        c.Response.WriteAsync("An error occurred processing your authentication.").Wait();
+                        c.Response.CompleteAsync().Wait();
+
+                        return Task.CompletedTask;
+                    }
+                    else
+                    {
+                        c.NoResult();
+                        c.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                        c.Response.ContentType = "text/plain";
+                        c.Response.WriteAsync(c.Exception.ToString()).Wait();
+                        c.Response.CompleteAsync().Wait();
+
+                        return Task.CompletedTask;
+                    }
                 }
             };
             #endregion
