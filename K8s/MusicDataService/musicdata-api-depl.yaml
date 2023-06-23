@@ -14,20 +14,26 @@ spec:
         app: musicdata-api
     spec:
       containers:
-      - name: musicdata-api
-        image: sqzd269/musicdata-api:latest
-        env:
-          - name: FFMpegBinary
-            value: /usr/bin
-          - name: ConnectionStrings__PostgreSql
-            value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
-          - name: ThumbnailRoot
-            value: /thumbdata/
-        volumeMounts:
-          - mountPath: /external_data/torrent/TLMC v2/
-            name: musicdata
-          - mountPath: /thumbdata/
-            name: thumbdata
+        - name: musicdata-api
+          image: sqzd269/musicdata-api:latest
+          env:
+            - name: FFMpegBinary
+              value: /usr/bin
+            - name: ConnectionStrings__PostgreSql
+              value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
+            - name: ThumbnailRoot
+              value: /thumbdata/
+            - name: Keycloak__Realm
+              value: ""
+            - name: Keycloak__RealmUrl
+              value: ""
+            - name: Keycloak__RsaPublicKey
+              value: ""
+          volumeMounts:
+            - mountPath: /external_data/torrent/TLMC v2/
+              name: musicdata
+            - mountPath: /thumbdata/
+              name: thumbdata
       volumes:
         - name: musicdata
           hostPath:

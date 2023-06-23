@@ -20,7 +20,7 @@ namespace MusicDataService.Controllers;
 // Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
 [ApiController]
 [Route("api/internal")]
-[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme, Roles = "admin")]
 public class InternalController : Controller
 {
     private readonly IAlbumRepo _albumRepo;

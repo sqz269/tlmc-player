@@ -38,7 +38,7 @@ public class PlaylistController : Controller
     /// </summary>
     /// <param name="playlistId">The playlist to get</param>
     /// <returns></returns>
-    [HttpGet]
+    [HttpGet("", Name = nameof(GetPlaylist))]
     [ProducesResponseType(typeof(PlaylistReadDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<PlaylistReadDto>> GetPlaylist(Guid playlistId)
     {
