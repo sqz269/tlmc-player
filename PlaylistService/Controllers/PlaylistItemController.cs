@@ -62,7 +62,7 @@ public class PlaylistItemController : Controller
     public async Task<ActionResult<PlaylistItemReadDto>> AddPlaylistItemToPlaylist([FromBody] PlaylistItemAddRequest request)
     {
         // TODO: Communicate with MusicDataService and verify if the track id is actually valid
-        UserClaim user = null;
+        UserClaim user = HttpContext.User.ToUserClaim();
         var playlist = await _playlistRepo.GetPlaylist(request.PlaylistId, true);
 
         if (playlist == null)
@@ -117,7 +117,7 @@ public class PlaylistItemController : Controller
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)] // Playlist doesn't exist or track that we are removing doesn't exist in playlist
     public async Task<ActionResult> DeletePlaylistItemFromPlaylist([FromBody] PlaylistItemDeleteRequest request)
     {
-        UserClaim user = null;
+        UserClaim user = HttpContext.User.ToUserClaim();
         var playlist = await _playlistRepo.GetPlaylist(request.PlaylistId, true);
 
         if (playlist == null)

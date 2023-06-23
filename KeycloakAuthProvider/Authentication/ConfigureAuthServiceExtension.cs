@@ -59,26 +59,27 @@ public static class ConfigureAuthServiceExt
 
                         return Task.CompletedTask;
                     }
-                    else if (isDevelopment == false)
+
+                    if (isDevelopment == false)
                     {
                         c.NoResult();
                         c.Response.StatusCode = StatusCodes.Status500InternalServerError;
                         c.Response.ContentType = "text/plain";
                         c.Response.WriteAsync("An error occurred processing your authentication.").Wait();
+                        Console.Write("AUTHENTICATION FAILED");
+                        Console.WriteLine(c.Exception.ToString());
                         c.Response.CompleteAsync().Wait();
 
                         return Task.CompletedTask;
                     }
-                    else
-                    {
-                        c.NoResult();
-                        c.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                        c.Response.ContentType = "text/plain";
-                        c.Response.WriteAsync(c.Exception.ToString()).Wait();
-                        c.Response.CompleteAsync().Wait();
 
-                        return Task.CompletedTask;
-                    }
+                    c.NoResult();
+                    c.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    c.Response.ContentType = "text/plain";
+                    c.Response.WriteAsync(c.Exception.ToString()).Wait();
+                    c.Response.CompleteAsync().Wait();
+
+                    return Task.CompletedTask;
                 }
             };
             #endregion
