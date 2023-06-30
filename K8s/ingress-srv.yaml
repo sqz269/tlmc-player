@@ -5,125 +5,121 @@ metadata:
   namespace: tlmc-player
   annotations:
     # Uncomment if deploying on Microk8s and comment line 8
-    # kubernetes.io/ingress.class: public
-    kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/use-regex: 'true'
+    kubernetes.io/ingress.class: public
+    # kubernetes.io/ingress.class: nginx
+    # nginx.ingress.kubernetes.io/use-regex: "true"
+    # nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   proxy_set_header Forwarded $http_forwarded;
+    #   proxy_set_header X-Forwarded-For $host;
+    #   proxy_set_header X-Forwarded-Proto https
+    #   proxy_set_header X-Forwarded-Port 443;
   labels:
     name: ingress-srv
 
 spec:
   rules:
-  - host: nms.testing.internal.com
-    http:
-      paths:
-      - pathType: Prefix
-        path: "/api/music"
-        backend:
-          service:
-            name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/entity/circle"
-        backend:
-          service:
-            name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/asset"
-        backend:
-          service:
-            name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/source"
-        backend:
-          service:
-            name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/user"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/playlist"
-        backend:
-          service:
-            name: playlist-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/api/playlistItem"
-        backend:
-          service:
-            name: playlist-api-clusterip
-            port: 
-              number: 80
+    - host: sso.marisad.me
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/"
+            backend:
+              service:
+                name: keycloak-server-clusterip
+                port:
+                  number: 8080
 
-      # Search Service
-      - pathType: Prefix
-        path: "/api/search"
-        backend:
-          service:
-            name: search-api-clusterip
-            port: 
-              number: 80
+    - host: api-music.marisad.me
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/api/music"
+            backend:
+              service:
+                name: musicdata-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/api/entity/circle"
+            backend:
+              service:
+                name: musicdata-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/api/asset"
+            backend:
+              service:
+                name: musicdata-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/api/source"
+            backend:
+              service:
+                name: musicdata-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/api/playlist"
+            backend:
+              service:
+                name: playlist-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/api/playlistItem"
+            backend:
+              service:
+                name: playlist-api-clusterip
+                port:
+                  number: 80
 
-      # Radio service
-      - pathType: Prefix
-        path: "/api/radio"
-        backend:
-          service:
-            name: radio-api-clusterip
-            port: 
-              number: 80
+          # Search Service
+          - pathType: Prefix
+            path: "/api/search"
+            backend:
+              service:
+                name: search-api-clusterip
+                port:
+                  number: 80
 
-      # API Explorer
-      - pathType: Prefix
-        path: "/swagger/auth"
-        backend:
-          service:
-            name: auth-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/swagger/music-data"
-        backend:
-          service:
-            name: musicdata-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/swagger/playlist"
-        backend:
-          service:
-            name: playlist-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/swagger/search-api"
-        backend:
-          service:
-            name: search-api-clusterip
-            port: 
-              number: 80
-      - pathType: Prefix
-        path: "/swagger/radio"
-        backend:
-          service:
-            name: radio-api-clusterip
-            port: 
-              number: 80
+          # Radio service
+          - pathType: Prefix
+            path: "/api/radio"
+            backend:
+              service:
+                name: radio-api-clusterip
+                port:
+                  number: 80
+
+          # API Explorer
+          - pathType: Prefix
+            path: "/swagger/music-data"
+            backend:
+              service:
+                name: musicdata-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/swagger/playlist"
+            backend:
+              service:
+                name: playlist-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/swagger/search-api"
+            backend:
+              service:
+                name: search-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/swagger/radio"
+            backend:
+              service:
+                name: radio-api-clusterip
+                port:
+                  number: 80
