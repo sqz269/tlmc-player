@@ -50,6 +50,7 @@ public class TrackRepo : ITrackRepo
             .Include(t => t.Album.Thumbnail.Medium)
             .Include(t => t.Album.Thumbnail.Large)
             .Include(t => t.Album.Thumbnail.Original)
+            .Include(t => t.TrackFile)
             .ToListAsync();
 
         if (entities.Count == tracks.Count)
