@@ -8,7 +8,7 @@ EXPOSE 443
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
 COPY ["MusicDataService/MusicDataService.csproj", "MusicDataService/"]
-COPY ["AuthClientApi/AuthServiceClientApi.csproj", "AuthClientApi/"]
+COPY ["KeycloakAuthProvider/KeycloakAuthProvider.csproj", "KeycloakAuthProvider/"]
 RUN dotnet restore "MusicDataService/MusicDataService.csproj"
 COPY . .
 WORKDIR "/src/MusicDataService"

@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: auth-pgsql-depl
+  name: keycloak-pgsql-depl
   namespace: tlmc-player
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: auth-pgsql-depl
+      app: keycloak-pgsql-depl
 
   template:
     metadata:
       labels:
-        app: auth-pgsql-depl
+        app: keycloak-pgsql-depl
 
     spec:
       containers:
-      - name: auth-pgsql-depl
+      - name: keycloak-pgsql-depl
         image: postgres:latest
         ports:
         - containerPort: 5432
@@ -31,4 +31,4 @@ spec:
       volumes:
         - name: postgredb
           persistentVolumeClaim:
-            claimName: auth-pgsql-pv-claim
+            claimName: keycloak-pgsql-pv-claim

@@ -1,9 +1,11 @@
 ﻿using System.Collections;
 using System.ComponentModel.DataAnnotations;
-using AuthServiceClientApi;
+using System.Security.Claims;
 using AutoMapper;
 using AutoMapper.QueryableExtensions.Impl;
 using Grpc.Core;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MusicDataService.Data.Api;
@@ -78,6 +80,9 @@ public class AlbumController : Controller
     //[RoleRequired(KnownRoles.Guest)]
     public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
     {
+        var user = HttpContext.User;
+        var claimidentity = user.Identity as ClaimsIdentity;
+
         var albums = await _albumRepo.GetAlbums(start, limit);
         var mapped = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
 

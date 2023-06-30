@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AuthClientApi\AuthServiceClientApi.csproj" />
+    <ProjectReference Include="..\KeycloakAuthProvider\KeycloakAuthProvider.csproj" />
   </ItemGroup>
 
 </Project>

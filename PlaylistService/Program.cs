@@ -1,5 +1,5 @@
-using AuthServiceClientApi;
-using AuthServiceClientApi.KeyProviders;
+using KeycloakAuthProvider.Authentication;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Newtonsoft.Json;
@@ -8,7 +8,6 @@ using PlaylistService.Data;
 using PlaylistService.Data.Api;
 using PlaylistService.Data.Impl;
 using PlaylistService.Model;
-using PlaylistService.SyncDataService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,11 +17,20 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(opt => 
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
 
+builder.Services.ConfigureJwt(
+        builder.Environment.IsDevelopment(),
+        builder.Configuration.GetSection("Keycloak")["RsaPublicKey"],
+        builder.Configuration.GetSection("Keycloak")["RealmUrl"]
+    );
+
+builder.Services.AddTransient<IClaimsTransformation>(provider =>
+{
+    var config = provider.GetService<IConfiguration>();
+    return new ClaimTransformer(config.GetSection("Keycloak")["Realm"]);
+});
+
 builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
 builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();
-
-builder.Services.AddSingleton<IJwtKeyProvider, HttpJwtKeyProvider>();
-builder.Services.AddSingleton<JwtManager>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
@@ -45,38 +53,7 @@ builder.Services.AddControllers()
     });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-    {
-        c.AddSecurityDefinition("Jwt", new OpenApiSecurityScheme
-        {
-            Description = @"JWT Authorization header using the Bearer scheme. <br> 
-                      Enter 'Jwt' [space] and then your token in the text input below.
-                      <br> Example: 'Jwt 12345abcdef'",
-            Name = "Authorization",
-            In = ParameterLocation.Header,
-            Type = SecuritySchemeType.ApiKey,
-            Scheme = "Jwt"
-        });
-
-        c.AddSecurityRequirement(new OpenApiSecurityRequirement()
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Jwt"
-                    },
-                    Scheme = "oauth2",
-                    Name = "Jwt",
-                    In = ParameterLocation.Header,
-
-                },
-                new List<string>()
-            }
-        });
-    })
+builder.Services.AddSwaggerGen(c => c.ConfigureOidcSecurityDefinition())
     .AddSwaggerGenNewtonsoftSupport();
 
 var app = builder.Build();
