@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using MusicDataService.Data.Api;
 using MusicDataService.Models;
 
@@ -21,6 +22,11 @@ public class AssetRepo : IAssetRepo
     public async Task<Asset?> GetAssetById(Guid id)
     {
         return await _context.Assets.Where(a => a.AssetId == id).FirstOrDefaultAsync();
+    }
+
+    public EntityEntry<Asset> UpdateAsset(Asset asset)
+    {
+        return _context.Assets.Update(asset);
     }
 
     public async Task<IEnumerable<Asset>> GetAssetsById(IEnumerable<Guid> ids)

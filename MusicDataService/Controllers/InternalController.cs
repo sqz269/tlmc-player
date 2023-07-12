@@ -11,6 +11,7 @@ using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
 using MusicDataService.Dtos.Asset;
 using MusicDataService.Dtos.Circle;
+using MusicDataService.Dtos.Hls;
 using MusicDataService.Dtos.Track;
 using MusicDataService.Extensions;
 using MusicDataService.Models;
@@ -172,6 +173,52 @@ public class InternalController : Controller
         return CreatedAtRoute(nameof(AssetController.GetAsset), new { Id = asset.AssetId }, new { Id = asset.AssetId });
     }
 
+    [DevelopmentOnly]
+    [HttpPut("asset/track/{trackId:guid}/segment")]
+    public async Task<IActionResult> AddHlsFileSegment(Guid trackId, [FromQuery] int quality, [FromBody] HlsSegmentWriteDto segmentWrite)
+    {
+        if (segmentWrite.Id == Guid.Empty)
+            segmentWrite.Id = Guid.NewGuid();
+        
+        // get the playlist for segment
+        var playlist = await _dbContext.HlsPlaylist.Where(p => p.TrackId == trackId && p.Bitrate == quality).FirstOrDefaultAsync();
+
+        if (playlist == null)
+        {
+            return BadRequest("Playlist does not exist for this track and quality");
+        }
+
+        var segment = _mapper.Map<HlsSegmentWriteDto, HlsSegment>(segmentWrite);
+
+        segment.HlsPlaylist = playlist;
+
+        _dbContext.HlsSegment.Add(segment);
+        await _dbContext.SaveChangesAsync();
+        return Ok();
+    }
+    
+    [DevelopmentOnly]
+    [HttpPut("asset/track/{trackId:guid}/playlist")]
+    public async Task<IActionResult> AddHlsFilePlaylist([FromBody] HlsPlaylistWriteDto playlistWrite)
+    {
+        if (playlistWrite.Id == Guid.Empty)
+            playlistWrite.Id = Guid.NewGuid();
+
+        // ensure the track exists
+        var track = await _dbContext.Tracks.Where(t => t.Id == playlistWrite.TrackId).FirstOrDefaultAsync();
+        if (track == null)
+        {
+            return BadRequest("Track does not exist");
+        }
+
+        var playlist = _mapper.Map<HlsPlaylistWriteDto, HlsPlaylist>(playlistWrite);
+        
+        playlist.Track = track;
+
+        _dbContext.HlsPlaylist.Add(playlist);
+        await _dbContext.SaveChangesAsync();
+        return Ok();
+    }
 
     [DevelopmentOnly]
     [HttpPatch("album/{albumId:guid}")]

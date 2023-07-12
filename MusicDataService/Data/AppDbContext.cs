@@ -12,6 +12,8 @@ public class AppDbContext : DbContext
     public DbSet<OriginalTrack> OriginalTracks { get; set; }
     public DbSet<OriginalAlbum> OriginalAlbums { get; set; }
     public DbSet<Asset> Assets { get; set; }
+    public DbSet<HlsPlaylist> HlsPlaylist { get; set; }
+    public DbSet<HlsSegment> HlsSegment { get; set; }
     public DbSet<Thumbnail> Thumbnails { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
@@ -42,7 +44,7 @@ public class AppDbContext : DbContext
             .Property(c => c.Status)
             .HasConversion(v => v.ToString(),
                 v => (CircleStatus)Enum.Parse(typeof(CircleStatus), v));
-
+        
         modelBuilder.Entity<Circle>().Navigation(t => t.Website).AutoInclude();
 
         //modelBuilder.Entity<OriginalTrack>()
@@ -50,6 +52,11 @@ public class AppDbContext : DbContext
         //    .WithMany(r => r.Original)
         //    .UsingEntity(opt => opt.ToTable("OgTrackTrackRelation"));
 
+        modelBuilder.Entity<HlsPlaylist>()
+            .Property(p => p.Type)
+            .HasConversion(v => v.ToString(),
+                v => Enum.Parse<HlsPlaylistType>(v));
+        
         base.OnModelCreating(modelBuilder);
     }
 }

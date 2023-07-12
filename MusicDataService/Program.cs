@@ -45,6 +45,7 @@ builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
 builder.Services.AddScoped<ITrackRepo, TrackRepo>();
 builder.Services.AddScoped<ICircleRepo, CircleRepo>();
 builder.Services.AddScoped<IAssetRepo, AssetRepo>();
+builder.Services.AddScoped<IHlsPlaylistRepo, HlsPlaylistRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
 
