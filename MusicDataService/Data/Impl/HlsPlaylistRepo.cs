@@ -15,7 +15,7 @@ public class HlsPlaylistRepo : IHlsPlaylistRepo
     
     public async Task<List<HlsPlaylist>> GetPlaylistsForTrack(Guid trackId)
     {
-        return await _dbContext.HlsPlaylist.Where(a => a.TrackId == trackId).ToListAsync();
+        return await _dbContext.HlsPlaylist.Where(a => a.TrackId == trackId).OrderBy(a => a.Bitrate).ToListAsync();
     }
 
     public async Task<HlsPlaylist?> GetPlaylistForTrack(Guid trackId, int? quality)

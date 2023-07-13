@@ -43,7 +43,8 @@ public class HlsAssetController : Controller
     {
         var lines = new List<string>()
         {
-            "#EXTM3U"
+            "#EXTM3U",
+            "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"Audio\",DEFAULT=YES,AUTOSELECT=YES"
         };
 
         foreach (var hlsPlaylist in playlists)
