@@ -33,7 +33,7 @@ public class HlsAssetController : Controller
 
         //Response.ContentType = "application/vnd.apple.mpegurl";
 
-        return Ok(GenerateMasterPlaylist(await _hlsPlaylistRepo.GetPlaylistsForTrack(trackId), trackId));
+        return Content(GenerateMasterPlaylist(await _hlsPlaylistRepo.GetPlaylistsForTrack(trackId), trackId), "application/vnd.apple.mpegurl");
         //var content = await System.IO.File.ReadAllTextAsync(playlist.HlsPlaylistPath);
 
         //return Ok(content);
@@ -52,7 +52,7 @@ public class HlsAssetController : Controller
             if (hlsPlaylist.Bitrate == null)
                 continue;
 
-            lines.Add(@$"#EXT-X-STREAM-INF:BANDWIDTH={hlsPlaylist.Bitrate}k,AUDIO=""audio"",CODECS=""mp4a.40.2""");
+            lines.Add(@$"#EXT-X-STREAM-INF:BANDWIDTH={hlsPlaylist.Bitrate}000,AUDIO=""audio"",CODECS=""mp4a.40.2""");
             lines.Add(_linkGenerator.GetUriByName(HttpContext, nameof(GetMediaPlaylist), new {trackId, quality=hlsPlaylist.Bitrate}, fragment: FragmentString.Empty));
         }
 
@@ -76,7 +76,7 @@ public class HlsAssetController : Controller
 
         var content = await System.IO.File.ReadAllTextAsync(playlist.HlsPlaylistPath);
 
-        return Ok(content);
+        return Content(content, "application/vnd.apple.mpegurl");
     }
 
     [HttpGet("hls/{quality:int}k/{segment}")]
