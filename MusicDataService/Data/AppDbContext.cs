@@ -28,11 +28,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Large).AutoInclude();
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Original).AutoInclude();
         
-        modelBuilder.Entity<Album>().Navigation(a => a.Thumbnail).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.OtherFiles).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.AlbumArtist).AutoInclude();
-        modelBuilder.Entity<Album>().Navigation(a => a.OtherFiles).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.Thumbnail).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.Tracks).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.OtherFiles).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.AlbumArtist).AutoInclude();
+        //modelBuilder.Entity<Album>().Navigation(a => a.OtherFiles).AutoInclude();
 
         modelBuilder.Entity<Track>().Navigation(t => t.Original).AutoInclude();
         modelBuilder.Entity<Track>().Navigation(t => t.TrackFile).AutoInclude();

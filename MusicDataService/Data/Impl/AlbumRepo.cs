@@ -1,7 +1,9 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MusicDataService.Controllers;
 using MusicDataService.Data.Api;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 using NpgsqlTypes;
 
@@ -26,21 +28,26 @@ public class AlbumRepo : IAlbumRepo
         return await _context.Albums.LongCountAsync();
     }
 
-    public async Task<IEnumerable<Album>> GetAlbums(int start, int limit)
+    public async Task<IEnumerable<Album>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
-        var albums = await _context.Albums
-            .Where(a => ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
-            .OrderBy(a => a.Id)
-            .Skip(start).Take(limit)
-            // TODO: Configure Auto-include
-            .Include(a => a.Tracks)
-            .Include(a => a.AlbumImage)
-            .Include(a => a.Thumbnail)
-            .Include(a => a.OtherFiles)
-            .Include(a => a.AlbumArtist)
-            .ToListAsync();
+        var albumsQueryable = _context.Albums
+            .Where(a => (a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1));
 
-        return albums;
+        albumsQueryable = sort switch
+        {
+            AlbumOrderOptions.Id => albumsQueryable.OrderByEx(a => a.Id, sortOrder),
+            AlbumOrderOptions.Date => albumsQueryable.OrderByEx(a => a.ReleaseDate, sortOrder),
+            AlbumOrderOptions.Title => albumsQueryable.OrderByEx(a => a.AlbumName.Default, sortOrder),
+            _ => throw new ArgumentOutOfRangeException(nameof(sort), sort, null)
+        };
+
+ 
+        albumsQueryable = albumsQueryable.Skip(start).Take(limit)
+            // TODO: Configure Auto-include
+            .Include(a => a.Thumbnail)
+            .Include(a => a.AlbumArtist);
+
+        return await albumsQueryable.ToListAsync();
     }
 
     public async Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit)

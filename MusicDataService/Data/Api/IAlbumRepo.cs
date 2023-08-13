@@ -1,4 +1,5 @@
 ﻿using MusicDataService.Controllers;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Data.Api;
@@ -7,7 +8,7 @@ public interface IAlbumRepo
 {
     public Task<bool> SaveChanges();
 
-    public Task<IEnumerable<Album>> GetAlbums(int start, int limit);
+    public Task<IEnumerable<Album>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
     public Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit);
 

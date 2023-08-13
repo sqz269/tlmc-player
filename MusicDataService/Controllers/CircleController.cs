@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
 using MusicDataService.Dtos.Circle;
+using MusicDataService.Extensions;
 
 namespace MusicDataService.Controllers;
 
@@ -58,19 +59,21 @@ public class CircleController : Controller
 
     [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
     [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+        [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
-            await _circleRepo.GetCircleAlbums(name, start, limit)
+            await _circleRepo.GetCircleAlbums(name, start, limit, sort, sortOrder)
         ));
     }
 
     [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
     [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
+    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+        [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
-            await _circleRepo.GetCircleAlbums(id, start, limit)
+            await _circleRepo.GetCircleAlbums(id, start, limit, sort, sortOrder)
         ));
     }
 }

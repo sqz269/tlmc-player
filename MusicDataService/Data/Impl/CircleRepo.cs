@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MusicDataService.Controllers;
 using MusicDataService.Data.Api;
 using MusicDataService.Dtos.Album;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Data.Impl;
@@ -29,37 +31,45 @@ public class CircleRepo : ICircleRepo
         return await _context.Circles.Where(c => ids.Contains(c.Id)).ToListAsync();
     }
 
-    public async Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit)
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
-        Circle? circle = await _context.Circles
-            .Where(c => c.Id == id)
-            .IgnoreAutoIncludes()
-            .FirstOrDefaultAsync();
-        if (circle == null)
+        var albumQueryable = _context.Albums.Where(a => a.AlbumArtist.Any(c => c.Id == id) &&
+                                                        ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) ||
+                                                         (a.NumberOfDiscs == 1 && a.DiscNumber == 1)));
+        albumQueryable = sort switch
         {
-            return new List<Album>();
-        }
+            AlbumOrderOptions.Id => albumQueryable.OrderByEx(a => a.Id, sortOrder),
+            AlbumOrderOptions.Date => albumQueryable.OrderByEx(a => a.ReleaseDate, sortOrder),
+            AlbumOrderOptions.Title => albumQueryable.OrderByEx(a => a.AlbumName.Default, sortOrder),
+            _ => throw new ArgumentOutOfRangeException(nameof(sort), sort, null)
+        };
 
-        return await _context.Albums.Where(a => a.AlbumArtist.Contains(circle) &&
-                                                ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
-            .Skip(start).Take(limit)
-            .OrderBy(a => a.Id)
-            .ToListAsync();
+        albumQueryable = albumQueryable.Skip(start).Take(limit)
+            .Include(a => a.Thumbnail)
+            .Include(a => a.AlbumArtist);
+
+        return await albumQueryable.ToListAsync();
     }
 
-    public async Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit)
+    public async Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
-        var circles = await _context.Circles
+        var circle = await _context.Circles
             .Where(c => c.Name == name || c.Alias.Contains(name))
             .IgnoreAutoIncludes()
-            .ToListAsync();
+            .FirstOrDefaultAsync();
 
-        return await _context.Albums
-            .Where(a => a.AlbumArtist.Any(c => circles.Contains(c)) &&
-                        ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
-            .Skip(start).Take(limit)
-            .OrderBy(a => a.Id)
-            .ToListAsync();
+        if (circle == null)
+        {
+            return null;
+        }
+
+        //return await _context.Albums
+        //    .Where(a => a.AlbumArtist.Any(c => c.Id == circle.Id) &&
+        //                ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
+        //    .OrderBy(a => a.Id)
+        //    .Skip(start).Take(limit)
+        //    .ToListAsync();
+        return await GetCircleAlbums(circle.Id, start, limit, sort, sortOrder);
     }
 
     public async Task<Circle?> GetCircleByName(string name)

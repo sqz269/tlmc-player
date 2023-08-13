@@ -1,4 +1,6 @@
-﻿using MusicDataService.Dtos.Album;
+﻿using MusicDataService.Controllers;
+using MusicDataService.Dtos.Album;
+using MusicDataService.Extensions;
 using MusicDataService.Models;
 
 namespace MusicDataService.Data.Api;
@@ -11,9 +13,9 @@ public interface ICircleRepo
 
     public Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids);
 
-    public Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit);
+    public Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
-    public Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit);
+    public Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
     public Task<Circle?> GetCircleByName(string name);
 
