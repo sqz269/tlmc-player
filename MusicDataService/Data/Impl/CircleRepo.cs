@@ -31,11 +31,14 @@ public class CircleRepo : ICircleRepo
         return await _context.Circles.Where(c => ids.Contains(c.Id)).ToListAsync();
     }
 
-    public async Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
+    public async Task<Tuple<IEnumerable<Album>, long>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
         var albumQueryable = _context.Albums.Where(a => a.AlbumArtist.Any(c => c.Id == id) &&
                                                         ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) ||
                                                          (a.NumberOfDiscs == 1 && a.DiscNumber == 1)));
+        
+        var count = albumQueryable.Count();
+
         albumQueryable = sort switch
         {
             AlbumOrderOptions.Id => albumQueryable.OrderByEx(a => a.Id, sortOrder),
@@ -48,10 +51,10 @@ public class CircleRepo : ICircleRepo
             .Include(a => a.Thumbnail)
             .Include(a => a.AlbumArtist);
 
-        return await albumQueryable.ToListAsync();
+        return new Tuple<IEnumerable<Album>, long>(await albumQueryable.ToListAsync(), count);
     }
 
-    public async Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
+    public async Task<Tuple<IEnumerable<Album>, long>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
         var circle = await _context.Circles
             .Where(c => c.Name == name || c.Alias.Contains(name))
