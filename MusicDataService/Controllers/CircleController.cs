@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Xml.Linq;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MusicDataService.Data.Api;
@@ -58,22 +59,42 @@ public class CircleController : Controller
     }
 
     [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
-    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+    [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
-        return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
-            await _circleRepo.GetCircleAlbums(name, start, limit, sort, sortOrder)
-        ));
+        var result = await _circleRepo.GetCircleAlbums(name, start, limit, sort, sortOrder);
+        if (result == null) { return NotFound($"No circle with name: {name} exist"); }
+
+        var (albums, count) = result;
+
+        var albumReadDto = _mapper.Map<IEnumerable<AlbumReadDto>>(albums).ToList();
+
+        return Ok(new AlbumsListResult()
+        {
+            Albums = albumReadDto,
+            Count = albumReadDto.Count,
+            Total = count
+        });
     }
 
     [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
-    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+    [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
-        return Ok(_mapper.Map<IEnumerable<AlbumReadDto>>(
-            await _circleRepo.GetCircleAlbums(id, start, limit, sort, sortOrder)
-        ));
+        var result = await _circleRepo.GetCircleAlbums(id, start, limit, sort, sortOrder);
+        if (result == null) { return NotFound($"No circle with name: {id} exist"); }
+
+        var (albums, count) = result;
+
+        var albumReadDto = _mapper.Map<IEnumerable<AlbumReadDto>>(albums).ToList();
+
+        return Ok(new AlbumsListResult()
+        {
+            Albums = albumReadDto,
+            Count = albumReadDto.Count,
+            Total = count
+        });
     }
 }

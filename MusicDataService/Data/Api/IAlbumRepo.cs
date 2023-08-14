@@ -8,7 +8,9 @@ public interface IAlbumRepo
 {
     public Task<bool> SaveChanges();
 
-    public Task<IEnumerable<Album>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
+    public Task<long> CountTotalAlbums();
+
+    public Task<Tuple<IEnumerable<Album>, long>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
     public Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit);
 

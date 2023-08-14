@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Reflection.Metadata.Ecma335;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MusicDataService.Controllers;
@@ -28,10 +29,12 @@ public class AlbumRepo : IAlbumRepo
         return await _context.Albums.LongCountAsync();
     }
 
-    public async Task<IEnumerable<Album>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
+    public async Task<Tuple<IEnumerable<Album>, long>> GetAlbums(int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder)
     {
         var albumsQueryable = _context.Albums
             .Where(a => (a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1));
+
+        var total = albumsQueryable.Count();
 
         albumsQueryable = sort switch
         {
@@ -47,7 +50,7 @@ public class AlbumRepo : IAlbumRepo
             .Include(a => a.Thumbnail)
             .Include(a => a.AlbumArtist);
 
-        return await albumsQueryable.ToListAsync();
+        return new Tuple<IEnumerable<Album>, long>(await albumsQueryable.ToListAsync(), total);
     }
 
     public async Task<IEnumerable<Album>> GetAlbumsFiltered(AlbumFilter filter, int start, int limit)

@@ -13,9 +13,9 @@ public interface ICircleRepo
 
     public Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids);
 
-    public Task<IEnumerable<Album>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
+    public Task<Tuple<IEnumerable<Album>, long>?> GetCircleAlbums(Guid id, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
-    public Task<IEnumerable<Album>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
+    public Task<Tuple<IEnumerable<Album>, long>?> GetCircleAlbums(string name, int start, int limit, AlbumOrderOptions sort, SortOrder sortOrder);
 
     public Task<Circle?> GetCircleByName(string name);
 

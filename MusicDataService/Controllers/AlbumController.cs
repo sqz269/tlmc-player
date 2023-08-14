@@ -16,6 +16,13 @@ using MusicDataService.Models;
 
 namespace MusicDataService.Controllers;
 
+public class AlbumsListResult
+{
+    public List<AlbumReadDto> Albums { get; set; }
+    public int Count { get; set; }
+    public long Total { get; set; }
+}
+
 public enum AlbumOrderOptions
 {
     Id,
@@ -83,20 +90,32 @@ public class AlbumController : Controller
     }
 
     [HttpGet("album", Name = nameof(GetAlbums))]
-    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
     //[RoleRequired(KnownRoles.Guest)]
-    public async Task<IEnumerable<AlbumReadDto>> GetAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20, 
+    public async Task<AlbumsListResult> GetAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20, 
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         var user = HttpContext.User;
         var claimidentity = user.Identity as ClaimsIdentity;
 
-        var albums = await _albumRepo.GetAlbums(start, limit, sort, sortOrder);
+        var (albums, total) = await _albumRepo.GetAlbums(start, limit, sort, sortOrder);
         var mapped = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);
 
         var albumReadDtos = mapped.ToList();
 
-        return albumReadDtos;
+        return new AlbumsListResult
+        {
+            Albums = albumReadDtos,
+            Count = albumReadDtos.Count,
+            Total = total,
+        };
+    }
+
+    [HttpPost("album/count", Name = nameof(CountAlbums))]
+    [ProducesResponseType(typeof(IEnumerable<AlbumReadDto>), StatusCodes.Status200OK)]
+    public async Task<long> CountAlbums()
+    {
+        return await _albumRepo.CountTotalAlbums();
     }
 
     [HttpPost("album", Name = nameof(GetAlbumsByIds))]
@@ -111,6 +130,7 @@ public class AlbumController : Controller
 
         return albumReadDtos;
     }
+
 
     [HttpGet("album/{id:Guid}", Name = nameof(GetAlbum))]
     [ProducesResponseType(typeof(void), StatusCodes.Status404NotFound)]
