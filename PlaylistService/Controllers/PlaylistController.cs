@@ -1,5 +1,4 @@
-﻿using System.Collections.Specialized;
-using System.Security.Claims;
+﻿using System.ComponentModel.DataAnnotations;
 using AutoMapper;
 using KeycloakAuthProvider.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,85 +10,27 @@ using PlaylistService.Model;
 
 namespace PlaylistService.Controllers;
 
-public struct PlaylistCreateRequest
+public struct PlaylistInfo
 {
-    public string Name { get; set; }
-    public PlaylistVisibility Visibility { get; set; }
+    public string? Name { get; set; }
+    public PlaylistVisibility? Visibility { get; set; }
 }
 
 [ApiController]
-[Route("api/playlist")]
+[Route("api/playlists")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class PlaylistController : Controller
 {
     private readonly IPlaylistRepo _playlistRepo;
     private readonly IMapper _mapper;
 
+
     public PlaylistController(
-        IPlaylistRepo playlistRepo, 
+        IPlaylistRepo playlistRepo,
         IMapper mapper)
     {
         _playlistRepo = playlistRepo;
         _mapper = mapper;
-    }
-
-    /// <summary>
-    /// Retrieves a playlist
-    /// </summary>
-    /// <param name="playlistId">The playlist to get</param>
-    /// <returns></returns>
-    [HttpGet("", Name = nameof(GetPlaylist))]
-    [ProducesResponseType(typeof(PlaylistReadDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PlaylistReadDto>> GetPlaylist(Guid playlistId)
-    {
-        UserClaim user = HttpContext.User.ToUserClaim();
-
-        return Ok(_mapper.Map<PlaylistReadDto>(
-            await _playlistRepo.GetPlaylist(playlistId, user?.UserId)));
-    }
-
-    [HttpDelete("{playlistId:Guid}", Name = nameof(DeletePlaylist))]
-    public async Task<ActionResult<bool>> DeletePlaylist(Guid playlistId)
-    {
-        UserClaim user = HttpContext.User.ToUserClaim();
-        var playlist = await _playlistRepo.GetPlaylist(playlistId, true);
-        if (playlist == null)
-        {
-            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
-                detail: $"Playlist with Id: {playlistId} Does not exist");
-        }
-
-        if (playlist.UserId != user.UserId)
-        {
-            return Problem(statusCode: StatusCodes.Status403Forbidden, title: "Insufficient Permission",
-                detail: $"Insufficient Permission to delete playlist: {playlistId}");
-        }
-
-        return await _playlistRepo.DeletePlaylist(playlistId);
-    }
-
-    [HttpPost("", Name = nameof(CreatePlaylist))]
-    public async Task<ActionResult<PlaylistReadDto>> CreatePlaylist([FromBody] PlaylistCreateRequest request)
-    {
-        UserClaim user = HttpContext.User.ToUserClaim();
-
-        var playlist = Playlist.Create(request.Name, request.Visibility, user);
-        var inserted = await _playlistRepo.InsertPlaylist(playlist);
-        return _mapper.Map<PlaylistReadDto>(inserted);
-    }
-
-    /// <summary>
-    /// Gets all the playlist owned by a specific user
-    /// </summary>
-    /// <param name="userId">The user that owns the playlist</param>
-    /// <returns></returns>
-    [HttpGet("user/{userId:Guid}", Name = nameof(GetUserPlaylist))]
-    [ProducesResponseType(typeof(IEnumerable<PlaylistReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<PlaylistReadDto>>> GetUserPlaylist(Guid userId)
-    {
-        UserClaim user = HttpContext.User.ToUserClaim();
-        return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(
-            await _playlistRepo.GetUserPlaylist(userId, user?.UserId)));
     }
 
     private async Task CreatePersonalPlaylistIfNotExist(UserClaim userClaim)
@@ -109,48 +50,156 @@ public class PlaylistController : Controller
         }
     }
 
-    [HttpGet("user/me", Name = nameof(GetCurrentUserPlaylist))]
-    [ProducesResponseType(typeof(IEnumerable<PlaylistReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<PlaylistReadDto>>> GetCurrentUserPlaylist()
+    [HttpGet("{playlistId:Guid}", Name = nameof(GetPlaylistById))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult<PlaylistReadDto>> GetPlaylistById(Guid playlistId)
     {
-        // Not really possible for user to be null unless the AuthApiClient is implemented improperly
-        UserClaim user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        var user = HttpContext.User.ToUserClaim();
 
-        return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(
-            await _playlistRepo.GetUserPlaylist(user.UserId.Value, user.UserId.Value)));
+        var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+
+        if (playlist == null)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
+                detail: $"Playlist with Id: {playlistId} Does not exist");
+        }
+
+        return Ok(_mapper.Map<PlaylistReadDto>(playlist));
     }
 
-    [HttpGet("user/me/history", Name = nameof(GetCurrentUserHistory))]
-    [ProducesResponseType(typeof(IEnumerable<PlaylistReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<PlaylistReadDto>>> GetCurrentUserHistory()
+    [HttpPost(Name = nameof(AddPlaylist))]
+    [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult<PlaylistReadDto>> AddPlaylist([FromBody] PlaylistInfo playlistInfo)
     {
-        UserClaim user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        var user = HttpContext.User.ToUserClaim();
 
-        return Ok(_mapper.Map<PlaylistReadDto>(
-            await _playlistRepo.GetHistoryPlaylist(user.UserId.Value)));
+        if (string.IsNullOrWhiteSpace(playlistInfo.Name))
+        {
+            return BadRequest("Cannot create a playlist with an empty name");
+        }
+
+        playlistInfo.Visibility ??= PlaylistVisibility.Private;
+
+        var playlist = Playlist.Create(playlistInfo.Name, playlistInfo.Visibility.Value, user);
+        var inserted = await _playlistRepo.InsertPlaylist(playlist);
+
+        if (inserted == null)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Playlist Not Created",
+                detail: $"Playlist with Name: {playlistInfo.Name} Could not be created");
+        }
+
+        return CreatedAtRoute(nameof(GetPlaylistById), new { playlistId = inserted.Id },
+            _mapper.Map<PlaylistReadDto>(inserted));
     }
 
-    [HttpGet("user/me/favorite", Name = nameof(GetCurrentUserFavorite))]
-    [ProducesResponseType(typeof(IEnumerable<PlaylistReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<PlaylistReadDto>>> GetCurrentUserFavorite()
+    [HttpPut("{playlistId:Guid}", Name = nameof(UpdatePlaylistInfo))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult<PlaylistReadDto>> UpdatePlaylistInfo(Guid playlistId, [FromBody] PlaylistInfo playlistInfo)
     {
-        UserClaim user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        var user = HttpContext.User.ToUserClaim();
 
-        return Ok(_mapper.Map<PlaylistReadDto>(
-            await _playlistRepo.GetFavoritesPlaylist(user.UserId.Value)));
+        var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+        if (playlist == null)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
+                detail: $"Playlist with Id: {playlistId} Does not exist");
+        }
+
+        if (playlistInfo.Name != null)
+        {
+            playlist.Name = playlistInfo.Name;
+        }
+
+        if (playlistInfo.Visibility != null)
+        {
+            playlist.Visibility = playlistInfo.Visibility.Value;
+        }
+
+        var saved = await _playlistRepo.SaveChanges();
+        if (!saved)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Playlist Not Updated",
+                detail: $"Playlist with Id: {playlistId} Could not be updated");
+        }
+
+        return Ok(_mapper.Map<PlaylistReadDto>(playlist));
     }
 
-    [HttpGet("user/me/queue", Name = nameof(GetCurrentUserQueue))]
-    [ProducesResponseType(typeof(IEnumerable<PlaylistReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<PlaylistReadDto>>> GetCurrentUserQueue()
+    [HttpDelete("{playlistId:Guid}", Name = nameof(DeletePlaylist))]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> DeletePlaylist(Guid playlistId)
     {
-        UserClaim user = HttpContext.User.ToUserClaim();
+        var user = HttpContext.User.ToUserClaim();
+
+        var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+        if (playlist == null)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
+                detail: $"Playlist with Id: {playlistId} Does not exist");
+        }
+
+        var deleted = await _playlistRepo.DeletePlaylist(playlistId);
+        if (!deleted)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Playlist Not Deleted",
+                detail: $"Playlist with Id: {playlistId} Could not be deleted");
+        }
+
+        return NoContent();
+    }
+
+    [HttpGet("user/{userId:Guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<PlaylistReadDto>))]
+    public async Task<ActionResult> GetUserPlaylists(Guid userId)
+    {
+        var user = HttpContext.User.ToUserClaim();
+
+        var playlists = await _playlistRepo.GetUserPlaylist(userId, user?.UserId);
+        return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(playlists));
+    }
+
+    [HttpGet("me", Name = nameof(GetCurrentUserPlaylists))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<PlaylistReadDto>))]
+    public async Task<ActionResult<PlaylistReadDto>> GetCurrentUserPlaylists()
+    {
+        var user = HttpContext.User.ToUserClaim();
         await CreatePersonalPlaylistIfNotExist(user);
 
-        return Ok(_mapper.Map<PlaylistReadDto>(
-            await _playlistRepo.GetQueuePlaylist(user.UserId.Value)));
+        var playlists = await _playlistRepo.GetUserPlaylist(user.UserId.Value, user.UserId);
+        return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(playlists));
+    }
+
+    [HttpGet("me/history", Name = nameof(GetCurrentUserHistory))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult> GetCurrentUserHistory()
+    {
+        var user = HttpContext.User.ToUserClaim();
+        await CreatePersonalPlaylistIfNotExist(user);
+
+        var history = await _playlistRepo.GetHistoryPlaylist(user.UserId.Value);
+        return Ok(_mapper.Map<PlaylistReadDto>(history));
+    }
+
+    [HttpGet("me/queue", Name = nameof(GetCurrentUserQueue))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult> GetCurrentUserQueue()
+    {
+        var user = HttpContext.User.ToUserClaim();
+        await CreatePersonalPlaylistIfNotExist(user);
+
+        var queue = await _playlistRepo.GetQueuePlaylist(user.UserId.Value);
+        return Ok(_mapper.Map<PlaylistReadDto>(queue));
+    }
+
+    [HttpGet("me/favorite", Name = nameof(GetCurrentUserFavorite))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
+    public async Task<ActionResult> GetCurrentUserFavorite()
+    {
+        var user = HttpContext.User.ToUserClaim();
+        await CreatePersonalPlaylistIfNotExist(user);
+
+        var fav = await _playlistRepo.GetFavoritesPlaylist(user.UserId.Value);
+        return Ok(_mapper.Map<PlaylistReadDto>(fav));
     }
 }

@@ -50,7 +50,7 @@ public class PlaylistItemRepo : IPlaylistItemRepo
             Index = playlist.NumberOfTracks + 1,
             TimesPlayed = 0
         };
-        
+
         playlist.LastModified = DateTime.UtcNow;
 
         playlist.Tracks.Add(playlistItem);
@@ -101,6 +101,95 @@ public class PlaylistItemRepo : IPlaylistItemRepo
         await transaction.CommitAsync();
 
         return item;
+    }
+
+    public async Task<List<PlaylistItem>> InsertPlaylistItems(Guid playlist, List<Guid> trackIds)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var playlistItems = new List<PlaylistItem>();
+
+        var playlistEntity = await _context.Playlists
+            .Where(p => p.Id == playlist)
+            .Include(p => p.Tracks)
+            .FirstOrDefaultAsync();
+
+        if (playlistEntity == null)
+        {
+            throw new NullReferenceException($"Playlist ({playlist}) Does not exist");
+        }
+
+        foreach (var trackId in trackIds)
+        {
+            var playlistItem = new PlaylistItem
+            {
+                TrackId = trackId,
+                Playlist = playlistEntity,
+                DateAdded = DateTime.UtcNow,
+                Index = playlistEntity.NumberOfTracks + 1,
+                TimesPlayed = 0
+            };
+
+            playlistEntity.Tracks.Add(playlistItem);
+            playlistEntity.NumberOfTracks += 1;
+
+            playlistItems.Add(playlistItem);
+        }
+
+        await _context.PlaylistItems.AddRangeAsync(playlistItems);
+
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        return playlistItems;
+    }
+
+    public async Task<List<PlaylistItem>> DeletePlaylistItems(Guid playlistId, List<Guid> trackId)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var items = await _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlistId && trackId.Contains(pi.TrackId))
+            .ToListAsync();
+
+        try
+        {
+            var updated = await _context.PlaylistItems
+                .Where(pi => pi.PlaylistId == playlistId && pi.Index > items.Max(i => i.Index))
+                .ExecuteUpdateAsync(e =>
+                    e.SetProperty(p => p.Index, ind => ind.Index - items.Count));
+            Console.WriteLine($"Updated: {updated} Records");
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
+
+        var playlist = await _context.Playlists.Where(p => p.Id == playlistId).FirstOrDefaultAsync();
+        playlist.LastModified = DateTime.UtcNow;
+        playlist.NumberOfTracks -= items.Count;
+
+        _context.PlaylistItems.RemoveRange(items);
+
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        return items;
+    }
+
+    public Task<List<PlaylistItem>> GetPlaylistItems(Guid playlist, int start, int limit)
+    {
+        var items = _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlist)
+            .OrderBy(pi => pi.Index)
+            .Skip(start)
+            .Take(limit)
+            .ToListAsync();
+
+        return items;
     }
 
     public async Task<PlaylistItem> GetPlaylistItem(Guid playlist, Guid item)

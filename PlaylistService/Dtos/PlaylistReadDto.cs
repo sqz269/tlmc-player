@@ -17,8 +17,4 @@ public class PlaylistReadDto
     public PlaylistType Type { get; set; }
 
     public DateTime LastModified { get; set; }
-
-    public int NumberOfTracks { get; set; }
-
-    public List<PlaylistItemReadDto>? Tracks { get; set; } = new();
 }
