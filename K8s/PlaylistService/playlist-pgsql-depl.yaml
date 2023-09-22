@@ -16,18 +16,18 @@ spec:
 
     spec:
       containers:
-      - name: playlist-pgsql-depl
-        image: postgres:latest
-        ports:
-        - containerPort: 5432
+        - name: playlist-pgsql-depl
+          image: postgres:15.4-bullseye
+          ports:
+            - containerPort: 5432
 
-        env:
-          - name: POSTGRES_PASSWORD
-            value: postgrespw
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgrespw
 
-        volumeMounts:
-          - mountPath: /var/lib/postgresql/data
-            name: postgredb
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgredb
 
       volumes:
         - name: postgredb
