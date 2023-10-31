@@ -10,7 +10,7 @@ public interface ITrackRepo
 
     public Task<Tuple<List<Track>, List<Guid>>> GetTracks(IList<Guid> tracks);
 
-    public Task<IEnumerable<Track>> SampleRandomTrack();
+    public Task<IEnumerable<Track>> SampleRandomTrack(int limit);
 
     public Task<Guid> CreateTrack(Guid albumGuid, Track track);
 

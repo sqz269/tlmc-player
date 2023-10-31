@@ -220,6 +220,6 @@ public class AlbumController : Controller
     [ProducesResponseType(typeof(List<TrackReadDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<TrackReadDto>> GetRandomSampleTrack([FromQuery] [Range(1, 100)] int limit = 20)
     {
-        return Ok(_mapper.Map<List<TrackReadDto>>((await _trackRepo.SampleRandomTrack()).Take(limit)));
+        return Ok(_mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit)));
     }
 }

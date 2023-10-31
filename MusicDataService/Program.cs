@@ -8,6 +8,7 @@ using MusicDataService.Data.Api;
 using MusicDataService.Data.Impl;
 using Newtonsoft.Json;
 using KeycloakAuthProvider.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,7 +58,7 @@ builder.Services.AddCors(opt =>
     });
 });
 
-builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Information);
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
@@ -85,6 +86,16 @@ app.UseCors();
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())
 //{
+
+Console.WriteLine("7/12/2023");
+if (app.Environment.IsProduction())
+{
+    app.Use((context, next) =>
+    {
+        context.Request.Scheme = "https";
+        return next(context);
+    });
+}
 app.UseSwagger(opt =>
 {
     opt.RouteTemplate = "/swagger/music-data/{documentName}/swagger.json";
