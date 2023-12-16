@@ -64,4 +64,11 @@ public class OpenIdConnectConfigurationProviderService
         
         return key;
     }
+
+    public async Task<ICollection<SecurityKey>> GetSigningKeysAsync()
+    {
+        var keys = (await GetConfigurationAsync()).SigningKeys;
+        _logger.LogInformation($"Found {keys.Count} keys from JWKS endpoint");
+        return keys;
+    }
 }

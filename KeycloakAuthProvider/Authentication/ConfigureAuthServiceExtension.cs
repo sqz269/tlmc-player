@@ -23,7 +23,7 @@ public static class ConfigureAuthServiceExt
             opt.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
         });
 
-        var signingKey = oidcConfigProvider.GetSigningKeyAsync().GetAwaiter().GetResult();
+        var signingKeys = oidcConfigProvider.GetSigningKeysAsync().GetAwaiter().GetResult();
 
         authBuilder.AddJwtBearer(o =>
         {
@@ -35,7 +35,8 @@ public static class ConfigureAuthServiceExt
                 ValidateIssuer = true,
                 ValidIssuers = new[] { oidcConfigProvider.RealmUrl },
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = signingKey,
+                IssuerSigningKeys = signingKeys,
+                TryAllIssuerSigningKeys = true,
                 ValidateLifetime = true
             };
             #endregion
