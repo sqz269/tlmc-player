@@ -36,12 +36,6 @@ GlobalFFOptions.Configure(opt =>
     opt.BinaryFolder = builder.Configuration["FFMpegBinary"];
 });
 
-builder.Services.AddTransient<IClaimsTransformation>(provider =>
-{
-    var config = provider.GetService<IConfiguration>();
-    return new KeycloakClaimTransformer();
-});
-
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
 builder.Services.AddScoped<ITrackRepo, TrackRepo>();
 builder.Services.AddScoped<ICircleRepo, CircleRepo>();
