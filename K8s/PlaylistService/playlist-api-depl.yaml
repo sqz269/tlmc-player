@@ -19,9 +19,5 @@ spec:
           env:
             - name: ConnectionStrings__PostgreSql
               value: Host=playlist-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
-            - name: Keycloak__Realm
-              value: ""
             - name: Keycloak__RealmUrl
-              value: ""
-            - name: Keycloak__RsaPublicKey
-              value: ""
+              value: https://sso.marisad.me/realms/MusicPlayer

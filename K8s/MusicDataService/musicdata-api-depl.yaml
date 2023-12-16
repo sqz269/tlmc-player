@@ -14,26 +14,22 @@ spec:
         app: musicdata-api
     spec:
       containers:
-      - name: musicdata-api
-        image: sqzd269/musicdata-api:latest
-        env:
-          - name: FFMpegBinary
-            value: /usr/bin
-          - name: ConnectionStrings__PostgreSql
-            value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
-          - name: ThumbnailRoot
-            value: /thumbdata/
-          - name: Keycloak__Realm
-            value: MusicPlayer
-          - name: Keycloak__RealmUrl
-            value: https://sso.marisad.me
-          - name: Keycloak__RsaPublicKey
-            value: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp/eKsJT3kh4OiHUul4Fb3K5oI93VBRfYHR4zGjEswCL0tCkqFxG1QAkDdfOaWAvA+FXd6vbc+tFG7ma56ZheNlmd4r1B1n/xV9FHXAsUJpMUgUXX/slPn/NkBqNnZy2CrKpdZefJ4K7nkvNlKKYOB2EBV96SD7Fuj3QONdp2PB9Yp64jiO+UR3VAamqt66BsdEFrV3zIvpZkKoZhOv678f0QK7NaXpsKFakwLOpVZ21+gsHdLLYe0uzQoJT9YEg+8K3FipJrQJwSVASD7PfyiRcGsH+iqEBwsak81EQZ2xIp4K+lI31YZ0tl1+T8QAeTbzNsSwH0rDH92dxQjL+ygwIDAQAB
-        volumeMounts:
-          - mountPath: /external_data/torrent/TLMC v2/
-            name: musicdata
-          - mountPath: /thumbdata/
-            name: thumbdata
+        - name: musicdata-api
+          image: sqzd269/musicdata-api:latest
+          env:
+            - name: FFMpegBinary
+              value: /usr/bin
+            - name: ConnectionStrings__PostgreSql
+              value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
+            - name: ThumbnailRoot
+              value: /thumbdata/
+            - name: Keycloak__RealmUrl
+              value: https://sso.marisad.me/realms/MusicPlayer
+          volumeMounts:
+            - mountPath: /external_data/torrent/TLMC v2/
+              name: musicdata
+            - mountPath: /thumbdata/
+              name: thumbdata
       volumes:
         - name: musicdata
           hostPath:
