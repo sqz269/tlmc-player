@@ -1,6 +1,7 @@
 name: Build and Push MusicDataService Image
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'KeycloakAuthProvider/**'
