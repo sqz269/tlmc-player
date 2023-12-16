@@ -1,4 +1,5 @@
 using KeycloakAuthProvider.Authentication;
+using KeycloakAuthProvider.Service;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -17,17 +18,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<AppDbContext>(opt => 
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
 
-builder.Services.ConfigureJwt(
-        builder.Environment.IsDevelopment(),
-        builder.Configuration.GetSection("Keycloak")["RsaPublicKey"],
-        builder.Configuration.GetSection("Keycloak")["RealmUrl"]
-    );
-
-builder.Services.AddTransient<IClaimsTransformation>(provider =>
-{
-    var config = provider.GetService<IConfiguration>();
-    return new ClaimTransformer(config.GetSection("Keycloak")["Realm"]);
-});
+// Configure Jwt Authentication
+builder.Services.AddSingleton<OpenIdConnectConfigurationProviderService>();
+builder.Services.ConfigureJwt();
+builder.Services.AddTransient<IClaimsTransformation>(_ => new KeycloakClaimTransformer());
 
 builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
 builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();

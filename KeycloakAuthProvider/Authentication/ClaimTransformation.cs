@@ -4,15 +4,8 @@ using System.Security.Claims;
 
 namespace KeycloakAuthProvider.Authentication;
 
-public class ClaimTransformer : IClaimsTransformation
+public class KeycloakClaimTransformer : IClaimsTransformation
 {
-    private readonly string _realm;
-
-    public ClaimTransformer(string realm)
-    {
-        _realm = realm;
-    }
-
     public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         ClaimsIdentity claimsIdentity = (ClaimsIdentity)principal.Identity;

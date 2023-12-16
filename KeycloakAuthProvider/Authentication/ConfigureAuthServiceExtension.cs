@@ -1,29 +1,29 @@
 ﻿using System.Security.Cryptography;
+using KeycloakAuthProvider.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Hosting;
 
 namespace KeycloakAuthProvider.Authentication;
 
 public static class ConfigureAuthServiceExt
 {
-    private static RsaSecurityKey BuildRsaPublicKey(string publicKey)
+    public static void ConfigureJwt(this IServiceCollection services)
     {
-        var rsa = RSA.Create();
-        rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey), out _);
-        var key = new RsaSecurityKey(rsa);
-        return key;
-    }
+        // get oidc config provider service
+        var oidcConfigProvider = services.BuildServiceProvider().GetRequiredService<OpenIdConnectConfigurationProviderService>();
+        var isDevelopment = services.BuildServiceProvider().GetRequiredService<IHostEnvironment>().IsDevelopment();
 
-    public static void ConfigureJwt(this IServiceCollection services, bool isDevelopment, string publicKeyJwt, string realmUrl)
-    {
         var authBuilder = services.AddAuthentication(opt =>
         {
             opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             opt.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
         });
+
+        var signingKey = oidcConfigProvider.GetSigningKeyAsync().GetAwaiter().GetResult();
 
         authBuilder.AddJwtBearer(o =>
         {
@@ -33,9 +33,9 @@ public static class ConfigureAuthServiceExt
             {
                 ValidateAudience = false,
                 ValidateIssuer = true,
-                ValidIssuers = new[] { realmUrl },
+                ValidIssuers = new[] { oidcConfigProvider.RealmUrl },
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = BuildRsaPublicKey(publicKeyJwt),
+                IssuerSigningKey = signingKey,
                 ValidateLifetime = true
             };
             #endregion

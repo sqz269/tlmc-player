@@ -9,21 +9,21 @@ using MusicDataService.Data.Impl;
 using Newtonsoft.Json;
 using KeycloakAuthProvider.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
+using KeycloakAuthProvider.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.
     AddEnvironmentVariables();
 
+// Configure Jwt Authentication
+builder.Services.AddSingleton<OpenIdConnectConfigurationProviderService>();
+builder.Services.ConfigureJwt();
+builder.Services.AddTransient<IClaimsTransformation>(_ => new KeycloakClaimTransformer());
+
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
-
-builder.Services.ConfigureJwt(
-        builder.Environment.IsDevelopment(),
-        builder.Configuration.GetSection("Keycloak")["RsaPublicKey"],
-        builder.Configuration.GetSection("Keycloak")["RealmUrl"]
-    );
 
 if (!Directory.Exists(builder.Configuration["FFMpegBinary"]))
 {
@@ -39,7 +39,7 @@ GlobalFFOptions.Configure(opt =>
 builder.Services.AddTransient<IClaimsTransformation>(provider =>
 {
     var config = provider.GetService<IConfiguration>();
-    return new ClaimTransformer(config.GetSection("Keycloak")["Realm"]);
+    return new KeycloakClaimTransformer();
 });
 
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
