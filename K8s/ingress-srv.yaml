@@ -33,6 +33,7 @@ spec:
     - host: api-music.marisad.me
       http:
         paths:
+          # Music Data Service
           - pathType: Prefix
             path: "/api/music"
             backend:
@@ -94,6 +95,15 @@ spec:
                 port:
                   number: 80
 
+          # User Profile Service
+          - pathType: Prefix
+            path: "/api/user"
+            backend:
+              service:
+                name: userprofile-api-clusterip
+                port:
+                  number: 80
+
           # API Explorer
           - pathType: Prefix
             path: "/swagger/music-data"
@@ -121,5 +131,12 @@ spec:
             backend:
               service:
                 name: radio-api-clusterip
+                port:
+                  number: 80
+          - pathType: Prefix
+            path: "/swagger/user-profile"
+            backend:
+              service:
+                name: userprofile-api-clusterip
                 port:
                   number: 80

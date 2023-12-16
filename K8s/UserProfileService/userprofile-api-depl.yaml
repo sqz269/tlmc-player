@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userprofile-api
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: userprofile-api
+  template:
+    metadata:
+      labels:
+        app: userprofile-api
+    spec:
+      containers:
+        - name: userprofile-api
+          image: sqzd269/userprofile-api:latest
+          env:
+            - name: ConnectionStrings__PostgreSql
+              value: Host=userprofile-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
+            - name: Keycloak__RealmUrl
+              value: https://sso.marisad.me/realms/MusicPlayer

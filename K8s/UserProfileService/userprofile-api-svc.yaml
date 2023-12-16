@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: userprofile-api-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: userprofile-api
+  ports:
+    - name: http-userprofile-api
+      port: 80
+      protocol: TCP
+      targetPort: 80
+      appProtocol: HTTP
