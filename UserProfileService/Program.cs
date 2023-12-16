@@ -7,6 +7,7 @@ using UserProfileService.Data.Api;
 using UserProfileService.Data.Impl;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddLogging(loggingBuilder => 
     loggingBuilder.AddConsole());
