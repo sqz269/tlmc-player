@@ -15,28 +15,28 @@ spec:
       initContainers:
         - name: increase-max-map-count
           image: busybox
-          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+          command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
           securityContext:
             privileged: true
       containers:
-      - name: musicsearch-es
-        image: elasticsearch:8.6.2
-        ports:
-        - containerPort: 9200
-          name: http
-        - containerPort: 9300
-          name: inter-node
-        resources:
-          limits:
-            memory: 6Gi
-        env:
-          - name: xpack.security.enabled
-            value: "false"
-          - name: network.host
-            value: "127.0.0.1"
-          - name: http.host
-            value: "0.0.0.0"
-          - name: ELASTIC_PASSWORD
-            value: "YOUR_PASSWORD_HERE"
-          - name: ELASTIC_USERNAME
-            value: "elastic"
+        - name: musicsearch-es
+          image: sqzd269/elasticsearch-plugins:latest
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: inter-node
+          resources:
+            limits:
+              memory: 6Gi
+          env:
+            - name: xpack.security.enabled
+              value: "false"
+            - name: network.host
+              value: "127.0.0.1"
+            - name: http.host
+              value: "0.0.0.0"
+            - name: ELASTIC_PASSWORD
+              value: "YOUR_PASSWORD_HERE"
+            - name: ELASTIC_USERNAME
+              value: "elastic"
