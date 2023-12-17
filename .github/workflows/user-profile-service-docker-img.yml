@@ -1,0 +1,23 @@
+name: Build and Push UserProfileService Image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'KeycloakAuthProvider/**'
+      - 'UserProfileService/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build the Docker image
+      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/userprofile-api . -f ./UserProfileService/Dockerfile
+
+    - name: Push the Docker image
+      run: |
+        echo ${{ secrets.DOCKERHUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/userprofile-api
