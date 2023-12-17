@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgresdb:
+    image: postgres:15.3
+    ports:
+      - "30003:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+  redis:
+    image: redis
+    command: redis-server --requirepass PLEASE_CHANGE_ME
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.13
+    ports:
+      - "9201:9200"
+      - "9301:9300"
+    environment:
+      - xpack.security.enabled=false
+      - network.host=0.0.0.0
+      - http.host=0.0.0.0
+      - discovery.type=single-node
+    command:
+      - /bin/bash
+      - -c
+      - |
+        bin/elasticsearch-plugin install --batch analysis-kuromoji
+        bin/elasticsearch-plugin install --batch analysis-icu
+        /usr/local/bin/docker-entrypoint.sh
+  pgsync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: /bin/sh ./runserver.sh
+    sysctls:
+      - net.ipv4.tcp_keepalive_time=200
+      - net.ipv4.tcp_keepalive_intvl=200
+      - net.ipv4.tcp_keepalive_probes=5
+    labels:
+      org.label-schema.name: "pgsync"
+      org.label-schema.description: "Postgres to Elasticsearch sync"
+      com.label-schema.service-type: "daemon"
+    depends_on:
+      - postgresdb
+      - redis
+      - elasticsearch
+    environment:
+      - PG_USER=postgres
+      - PG_HOST=postgresdb
+      - PG_PORT=5432
+      - PG_PASSWORD=postgres
+      - LOG_LEVEL=INFO
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_SCHEME=http
+      - ELASTICSEARCH_HOST=elasticsearch
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=PLEASE_CHANGE_ME
+      - ELASTICSEARCH=true
+      - OPENSEARCH=false
