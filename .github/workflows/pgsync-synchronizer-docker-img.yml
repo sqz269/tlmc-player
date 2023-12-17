@@ -9,12 +9,14 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: ./SearchPgSync
     steps:
     - uses: actions/checkout@v2
 
     - name: Build the Docker image
-      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/search-pgsync . -f ./SearchPgSync/PgSync.Dockerfile
+      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/search-pgsync . -f ./PgSync.Dockerfile
 
     - name: Push the Docker image
       run: |
