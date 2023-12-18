@@ -4,7 +4,7 @@ RUN mkdir $WORKDIR
 COPY ./schema.json $WORKDIR
 COPY ./bootstrap.sql $WORKDIR
 WORKDIR $WORKDIR
-RUN pip install git+https://github.com/toluaina/pgsync.git
+RUN pip install git+https://github.com/toluaina/pgsync.git@3.0.0
 COPY ./wait-for-it.sh wait-for-it.sh
 COPY ./runserver.sh runserver.sh
 RUN chmod +x wait-for-it.sh
