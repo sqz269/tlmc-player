@@ -2,6 +2,7 @@
 using Elasticsearch.Net;
 using Microsoft.AspNetCore.Mvc;
 using Nest;
+using SearchService.Model;
 
 namespace SearchService.Controllers;
 
@@ -17,10 +18,10 @@ public class SearchController : Controller
     }
 
     [HttpGet("albums", Name = nameof(SearchAlbums))]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    public async Task<ActionResult<object>> SearchAlbums(string query, int start = 0, [Range(10, 50)] int limit=20)
+    [ProducesResponseType(typeof(SearchResult<List<AlbumSearchResult>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SearchResult<List<AlbumSearchResult>>>> SearchAlbums(string query, int start = 0, [Range(10, 50)] int limit=20)
     {
-        var result = await _elasticSearch.SearchAsync<object>(s => s
+        var result = await _elasticSearch.SearchAsync<Album>(s => s
             .Index("albums")
             .Query(q => q
                 .QueryString(qs => qs
@@ -31,21 +32,29 @@ public class SearchController : Controller
             .Size(limit)
         );
 
-        var resp = new
+        long nextStartIndex = start + result.Documents.Count == result.Total ? -1 : start + limit;
+        var resp = new SearchResult<IList<AlbumSearchResult>>()
         {
             Query = query,
-            Result = result.Documents,
-            Total = result.Total
+            Result = result.Hits.Select(hit => new AlbumSearchResult
+            {
+                Album = hit.Source,
+                Score = hit.Score
+            }).ToList(),
+            Total = (int)result.Total,
+            Size = result.Documents.Count,
+            PrevStartIndex = start,
+            NextStartIndex = nextStartIndex
         };
 
         return Ok(resp);
     }
 
     [HttpGet("tracks", Name = nameof(SearchTracks))]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-    public async Task<object> SearchTracks(string query, int start = 0, [Range(10, 50)] int limit=20)
+    [ProducesResponseType(typeof(SearchResult<List<TrackSearchResult>>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SearchResult<List<TrackSearchResult>>>> SearchTracks(string query, int start = 0, [Range(10, 50)] int limit=20)
     {
-        var result = await _elasticSearch.SearchAsync<object>(s => s
+        var result = await _elasticSearch.SearchAsync<Track>(s => s
             .Index("tracks")
             .Query(q => q
                 .QueryString(qs => qs
@@ -56,11 +65,19 @@ public class SearchController : Controller
             .Size(limit)
         );
 
-        var resp = new
+        long nextStartIndex = start + result.Documents.Count == result.Total ? -1 : start + limit;
+        var resp = new SearchResult<IList<TrackSearchResult>>()
         {
             Query = query,
-            Result = result.Documents,
-            Total = result.Total
+            Result = result.Hits.Select(hit => new TrackSearchResult
+            {
+                Track = hit.Source,
+                Score = hit.Score
+            }).ToList(),
+            Total = (int)result.Total,
+            Size = result.Documents.Count,
+            PrevStartIndex = start,
+            NextStartIndex = nextStartIndex
         };
 
         return Ok(resp);
