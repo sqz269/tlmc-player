@@ -2,7 +2,38 @@
   {
     "database": "postgres",
     "index": "albums",
-
+    "setting": {
+      "analysis": {
+        "filter": {
+          "edge_ngram_filter": {
+            "type": "edge_ngram",
+            "min_gram": 1,
+            "max_gram": 10,
+            "side": "front"
+          }
+        },
+        "analyzer": {
+          "albumname_en_analyzer": {
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "asciifolding",
+              "icu_normalizer",
+              "edge_ngram_filter"
+            ]
+          },
+          "albumname_jp_kuromoji_analyzer": {
+            "type": "custom",
+            "tokenizer": "kuromoji_tokenizer",
+            "filter": [
+              "kuromoji_baseform",
+              "kuromoji_part_of_speech",
+              "kuromoji_readingform"
+            ]
+          }
+        }
+      }
+    },
     "nodes": {
       "table": "Albums",
       "columns": [
@@ -11,17 +42,27 @@
         "ReleaseDate",
         "ReleaseConvention",
         "CatalogNumber",
+        "DiscNumber",
+        "DiscName",
         "NumberOfDiscs",
         "Website",
         "DataSource"
       ],
-
       "transform": {
         "ReleaseDate": "date",
         "ReleaseConvention": "date",
-        "NumberOfDiscs": "int"
+        "NumberOfDiscs": "int",
+        "mapping": {
+          "AlbumName_En": {
+            "type": "text",
+            "analyzer": "albumname_en_analyzer"
+          },
+          "AlbumName_Jp": {
+            "type": "text",
+            "analyzer": "albumname_jp_kuromoji_analyzer"
+          }
+        }
       },
-
       "children": [
         {
           "table": "Circles",
@@ -33,10 +74,15 @@
             "Status",
             "Country"
           ],
+          "transform": {
+            "Established": "date"
+          },
           "relationship": {
             "variant": "object",
             "type": "one_to_many",
-            "through_tables": ["AlbumCircle"]
+            "through_tables": [
+              "AlbumCircle"
+            ]
           }
         }
       ]
@@ -45,6 +91,38 @@
   {
     "database": "postgres",
     "index": "tracks",
+    "setting": {
+      "analysis": {
+        "filter": {
+          "edge_ngram_filter": {
+            "type": "edge_ngram",
+            "min_gram": 1,
+            "max_gram": 10,
+            "side": "front"
+          }
+        },
+        "analyzer": {
+          "trackname_en_analyzer": {
+            "tokenizer": "standard",
+            "filter": [
+              "lowercase",
+              "asciifolding",
+              "icu_normalizer",
+              "edge_ngram_filter"
+            ]
+          },
+          "trackname_jp_kuromoji_analyzer": {
+            "type": "custom",
+            "tokenizer": "kuromoji_tokenizer",
+            "filter": [
+              "kuromoji_baseform",
+              "kuromoji_part_of_speech",
+              "kuromoji_readingform"
+            ]
+          }
+        }
+      }
+    },
     "nodes": {
       "table": "Tracks",
       "columns": [
@@ -60,22 +138,41 @@
       ],
       "transform": {
         "Duration": "time",
-        "Index": "int"
+        "Index": "int",
+        "mapping": {
+          "Name->En": {
+            "type": "text",
+            "analyzer": "trackname_en_analyzer"
+          },
+          "Name->Jp": {
+            "type": "text",
+            "analyzer": "trackname_jp_kuromoji_analyzer"
+          },
+          "Staff": {
+            "type": "text",
+            "analyzer": "trackname_jp_kuromoji_analyzer"
+          }
+        }
       },
-
       "children": [
         {
           "table": "OriginalTracks",
-          "columns": ["Id", "Title"],
+          "columns": [
+            "Id",
+            "Title"
+          ],
           "relationship": {
             "variant": "object",
             "type": "one_to_many",
-            "through_tables": ["OriginalTrackTrack"]
+            "through_tables": [
+              "OriginalTrackTrack"
+            ]
           },
           "transform": {
             "mapping": {
               "Id": {
-                "type": "text"
+                "type": "keyword",
+                "index": false
               }
             }
           },
@@ -92,7 +189,13 @@
               "transform": {
                 "mapping": {
                   "Id": {
-                    "type": "text"
+                    "type": "keyword"
+                  },
+                  "Type": {
+                    "type": "keyword"
+                  },
+                  "ExternalReference": {
+                    "type": "keyword"
                   }
                 }
               },
