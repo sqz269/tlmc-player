@@ -41,6 +41,17 @@ TODO: See Wiki section of the repository
 
 TODO: See Wiki section of the repository
 
+## API Documentation
+
+To explore and test our API endpoints interactively, visit the Swagger UI for each service:
+
+- [Music Data Service API](https://api-music.marisad.me/swagger/music-data/index.html)
+- [Playlist Service API](https://api-music.marisad.me/swagger/playlist/index.html)
+- [Search Service API](https://api-music.marisad.me/swagger/search-api/index.html)
+- [User Profile Service API](https://api-music.marisad.me/swagger/user-profile/index.html)
+
+These interfaces provide detailed information about each endpoint, including available operations, request parameters, and response formats. You can try out different requests directly in the Swagger UI to see how our API responds in real-time.
+
 ## Acknowledgements
 
 Special thanks to Connor_CZ and the team behind [Touhou Lossless Music Collection](https://nyaa.si/view/1714682) for their invaluable contributions.
