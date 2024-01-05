@@ -88,7 +88,7 @@ public class TrackRepo : ITrackRepo
         return await _context.Tracks.FromSqlRaw(@"
                                             SELECT *
                                             FROM ""Tracks""
-                                            TABLESAMPLE BERNOULLI(0.001)
+                                            TABLESAMPLE BERNOULLI(0.1)
                                             ORDER BY random()
                                             LIMIT {0}", limit)
             .IgnoreAutoIncludes().ToListAsync();
