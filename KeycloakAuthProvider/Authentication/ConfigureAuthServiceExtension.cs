@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Hosting;
 
 namespace KeycloakAuthProvider.Authentication;
 
@@ -14,7 +15,7 @@ public static class ConfigureAuthServiceExt
     {
         // get oidc config provider service
         var oidcConfigProvider = services.BuildServiceProvider().GetRequiredService<OpenIdConnectConfigurationProviderService>();
-        var isDevelopment = services.BuildServiceProvider().GetRequiredService<IHostEnvironment>().IsDevelopment();
+        var isDevelopment = services.BuildServiceProvider().GetRequiredService<IWebHostEnvironment>().IsDevelopment();
 
         var authBuilder = services.AddAuthentication(opt =>
         {
