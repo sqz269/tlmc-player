@@ -100,10 +100,18 @@ public class PlaylistController : Controller
         var user = HttpContext.User.ToUserClaim();
 
         var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+
         if (playlist == null)
         {
             return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
                 detail: $"Playlist with Id: {playlistId} Does not exist");
+        }
+
+        // Make sure playlist isn't special playlist
+        if (playlist?.Type != PlaylistType.Normal && playlistInfo.Name != null)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Playlist Not Updated",
+                detail: $"Playlist with Id: {playlistId} is a special playlist and it's name cannot be updated");
         }
 
         if (playlistInfo.Name != null)
