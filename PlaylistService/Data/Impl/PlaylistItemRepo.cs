@@ -155,8 +155,10 @@ public class PlaylistItemRepo : IPlaylistItemRepo
 
         try
         {
+            var max = items.Max(i => i.Index);
+
             var updated = await _context.PlaylistItems
-                .Where(pi => pi.PlaylistId == playlistId && pi.Index > items.Max(i => i.Index))
+                .Where(pi => pi.PlaylistId == playlistId && pi.Index > max)
                 .ExecuteUpdateAsync(e =>
                     e.SetProperty(p => p.Index, ind => ind.Index - items.Count));
             Console.WriteLine($"Updated: {updated} Records");
