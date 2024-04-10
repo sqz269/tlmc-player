@@ -23,11 +23,19 @@ public class PlaylistItemRepo : IPlaylistItemRepo
         return newVal;
     }
 
-    public async Task<bool> DoesPlaylistItemExist(Guid playlist, Guid trackId)
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="playlistId"></param>
+    /// <param name="trackIds"></param>
+    /// <returns>A list of track ids that exists in the playlist, If an id is not contained in the list but was passed in then that means the track does not exist in the list</returns>
+    public Task<List<Guid>> DoesPlaylistItemsExistInPlaylist(Guid playlistId, List<Guid> trackIds)
     {
-        return await _context.PlaylistItems
-            .Where(pi => pi.PlaylistId == playlist && pi.TrackId == trackId)
-            .AnyAsync();
+        return _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlistId && trackIds.Contains(pi.TrackId))
+            .Select(e => e.TrackId)
+            .ToListAsync();
     }
 
     public async Task<PlaylistItem> InsertPlaylistItem(Guid playlistId, Guid trackId)
