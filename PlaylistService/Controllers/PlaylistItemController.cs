@@ -85,6 +85,7 @@ public class PlaylistItemsController : Controller
     }
 
     [HttpPost("contains", Name = nameof(IsTrackInPlaylist))]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Dictionary<Guid, bool>))]
     public async Task<ActionResult> IsTrackInPlaylist(Guid playlistId, [FromBody] List<Guid> trackIds)
     {
         var userClaim = HttpContext.User.ToUserClaim();
