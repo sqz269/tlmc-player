@@ -28,6 +28,6 @@ public class AssetController : Controller
 
         string mime = asset.AssetMime ?? "application/octet-stream";
 
-        return File(fileStream, asset.AssetMime, mime, enableRangeProcessing: asset.Size > 1000000);
+        return File(fileStream, mime, asset.AssetName, enableRangeProcessing: asset.Size > 1000000);
     }
 }
