@@ -1,0 +1,21 @@
+version: '3.4'
+
+services:
+  postgres:
+    image: postgres:14.3
+    environment:
+      POSTGRES_USER: tlmcplayer
+      POSTGRES_PASSWORD: tlmcplayer
+      POSTGRES_DB: tlmcplayer
+    ports:
+      - "5432:5432"
+  tlmcplayerbackend:
+    image: ${DOCKER_REGISTRY-}tlmcplayerbackend
+    build:
+      context: .
+      dockerfile: TlmcPlayerBackend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__PostgreSql: "Host=postgres;Port=5432;Database=tlmcplayer;Username=tlmcplayer;Password=tlmcplayer"
+      Keycloak__RealmUrl: "https://sso.marisad.me/realms/MusicPlayer"
+      FFMpegDirectory: "/usr/bin"
