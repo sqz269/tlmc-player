@@ -47,13 +47,17 @@ public class UserProfileController : Controller
     {
         var claim = HttpContext.User.ToUserClaim();
 
-        var user = await _userProfileRepo.GetUserProfileById(claim.UserId.Value);
-        if (user == null)
-        {
-            return NotFound($"No user with id: {claim.UserId} exists");
-        }
+        var user = await _userProfileRepo.GetUserProfileById(claim.UserId);
+        
+        
+        if (user != null) return _mapper.Map<UserProfileReadDto>(user);
 
-        return _mapper.Map<UserProfileReadDto>(user);
+        await CreateUser(new UserProfileWriteDto
+        {
+            DisplayName = claim.Username
+        });
+
+        return _mapper.Map<UserProfileReadDto>(await _userProfileRepo.GetUserProfileById(claim.UserId));
     }
 
     [Authorize]
@@ -71,7 +75,7 @@ public class UserProfileController : Controller
             return BadRequest(ModelState);
         }
 
-        var existingProfile = await _userProfileRepo.GetUserProfileById(claim.UserId.Value);
+        var existingProfile = await _userProfileRepo.GetUserProfileById(claim.UserId);
         if (existingProfile != null)
         {
             return Conflict(new { Message = "User profile already exists." });
@@ -79,7 +83,7 @@ public class UserProfileController : Controller
 
         // create user
         var profile = _mapper.Map<UserProfile>(userProfile);
-        profile.Id = claim.UserId.Value;
+        profile.Id = claim.UserId;
         profile.DateJoined = DateTime.UtcNow;
 
         var success = await _userProfileRepo.CreateUserProfile(profile);
@@ -101,7 +105,7 @@ public class UserProfileController : Controller
 
         var patchActual = _mapper.Map<JsonPatchDocument<UserProfile>>(patch);
 
-        var targetUser = await _userProfileRepo.GetUserProfileById(claim.UserId.Value);
+        var targetUser = await _userProfileRepo.GetUserProfileById(claim.UserId);
 
         if (targetUser == null)
         {

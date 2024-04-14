@@ -34,7 +34,7 @@ public class PlaylistController : Controller
 
     private async Task CreatePersonalPlaylistIfNotExist(UserClaim userClaim)
     {
-        if (!await _playlistRepo.DoesPersonalPlaylistExist(userClaim.UserId.Value))
+        if (!await _playlistRepo.DoesPersonalPlaylistExist(userClaim.UserId))
         {
             var history = Models.Playlist.Playlist.Create("History",
                 PlaylistVisibility.Private, userClaim, PlaylistType.History);
@@ -173,7 +173,7 @@ public class PlaylistController : Controller
         var user = HttpContext.User.ToUserClaim();
         await CreatePersonalPlaylistIfNotExist(user);
 
-        var playlists = await _playlistRepo.GetUserPlaylist(user.UserId.Value, user.UserId);
+        var playlists = await _playlistRepo.GetUserPlaylist(user.UserId, user.UserId);
         return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(playlists));
     }
 
@@ -184,7 +184,7 @@ public class PlaylistController : Controller
         var user = HttpContext.User.ToUserClaim();
         await CreatePersonalPlaylistIfNotExist(user);
 
-        var history = await _playlistRepo.GetHistoryPlaylist(user.UserId.Value);
+        var history = await _playlistRepo.GetHistoryPlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(history));
     }
 
@@ -195,7 +195,7 @@ public class PlaylistController : Controller
         var user = HttpContext.User.ToUserClaim();
         await CreatePersonalPlaylistIfNotExist(user);
 
-        var queue = await _playlistRepo.GetQueuePlaylist(user.UserId.Value);
+        var queue = await _playlistRepo.GetQueuePlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(queue));
     }
 
@@ -206,7 +206,7 @@ public class PlaylistController : Controller
         var user = HttpContext.User.ToUserClaim();
         await CreatePersonalPlaylistIfNotExist(user);
 
-        var fav = await _playlistRepo.GetFavoritesPlaylist(user.UserId.Value);
+        var fav = await _playlistRepo.GetFavoritesPlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(fav));
     }
 }
