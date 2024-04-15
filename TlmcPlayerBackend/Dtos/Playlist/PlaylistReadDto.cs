@@ -2,13 +2,15 @@
 
 namespace TlmcPlayerBackend.Dtos.Playlist;
 
+using TlmcPlayerBackend.Models.UserProfile;
+
 public class PlaylistReadDto
 {
     public Guid Id { get; set; }
     
     public string Name { get; set; }
 
-    public Guid OwnerId { get; set; }
+    public UserProfile Owner { get; set; }
 
     public PlaylistVisibility Visibility { get; set; }
 

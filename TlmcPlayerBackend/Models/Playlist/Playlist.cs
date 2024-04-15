@@ -48,16 +48,11 @@ public class Playlist
         UserClaim user, 
         PlaylistType type=PlaylistType.Normal)
     {
-        if (user.Username == null || user.UserId == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-
         return new Playlist
         {
             Id = new Guid(),
             
-            OwnerId = user.UserId.Value,
+            OwnerId = user.UserId,
             
             Name = name,
             Visibility = visibility,

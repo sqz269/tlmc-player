@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Music Data Configuration
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Tiny).AutoInclude();
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Small).AutoInclude();
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Medium).AutoInclude();
@@ -55,6 +56,11 @@ public class AppDbContext : DbContext
             .HasConversion(v => v.ToString(),
                 v => Enum.Parse<HlsPlaylistType>(v));
         
+        // Playlist Configuration
+        modelBuilder.Entity<PlaylistItem>().Navigation(t => t.Track).AutoInclude();
+        
+        modelBuilder.Entity<Playlist>().Navigation(t => t.Owner).AutoInclude();
+
         base.OnModelCreating(modelBuilder);
     }
 }
