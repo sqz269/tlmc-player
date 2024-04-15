@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      containers:
+        - name: backend-api
+          image: sqzd269/backend-api:latest
+          env:
+            - name: FFMpegBinary
+              value: /usr/bin
+            - name: ConnectionStrings__PostgreSql
+              value: Host=musicdata-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
+            - name: ThumbnailRoot
+              value: /thumbdata/
+            - name: Keycloak__RealmUrl
+              value: https://sso.marisad.me/realms/MusicPlayer
+          volumeMounts:
+            - mountPath: /external_data/torrent/TLMC v2/
+              name: musicdata
+            - mountPath: /thumbdata/
+              name: thumbdata
+      volumes:
+        - name: musicdata
+          hostPath:
+            path: /external_data/torrent/TLMC v2/
+            type: Directory
+        - name: thumbdata
+          hostPath:
+            path: /musicdata_api/thumbdata/
+            type: Directory
