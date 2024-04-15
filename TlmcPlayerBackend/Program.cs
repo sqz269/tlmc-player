@@ -4,6 +4,7 @@ using KeycloakAuthProvider.Service;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using Npgsql;
 using TlmcPlayerBackend.Data;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Data.Api.Playlist;
@@ -16,8 +17,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Register DB Related services
+NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
+
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
 builder.Services.AddScoped<ITrackRepo, TrackRepo>();
 builder.Services.AddScoped<ICircleRepo, CircleRepo>();
