@@ -21,7 +21,9 @@ RUN dotnet publish "./TlmcPlayerBackend.csproj" -c $BUILD_CONFIGURATION -o /app/
 
 FROM base AS final
 # Install ffmpeg
+USER root
 RUN apt-get update && apt-get install -y ffmpeg
+USER app
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "TlmcPlayerBackend.dll"]
