@@ -21,7 +21,7 @@ public class AssetController : Controller
         if (asset == null)
             return NotFound();
 
-        FileStream fileStream = new FileStream(asset.Path, FileMode.Open);
+        FileStream fileStream = new FileStream(asset.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
         string mime = asset.Mime ?? "application/octet-stream";
 
