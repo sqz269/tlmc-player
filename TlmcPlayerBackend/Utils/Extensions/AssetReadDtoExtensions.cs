@@ -6,7 +6,7 @@ public static class AssetReadDtoExtensions
 {
     public static void MapAssetUrl(this AssetReadDto asset, Func<Guid, string?> assetUrlGenerator)
     {
-        var assetUrl = assetUrlGenerator.Invoke(asset.AssetId);
+        var assetUrl = assetUrlGenerator.Invoke(asset.Id);
         if (assetUrl == null)
         {
             throw new InvalidOperationException("Failed to Generate Asset URI. AssetUrlGenerator call returned null");
