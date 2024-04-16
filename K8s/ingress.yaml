@@ -55,7 +55,7 @@ spec:
                 port:
                   number: 80
           - pathType: Prefix
-            path: "/api/playlist"
+            path: "/api/playlists"
             backend:
               service:
                 name: backend-api-clusterip
