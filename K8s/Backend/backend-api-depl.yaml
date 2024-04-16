@@ -17,7 +17,7 @@ spec:
         - name: backend-api
           image: sqzd269/backend-api:latest
           env:
-            - name: FFMpegBinary
+            - name: FFMpegDirectory
               value: /usr/bin
             - name: ConnectionStrings__PostgreSql
               value: Host=backend-pgsql-clusterip.tlmc-player.svc.cluster.local;Port=5432;Username=postgres;Password=postgrespw
