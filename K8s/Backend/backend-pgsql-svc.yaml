@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: musicdata-pgsql-clusterip
+  name: backend-pgsql-clusterip
   namespace: tlmc-player
 spec:
   type: ClusterIP
   selector:
-    app: musicdata-pgsql-depl
+    app: backend-pgsql-depl
   ports:
-    - name: tcp-musicdata-pgsql-db-port
+    - name: tcp-backend-pgsql-db-port
       protocol: TCP
       port: 5432
       targetPort: 5432
