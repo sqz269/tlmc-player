@@ -11,5 +11,5 @@ spec:
     - name: http-backend-api
       port: 80
       protocol: TCP
-      targetPort: 80
+      targetPort: 8080
       appProtocol: HTTP
