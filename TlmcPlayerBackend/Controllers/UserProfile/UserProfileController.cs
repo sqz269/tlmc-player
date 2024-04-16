@@ -25,7 +25,7 @@ public class UserProfileController : Controller
         _userProfileRepo = userProfileRepo;
     }
 
-    [HttpGet("{userId:Guid}")]
+    [HttpGet("{userId:Guid}", Name = nameof(GetUserProfile))]
     [ProducesResponseType(typeof(UserProfileReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserProfileReadDto>> GetUserProfile(Guid userId)
@@ -40,10 +40,10 @@ public class UserProfileController : Controller
         return _mapper.Map<UserProfileReadDto>(user);
     }
 
-    [HttpGet("me")]
+    [HttpGet("me", Name = nameof(GetCurrentUserProfile))]
     [ProducesResponseType(typeof(UserProfileReadDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<UserProfileReadDto>> GetUserProfile()
+    public async Task<ActionResult<UserProfileReadDto>> GetCurrentUserProfile()
     {
         var claim = HttpContext.User.ToUserClaim();
 
@@ -61,7 +61,7 @@ public class UserProfileController : Controller
     }
 
     [Authorize]
-    [HttpPost]
+    [HttpPost("", Name = nameof(CreateUser))]
     [ProducesResponseType(typeof(UserProfileReadDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -97,7 +97,7 @@ public class UserProfileController : Controller
     }
 
     [Authorize]
-    [HttpPatch]
+    [HttpPatch("", Name = nameof(UpdateUser))]
     [ProducesResponseType(typeof(UserProfileReadDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<UserProfileReadDto?>> UpdateUser([FromBody] JsonPatchDocument<UserProfileUpdateDto> patch)
     {
