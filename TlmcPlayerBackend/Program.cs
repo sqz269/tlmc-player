@@ -19,7 +19,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Register DB Related services
 NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql")));
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"), optionsBuilder =>
+    {
+        optionsBuilder.CommandTimeout(5);
+    }));
 
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();
 builder.Services.AddScoped<ITrackRepo, TrackRepo>();
