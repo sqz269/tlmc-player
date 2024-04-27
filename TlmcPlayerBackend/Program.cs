@@ -92,6 +92,15 @@ app.UseSwagger();
 app.UseSwaggerUI();
 //}
 
+if (app.Environment.IsProduction())
+{
+    app.Use((context, next) =>
+    {
+        context.Request.Scheme = "https";
+        return next(context);
+    });
+}
+
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
