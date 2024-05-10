@@ -12,6 +12,8 @@ using TlmcPlayerBackend.Data.Api.UserProfile;
 using TlmcPlayerBackend.Data.Impl.MusicData;
 using TlmcPlayerBackend.Data.Impl.Playlist;
 using TlmcPlayerBackend.Data.Impl.UserProfile;
+using TlmcPlayerBackend.Integrations.Meilisearch;
+using TlmcPlayerBackend.Integrations.MeiliSearch.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +38,11 @@ builder.Services.AddScoped<IUserProfileRepo, UserProfileRepo>();
 
 builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
 builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();
+
+// Search services
+builder.Services.AddSingleton<MeilisearchDbContext>(c => new MeilisearchDbContext(
+    "http://localhost:7700",
+    "23d34ab0da04c66dd2d3152575aa1e3adf5803b78c721617a13cb33030dfc1ea"));
 
 // Configure Jwt Authentication
 builder.Services.AddSingleton<OpenIdConnectConfigurationProviderService>();
@@ -108,5 +115,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 PrepDb.Prep(app, app.Environment);
+
+var meilisearchInit = new PrepMeilisearch(app, app.Environment);
+await meilisearchInit.PrepDb();
 
 app.Run();

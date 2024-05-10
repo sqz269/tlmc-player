@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="13.0.1" />
     <PackageReference Include="FFMpegCore" Version="5.1.0" />
+    <PackageReference Include="MeiliSearch" Version="0.15.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="8.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.4" />
@@ -38,8 +39,9 @@
     <Folder Include="Migrations\" />
     <Folder Include="Models\MusicData\" />
     <Folder Include="Models\Playlist\" />
+    <Folder Include="Profiles\Services\" />
+    <Folder Include="Services\" />
     <Folder Include="Profiles\UserProfile\" />
-    <Folder Include="Utils\Extensions\" />
   </ItemGroup>
 
   <ItemGroup>
