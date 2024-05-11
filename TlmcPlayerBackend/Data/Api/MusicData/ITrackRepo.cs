@@ -1,4 +1,5 @@
-﻿using TlmcPlayerBackend.Models.MusicData;
+﻿using TlmcPlayerBackend.Controllers.MusicData;
+using TlmcPlayerBackend.Models.MusicData;
 
 namespace TlmcPlayerBackend.Data.Api.MusicData;
 
@@ -10,7 +11,7 @@ public interface ITrackRepo
 
     public Task<Tuple<List<Track>, List<Guid>>> GetTracks(IList<Guid> tracks);
 
-    public Task<IEnumerable<Track>> SampleRandomTrack(int limit);
+    public Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters);
 
     public Task<Guid> CreateTrack(Guid albumGuid, Track track);
 

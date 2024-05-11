@@ -35,6 +35,23 @@ public class AlbumFilter
     public Guid? ArtistId { get; set; }
 }
 
+public class TrackFilterSelectableRanged
+{
+    public DateTime? ReleaseDateBegin { get; set; }
+    public DateTime? ReleaseDateEnd { get; set; }
+
+    public List<Guid>? CircleIds { get; set; }
+
+    public List<string>? OriginalAlbumIds { get; set; }
+
+    public List<string>? OriginalTrackIds { get; set; }
+
+    public bool IsEmpty()
+    {
+        return ReleaseDateBegin == null && ReleaseDateEnd == null && CircleIds == null && OriginalAlbumIds == null && OriginalTrackIds == null;
+    }
+}
+
 public class TrackFilter
 {
     public string? Title { get; set; }
@@ -212,8 +229,8 @@ public class AlbumController : Controller
 
     [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
     [ProducesResponseType(typeof(List<TrackReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TrackReadDto>> GetRandomSampleTrack([FromQuery] [Range(1, 100)] int limit = 20)
+    public async Task<ActionResult<TrackReadDto>> GetRandomSampleTrack([FromQuery] [Range(1, 100)] int limit = 20, [FromQuery] TrackFilterSelectableRanged? filters = null)
     {
-        return Ok(_mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit)));
+        return Ok(_mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, filters)));
     }
 }

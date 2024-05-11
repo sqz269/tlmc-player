@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
+using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 
@@ -83,15 +85,146 @@ public class TrackRepo : ITrackRepo
         return addedTrack.Entity.Id;
     }
 
-    public async Task<IEnumerable<Track>> SampleRandomTrack(int limit)
+    // We need to validate the track filters before it gets turned into a sql string and applied to the query
+    private async Task<bool> ValidateTrackFilters(TrackFilterSelectableRanged filters)
     {
-        return await _context.Tracks.FromSqlRaw(@"
-                                            SELECT *
-                                            FROM ""Tracks""
-                                            TABLESAMPLE BERNOULLI(0.1)
-                                            ORDER BY random()
-                                            LIMIT {0}", limit)
-            .IgnoreAutoIncludes().ToListAsync();
+        // Validate all the ids that will be interpolated
+        if (filters.CircleIds != null)
+        {
+            var circles = await _context.Circles
+                .Where(c => filters.CircleIds.Contains(c.Id))
+                .IgnoreAutoIncludes()
+                .AsNoTracking()
+                .ToListAsync();
+            if (circles.Count != filters.CircleIds.Count)
+            {
+                throw new ValidationException($"Validation failed for TrackFilters.{nameof(filters.CircleIds)}. Expected: {filters.CircleIds.Count} != {circles.Count}");
+            }
+        }
+
+        if (filters.OriginalAlbumIds != null)
+        {
+            var originalAlbumIds = await _context.OriginalAlbums
+                .Where(o => filters.OriginalAlbumIds.Contains(o.Id))
+                .IgnoreAutoIncludes()
+                .AsNoTracking()
+                .ToListAsync();
+            if (originalAlbumIds.Count != filters.OriginalAlbumIds.Count)
+            {
+                throw new ValidationException($"Validation failed for TrackFilters.{nameof(filters.OriginalAlbumIds)}. Expected: {filters.OriginalAlbumIds.Count} != {originalAlbumIds.Count}");
+            }
+        }
+
+        if (filters.OriginalTrackIds != null)
+        {
+            var originalTrackIds = await _context.OriginalTracks
+                .Where(o => filters.OriginalTrackIds.Contains(o.Id))
+                .IgnoreAutoIncludes()
+                .AsNoTracking()
+                .ToListAsync();
+            if (originalTrackIds.Count != filters.OriginalTrackIds.Count)
+            {
+                throw new ValidationException($"Validation failed for TrackFilters.{nameof(filters.OriginalTrackIds)}. Expected: {filters.OriginalTrackIds.Count} != {originalTrackIds.Count}");
+            }
+        }
+
+        return true;
+    }
+
+    private async Task<string> CreateTrackFilterWhereStatement(TrackFilterSelectableRanged filters)
+    {
+        await ValidateTrackFilters(filters);
+
+        var conditions = new List<string>();
+        if (filters.ReleaseDateBegin != null)
+        {
+            conditions.Add($"""
+                           "ReleaseDate" >= {filters.ReleaseDateBegin.Value.ToShortDateString()}
+                           """);
+        }
+
+        if (filters.ReleaseDateEnd != null)
+        {
+            conditions.Add($"""
+                            "ReleaseDate" <= {filters.ReleaseDateEnd.Value.ToShortDateString()}
+                            """);
+        }
+
+        if (filters.CircleIds != null)
+        {
+            // Transform all the CircleIds to be single quoted
+            var idsQuoted = filters.CircleIds.Select(id => $"'{id.ToString()}'");
+            conditions.Add($"""
+                            "CircleIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
+                            """);
+        }
+
+        if (filters.OriginalAlbumIds != null)
+        {
+            var idsQuoted = filters.OriginalAlbumIds.Select(id => $"'{id}'");
+            conditions.Add($"""
+                            "OriginalAlbumIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
+                            """);
+        }
+
+        if (filters.OriginalTrackIds != null)
+        {
+            var idsQuoted = filters.OriginalAlbumIds.Select(id => $"'{id}'");
+            conditions.Add($"""
+                            "OriginalTrackIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
+                            """);
+        }
+
+        return $"WHERE {string.Join(" OR ", conditions)}";
+    }
+
+    public async Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters)
+    {
+        // Construct where statements
+        if (filters == null || filters.IsEmpty())
+        {
+            return await _context.Tracks
+                .FromSqlRaw(@"
+                    SELECT *
+                    FROM ""Tracks""
+                    TABLESAMPLE BERNOULLI(0.1)
+                    ORDER BY random()
+                    LIMIT {0}", limit)
+                .IgnoreAutoIncludes()
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        var whereStatement = await CreateTrackFilterWhereStatement(filters);
+
+        var query = $"""
+                     SELECT sq.*
+                     FROM
+                     (
+                         SELECT
+                             "Tracks".*,
+                             "Albums"."ReleaseDate" as c,
+                             array_agg(DISTINCT "Circles"."Id") as "CircleIds",
+                             array_agg(DISTINCT "OriginalTracks"."Id") as "OriginalTrackIds",
+                             array_agg(DISTINCT "OriginalAlbums"."Id") as "OriginalAlbumIds"
+                         FROM "Tracks"
+                         LEFT JOIN "Albums" on "Tracks"."AlbumId" = "Albums"."Id"
+                         LEFT JOIN "AlbumCircle" on "Albums"."Id" = "AlbumCircle"."AlbumsId"
+                         LEFT JOIN "Circles" ON "AlbumCircle"."AlbumArtistId" = "Circles"."Id"
+                         LEFT JOIN "OriginalTrackTrack" ON "Tracks"."Id" = "OriginalTrackTrack"."TracksId"
+                         LEFT JOIN "OriginalTracks" ON "OriginalTrackTrack"."OriginalId" = "OriginalTracks"."Id"
+                         LEFT JOIN "OriginalAlbums" ON "OriginalTracks"."AlbumId" = "OriginalAlbums"."Id"
+                         GROUP BY "Tracks"."Id", "Albums"."ReleaseDate"
+                     ) as sq
+                        {whereStatement}
+                     ORDER BY random()
+                     LIMIT {limit}
+                     """;
+
+        return await _context.Tracks
+            .FromSqlRaw(query)
+            .AsNoTracking()
+            .ToListAsync();
     }
 
     public async Task<bool> UpdateTrack(Guid trackId, Track track)
