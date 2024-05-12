@@ -169,7 +169,7 @@ public class TrackRepo : ITrackRepo
 
         if (filters.OriginalTrackIds != null)
         {
-            var idsQuoted = filters.OriginalAlbumIds.Select(id => $"'{id}'");
+            var idsQuoted = filters.OriginalTrackIds.Select(id => $"'{id}'");
             conditions.Add($"""
                             "OriginalTrackIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
                             """);
