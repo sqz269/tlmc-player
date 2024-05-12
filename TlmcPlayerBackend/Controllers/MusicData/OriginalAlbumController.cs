@@ -26,7 +26,7 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("album", Name = nameof(GetOriginalAlbums))]
     [ProducesResponseType(typeof(IEnumerable<OriginalAlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
+    public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
     {
         var albums = await _originalAlbumRepo.GetOriginalAlbums(start, limit);
         return _mapper.Map<IEnumerable<OriginalAlbum>, IEnumerable<OriginalAlbumReadDto>>(albums);
@@ -70,7 +70,7 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("track", Name = nameof(GetOriginalTracks))]
     [ProducesResponseType(typeof(IEnumerable<OriginalTrackReadDto>), StatusCodes.Status200OK)]
-    public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20)
+    public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
     {
         var tracks = await _originalTrackRepo.GetOriginalTracks(start, limit);
         return _mapper.Map<IEnumerable<OriginalTrack>, IEnumerable<OriginalTrackReadDto>>(tracks);
