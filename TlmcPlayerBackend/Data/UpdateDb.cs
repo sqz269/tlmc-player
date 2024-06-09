@@ -50,7 +50,12 @@ public static class UpdateDb
             }
             catch (Exception e)
             {
-                Console.ReadKey();
+                // print out the directory at /
+                Console.WriteLine("Directory List");
+                foreach (var dir in Directory.GetDirectories("/"))
+                {
+                    Console.WriteLine(dir);
+                }
                 Console.WriteLine(e);
                 throw;
             }
