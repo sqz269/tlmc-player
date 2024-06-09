@@ -30,9 +30,20 @@ public static class UpdateDb
         int saved;
         foreach (var track in tracks)
         {
+            // We need to get the track's master playlist to probe the duration
+            var masterPlaylist = await appDb.HlsPlaylist
+                .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
+                .FirstOrDefaultAsync();
+
+            if (masterPlaylist == null)
+            {
+                Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
+                continue;
+            }
+
             i++;
             Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration})");
-            var trackInfo = await FFProbe.AnalyseAsync(track.TrackFile.Path);
+            var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
             track.Duration = trackInfo.Duration;
 
             if (i % 300 == 0)
