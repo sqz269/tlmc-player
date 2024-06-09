@@ -52,12 +52,6 @@ public static class UpdateDb
             }
             catch (Exception e)
             {
-                // print out the directory at /
-                Console.WriteLine("Directory List");
-                foreach (var dir in Directory.GetDirectories("/external_data/torrent/TLMC v5"))
-                {
-                    Console.WriteLine(dir);
-                }
                 Thread.Sleep(TimeSpan.FromMinutes(10));
                 throw;
             }
