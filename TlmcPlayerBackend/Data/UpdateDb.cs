@@ -56,6 +56,7 @@ public static class UpdateDb
                 {
                     Console.WriteLine(dir);
                 }
+                Thread.Sleep(TimeSpan.FromMinutes(10));
                 Console.WriteLine(e);
                 throw;
             }
