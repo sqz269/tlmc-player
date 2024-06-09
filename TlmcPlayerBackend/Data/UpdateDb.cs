@@ -44,7 +44,9 @@ public static class UpdateDb
             try
             {
                 i++;
-                Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration})");
+
+                var fileExists = Path.Exists(masterPlaylist.HlsPlaylistPath);
+                Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration}): {masterPlaylist.HlsPlaylistPath}, ({fileExists})");
                 var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
                 track.Duration = trackInfo.Duration;
             }
@@ -57,7 +59,6 @@ public static class UpdateDb
                     Console.WriteLine(dir);
                 }
                 Thread.Sleep(TimeSpan.FromMinutes(10));
-                Console.WriteLine(e);
                 throw;
             }
 
