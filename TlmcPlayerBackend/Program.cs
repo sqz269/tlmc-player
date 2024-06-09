@@ -109,5 +109,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 PrepDb.Prep(app, app.Environment);
+await UpdateDb.Update(app, app.Environment);
 
 app.Run();
