@@ -54,7 +54,7 @@ public static class UpdateDb
             {
                 // print out the directory at /
                 Console.WriteLine("Directory List");
-                foreach (var dir in Directory.GetDirectories("/"))
+                foreach (var dir in Directory.GetDirectories("/external_data/torrent/TLMC v5"))
                 {
                     Console.WriteLine(dir);
                 }
