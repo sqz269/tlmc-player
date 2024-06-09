@@ -41,10 +41,20 @@ public static class UpdateDb
                 continue;
             }
 
-            i++;
-            Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration})");
-            var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
-            track.Duration = trackInfo.Duration;
+            try
+            {
+                i++;
+                Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration})");
+                var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+                track.Duration = trackInfo.Duration;
+            }
+            catch (Exception e)
+            {
+                Console.ReadKey();
+                Console.WriteLine(e);
+                throw;
+            }
+
 
             if (i % 300 == 0)
             {
