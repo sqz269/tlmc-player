@@ -12,55 +12,70 @@ public static class UpdateDb
     {
         using var serviceScope = application.ApplicationServices.CreateScope();
         var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
-        await UpdateTrackDuration(dbContext, environment.IsProduction());
+        await UpdateTrackDuration(application, environment.IsProduction());
         await GenerateAlbumThumbnail(serviceScope, environment.IsProduction());
         await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
 
-    private static async Task UpdateTrackDuration(AppDbContext appDb, bool isProduction)
+    private static async Task UpdateTrackDuration(IApplicationBuilder application, bool isProduction)
     {
-        if (!isProduction)
-            return;
+        // if (!isProduction)
+        //     return;
 
-        var totalTrackNoDuration = await appDb.Tracks.Where(t => t.Duration == null).CountAsync();
+        using var serviceScope = application.ApplicationServices.CreateScope();
+        var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
+
+        var totalTrackNoDuration = await dbContext.Tracks.Where(t => t.Duration == null).CountAsync();
         Console.WriteLine($"Found {totalTrackNoDuration} tracks without duration. Adding Duration Information");
 
-        var tracks = await appDb.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
-        var i = 0;
-        int saved;
-        foreach (var track in tracks)
+        const int batchSize = 1000; // Adjust batch size as needed
+        var tracks = await dbContext.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
+        var totalBatches = (int)Math.Ceiling((double)tracks.Count / batchSize);
+
+        var options = new ParallelOptions
         {
-            // We need to get the track's master playlist to probe the duration
-            var masterPlaylist = await appDb.HlsPlaylist
-                .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
-                .FirstOrDefaultAsync();
+            MaxDegreeOfParallelism = Environment.ProcessorCount
+        };
 
-            if (masterPlaylist == null)
+        for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++)
+        {
+            var batch = tracks.Skip(batchIndex * batchSize).Take(batchSize).ToList();
+
+            int batchTrackIndex = 0;
+            await Parallel.ForEachAsync(batch, options, async (track, cancellationToken) =>
             {
-                Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
-                continue;
-            }
+                using var scope = application.ApplicationServices.CreateScope();
+                var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            i++;
-            Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration}): {masterPlaylist.HlsPlaylistPath}");
-            var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
-            track.Duration = trackInfo.Duration;
+                // We need to get the track's master playlist to probe the duration
+                var masterPlaylist = await appDb.HlsPlaylist
+                    .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
+                    .FirstOrDefaultAsync(cancellationToken);
 
-            if (i % 300 == 0)
-            {
-                saved = await appDb.SaveChangesAsync();
-                Console.WriteLine($"Saved: {saved} Changes");
-            }
+                if (masterPlaylist == null)
+                {
+                    Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
+                    return;
+                }
+
+                var currentIndex = Interlocked.Increment(ref batchTrackIndex);
+                Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{batch.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
+                var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+                track.Duration = trackInfo.Duration;
+
+
+                appDb.Tracks.Update(track);
+                await appDb.SaveChangesAsync(cancellationToken);
+            });
         }
 
-        saved = await appDb.SaveChangesAsync();
-        Console.WriteLine($"Saved: {saved} Changes");
+        Console.WriteLine("Finished updating track durations.");
     }
 
     private static async Task GenerateAlbumThumbnail(IServiceScope serviceScope, bool isProduction)
     {
         if (!isProduction) return;
-        
+
         var configuration = serviceScope.ServiceProvider.GetService<IConfiguration>();
         if (configuration == null)
         {
@@ -106,7 +121,7 @@ public static class UpdateDb
                 var thumbPath = Path.Join(albumThumbRoot, name);
 
                 await ThumbnailUtils.GenerateThumbImage(
-                    album.Image.Path, 
+                    album.Image.Path,
                     thumbPath,
                     size);
 
