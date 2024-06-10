@@ -1,5 +1,6 @@
 ﻿using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils;
@@ -17,6 +18,26 @@ public static class UpdateDb
         await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
 
+    private static async Task _UpdateTrackDurationOne(AppDbContext dbContext, Track track)
+    {
+        // We need to get the track's master playlist to probe the duration
+        var masterPlaylist = await dbContext.HlsPlaylist
+            .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
+            .FirstOrDefaultAsync();
+
+        if (masterPlaylist == null)
+        {
+            Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
+            return;
+        }
+
+        var fileExists = Path.Exists(masterPlaylist.HlsPlaylistPath);
+        Console.WriteLine($"Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
+
+        var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+        track.Duration = trackInfo.Duration;
+    }
+
     private static async Task UpdateTrackDuration(AppDbContext appDb, bool isProduction)
     {
         if (!isProduction)
@@ -26,45 +47,17 @@ public static class UpdateDb
         Console.WriteLine($"Found {totalTrackNoDuration} tracks without duration. Adding Duration Information");
 
         var tracks = await appDb.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
-        var i = 0;
-        int saved;
+
+        var tasks = new ConcurrentBag<Task>();
+
         foreach (var track in tracks)
         {
-            // We need to get the track's master playlist to probe the duration
-            var masterPlaylist = await appDb.HlsPlaylist
-                .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
-                .FirstOrDefaultAsync();
-
-            if (masterPlaylist == null)
-            {
-                Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
-                continue;
-            }
-
-            try
-            {
-                i++;
-
-                var fileExists = Path.Exists(masterPlaylist.HlsPlaylistPath);
-                Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration}): {masterPlaylist.HlsPlaylistPath}, ({fileExists})");
-                var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
-                track.Duration = trackInfo.Duration;
-            }
-            catch (Exception e)
-            {
-                Thread.Sleep(TimeSpan.FromMinutes(10));
-                throw;
-            }
-
-
-            if (i % 300 == 0)
-            {
-                saved = await appDb.SaveChangesAsync();
-                Console.WriteLine($"Saved: {saved} Changes");
-            }
+            tasks.Add(Task.Run(async () => await _UpdateTrackDurationOne(appDb, track)));
         }
 
-        saved = await appDb.SaveChangesAsync();
+        await Task.WhenAll(tasks);
+
+        var saved = await appDb.SaveChangesAsync();
         Console.WriteLine($"Saved: {saved} Changes");
     }
 
