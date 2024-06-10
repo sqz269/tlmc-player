@@ -12,14 +12,17 @@ public static class UpdateDb
     public static async Task Update(IApplicationBuilder application, IWebHostEnvironment environment)
     {
         using var serviceScope = application.ApplicationServices.CreateScope();
-        var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
-        await UpdateTrackDuration(dbContext, environment.IsProduction());
+        var dbContext = serviceScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await UpdateTrackDuration(application.ApplicationServices, environment.IsProduction());
         await GenerateAlbumThumbnail(serviceScope, environment.IsProduction());
         await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
 
-    private static async Task _UpdateTrackDurationOne(AppDbContext dbContext, Track track)
+    private static async Task _UpdateTrackDurationOne(IServiceProvider services, Track track)
     {
+        using var scope = services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
         // We need to get the track's master playlist to probe the duration
         var masterPlaylist = await dbContext.HlsPlaylist
             .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
@@ -36,29 +39,34 @@ public static class UpdateDb
 
         var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
         track.Duration = trackInfo.Duration;
+
+        // Save the changes to the track duration
+        await dbContext.SaveChangesAsync();
     }
 
-    private static async Task UpdateTrackDuration(AppDbContext appDb, bool isProduction)
+    private static async Task UpdateTrackDuration(IServiceProvider services, bool isProduction)
     {
         if (!isProduction)
             return;
+
+        using var scope = services.CreateScope();
+        var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var totalTrackNoDuration = await appDb.Tracks.Where(t => t.Duration == null).CountAsync();
         Console.WriteLine($"Found {totalTrackNoDuration} tracks without duration. Adding Duration Information");
 
         var tracks = await appDb.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
 
-        var tasks = new ConcurrentBag<Task>();
+        var tasks = new List<Task>();
 
         foreach (var track in tracks)
         {
-            tasks.Add(Task.Run(async () => await _UpdateTrackDurationOne(appDb, track)));
+            tasks.Add(Task.Run(async () => await _UpdateTrackDurationOne(services, track)));
         }
 
         await Task.WhenAll(tasks);
 
-        var saved = await appDb.SaveChangesAsync();
-        Console.WriteLine($"Saved: {saved} Changes");
+        Console.WriteLine("All changes saved.");
     }
 
     private static async Task GenerateAlbumThumbnail(IServiceScope serviceScope, bool isProduction)
