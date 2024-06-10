@@ -60,12 +60,21 @@ public static class UpdateDb
 
                 var currentIndex = Interlocked.Increment(ref batchTrackIndex);
                 Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{batch.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
-                var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
-                track.Duration = trackInfo.Duration;
+
+                try
+                {
+                    var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+
+                    track.Duration = trackInfo.Duration;
 
 
-                appDb.Tracks.Update(track);
-                await appDb.SaveChangesAsync(cancellationToken);
+                    appDb.Tracks.Update(track);
+                    await appDb.SaveChangesAsync(cancellationToken);
+                }
+                catch (FFMpegCore.Exceptions.FFMpegException)
+                {
+                    return;
+                }
             });
         }
 
