@@ -1,6 +1,5 @@
 ﻿using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils;
@@ -12,61 +11,50 @@ public static class UpdateDb
     public static async Task Update(IApplicationBuilder application, IWebHostEnvironment environment)
     {
         using var serviceScope = application.ApplicationServices.CreateScope();
-        var dbContext = serviceScope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await UpdateTrackDuration(application.ApplicationServices, environment.IsProduction());
+        var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
+        await UpdateTrackDuration(dbContext, environment.IsProduction());
         await GenerateAlbumThumbnail(serviceScope, environment.IsProduction());
         await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
 
-    private static async Task _UpdateTrackDurationOne(IServiceProvider services, Track track)
-    {
-        using var scope = services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        // We need to get the track's master playlist to probe the duration
-        var masterPlaylist = await dbContext.HlsPlaylist
-            .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
-            .FirstOrDefaultAsync();
-
-        if (masterPlaylist == null)
-        {
-            Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
-            return;
-        }
-
-        var fileExists = Path.Exists(masterPlaylist.HlsPlaylistPath);
-        Console.WriteLine($"Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
-
-        var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
-        track.Duration = trackInfo.Duration;
-
-        // Save the changes to the track duration
-        await dbContext.SaveChangesAsync();
-    }
-
-    private static async Task UpdateTrackDuration(IServiceProvider services, bool isProduction)
+    private static async Task UpdateTrackDuration(AppDbContext appDb, bool isProduction)
     {
         if (!isProduction)
             return;
-
-        using var scope = services.CreateScope();
-        var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var totalTrackNoDuration = await appDb.Tracks.Where(t => t.Duration == null).CountAsync();
         Console.WriteLine($"Found {totalTrackNoDuration} tracks without duration. Adding Duration Information");
 
         var tracks = await appDb.Tracks.Where(t => t.Duration == null).Include(t => t.TrackFile).ToListAsync();
-
-        var tasks = new List<Task>();
-
+        var i = 0;
+        int saved;
         foreach (var track in tracks)
         {
-            tasks.Add(Task.Run(async () => await _UpdateTrackDurationOne(services, track)));
+            // We need to get the track's master playlist to probe the duration
+            var masterPlaylist = await appDb.HlsPlaylist
+                .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
+                .FirstOrDefaultAsync();
+
+            if (masterPlaylist == null)
+            {
+                Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
+                continue;
+            }
+
+            i++;
+            Console.WriteLine($"Probing Track: {track.Id} ({i}/{totalTrackNoDuration}): {masterPlaylist.HlsPlaylistPath}");
+            var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+            track.Duration = trackInfo.Duration;
+
+            if (i % 300 == 0)
+            {
+                saved = await appDb.SaveChangesAsync();
+                Console.WriteLine($"Saved: {saved} Changes");
+            }
         }
 
-        await Task.WhenAll(tasks);
-
-        Console.WriteLine("All changes saved.");
+        saved = await appDb.SaveChangesAsync();
+        Console.WriteLine($"Saved: {saved} Changes");
     }
 
     private static async Task GenerateAlbumThumbnail(IServiceScope serviceScope, bool isProduction)
