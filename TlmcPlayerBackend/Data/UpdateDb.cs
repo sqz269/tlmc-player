@@ -1,5 +1,6 @@
 ﻿using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Writers;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils;
@@ -44,9 +45,8 @@ public static class UpdateDb
             int batchTrackIndex = 0;
             await Parallel.ForEachAsync(batch, options, async (track, cancellationToken) =>
             {
-                using var scope = application.ApplicationServices.CreateScope();
-                using var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
+                var scope = application.ApplicationServices.CreateScope();
+                var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 try
                 {
                     // We need to get the track's master playlist to probe the duration
@@ -61,7 +61,7 @@ public static class UpdateDb
                     }
 
                     var currentIndex = Interlocked.Increment(ref batchTrackIndex);
-                    Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{tracks.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
+                    Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{batch.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
 
                     try
                     {
@@ -73,12 +73,12 @@ public static class UpdateDb
                     }
                     catch (FFMpegCore.Exceptions.FFMpegException)
                     {
-                        // Handle specific FFmpeg exceptions if needed
                         return;
                     }
                 }
                 finally
                 {
+                    scope.Dispose();
                     await appDb.DisposeAsync();
                 }
             });
