@@ -47,33 +47,39 @@ public static class UpdateDb
                 using var scope = application.ApplicationServices.CreateScope();
                 using var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // We need to get the track's master playlist to probe the duration
-                var masterPlaylist = await appDb.HlsPlaylist
-                    .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
-                    .FirstOrDefaultAsync(cancellationToken);
-
-                if (masterPlaylist == null)
-                {
-                    Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
-                    return;
-                }
-
-                var currentIndex = Interlocked.Increment(ref batchTrackIndex);
-                Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{batch.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
-
                 try
                 {
-                    var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+                    // We need to get the track's master playlist to probe the duration
+                    var masterPlaylist = await appDb.HlsPlaylist
+                        .Where(p => p.TrackId == track.Id && p.Type == HlsPlaylistType.Master)
+                        .FirstOrDefaultAsync(cancellationToken);
 
-                    track.Duration = trackInfo.Duration;
+                    if (masterPlaylist == null)
+                    {
+                        Console.WriteLine($"Failed to find Master Playlist for Track: {track.Id}");
+                        return;
+                    }
 
+                    var currentIndex = Interlocked.Increment(ref batchTrackIndex);
+                    Console.WriteLine($"Batch {batchIndex + 1}/{totalBatches}, Track {currentIndex}/{tracks.Count}: Probing Track: {track.Id}: {masterPlaylist.HlsPlaylistPath}");
 
-                    appDb.Tracks.Update(track);
-                    await appDb.SaveChangesAsync(cancellationToken);
+                    try
+                    {
+                        var trackInfo = await FFProbe.AnalyseAsync(masterPlaylist.HlsPlaylistPath);
+                        track.Duration = trackInfo.Duration;
+
+                        appDb.Tracks.Update(track);
+                        await appDb.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (FFMpegCore.Exceptions.FFMpegException)
+                    {
+                        // Handle specific FFmpeg exceptions if needed
+                        return;
+                    }
                 }
-                catch (FFMpegCore.Exceptions.FFMpegException)
+                finally
                 {
-                    return;
+                    await appDb.DisposeAsync();
                 }
             });
         }
