@@ -45,7 +45,7 @@ public static class UpdateDb
             await Parallel.ForEachAsync(batch, options, async (track, cancellationToken) =>
             {
                 using var scope = application.ApplicationServices.CreateScope();
-                var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                using var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
                 // We need to get the track's master playlist to probe the duration
                 var masterPlaylist = await appDb.HlsPlaylist

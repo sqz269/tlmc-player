@@ -20,6 +20,7 @@ public static class PrepDb
             try
             {
                 context.Database.Migrate();
+                System.Console.WriteLine("Database Migrated");
             }
             catch (Exception e)
             {
