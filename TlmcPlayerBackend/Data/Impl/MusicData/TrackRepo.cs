@@ -135,17 +135,18 @@ public class TrackRepo : ITrackRepo
     {
         await ValidateTrackFilters(filters);
 
-        var conditions = new List<string>();
+        var andConditions = new List<string>();
+        var orConditions = new List<string>();
         if (filters.ReleaseDateBegin != null)
         {
-            conditions.Add($"""
+            andConditions.Add($"""
                            "ReleaseDate" >= {filters.ReleaseDateBegin.Value.ToShortDateString()}
                            """);
         }
 
         if (filters.ReleaseDateEnd != null)
         {
-            conditions.Add($"""
+            andConditions.Add($"""
                             "ReleaseDate" <= {filters.ReleaseDateEnd.Value.ToShortDateString()}
                             """);
         }
@@ -154,7 +155,7 @@ public class TrackRepo : ITrackRepo
         {
             // Transform all the CircleIds to be single quoted
             var idsQuoted = filters.CircleIds.Select(id => $"'{id.ToString()}'");
-            conditions.Add($"""
+            orConditions.Add($"""
                             "CircleIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
                             """);
         }
@@ -162,7 +163,7 @@ public class TrackRepo : ITrackRepo
         if (filters.OriginalAlbumIds != null)
         {
             var idsQuoted = filters.OriginalAlbumIds.Select(id => $"'{id}'");
-            conditions.Add($"""
+            orConditions.Add($"""
                             "OriginalAlbumIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
                             """);
         }
@@ -170,12 +171,43 @@ public class TrackRepo : ITrackRepo
         if (filters.OriginalTrackIds != null)
         {
             var idsQuoted = filters.OriginalTrackIds.Select(id => $"'{id}'");
-            conditions.Add($"""
+            orConditions.Add($"""
                             "OriginalTrackIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
                             """);
         }
 
-        return $"WHERE {string.Join(" OR ", conditions)}";
+        if (andConditions.Count == 0 && orConditions.Count == 0)
+        {
+            return "";
+        }
+
+        var whereStatement = "WHERE ";
+        // Put an AND between the and and or conditions, and parentheses around all of the or conditions
+        if (andConditions.Count > 0)
+        {
+            // Add the and conditions
+            var andExpression = string.Join(" AND ", andConditions);
+            // Add parentheses around the and conditions
+            whereStatement += $"({andExpression})";
+        }
+
+        if (orConditions.Count > 0)
+        {
+            // Add the or conditions
+            var orExpression = string.Join(" OR ", orConditions);
+            // Add parentheses around the or conditions
+            // if we have both and and or conditions, we need to add an AND between them
+            if (andConditions.Count > 0)
+            {
+                whereStatement += $" AND ({orExpression})";
+            }
+            else
+            {
+                whereStatement += $"({orExpression})";
+            }
+        }
+
+        return whereStatement;
     }
 
     public async Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters)
