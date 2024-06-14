@@ -1,6 +1,8 @@
 ﻿using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Writers;
+using MimeDetective;
+using MimeDetective.Definitions;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils;
@@ -20,8 +22,8 @@ public static class UpdateDb
 
     private static async Task UpdateTrackDuration(IApplicationBuilder application, bool isProduction)
     {
-        // if (!isProduction)
-        //     return;
+        if (!isProduction)
+            return;
 
         using var serviceScope = application.ApplicationServices.CreateScope();
         var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
@@ -85,6 +87,51 @@ public static class UpdateDb
         }
 
         Console.WriteLine("Finished updating track durations.");
+    }
+
+    private static async Task UpdateAssetMimeAndDuration(IServiceScope serviceScope, bool isProduction)
+    {
+        if (!isProduction) return;
+
+        var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
+        var assets = await dbContext.Assets.Where(a => a.Mime == null || a.Size == 0).ToListAsync();
+
+        var AllDefintions = new MimeDetective.Definitions.ExhaustiveBuilder()
+        {
+            UsageType = MimeDetective.Definitions.Licensing.UsageType.PersonalNonCommercial
+        }.Build();
+
+        var Inspector = new ContentInspectorBuilder()
+        {
+            Definitions = AllDefintions,
+        }.Build();
+
+        var MimeTypeToFileExtensions = new MimeTypeToFileExtensionLookupBuilder()
+        {
+            Definitions = AllDefintions,
+        }.Build();
+
+        var FileExtensionToMimeTypes = new FileExtensionToMimeTypeLookupBuilder()
+        {
+            Definitions = AllDefintions,
+        }.Build();
+
+        foreach (var asset in assets)
+        {
+            var fileInfo = new FileInfo(asset.Path);
+            asset.Size = fileInfo.Length;
+
+            // Detect Mime Type
+            // read the first 96 bytes of the file
+            var buffer = new byte[96];
+            using var fileStream = File.OpenRead(asset.Path);
+            fileStream.Read(buffer, 0, 96);
+
+            var mimeType = Inspector.Inspect(asset.Name);
+            var match = mimeType.FirstOrDefault();
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     private static async Task GenerateAlbumThumbnail(IServiceScope serviceScope, bool isProduction)

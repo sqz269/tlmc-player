@@ -37,14 +37,14 @@ public class AlbumFilter
 
 public class TrackFilterSelectableRanged
 {
-    public DateTime? ReleaseDateBegin { get; set; }
-    public DateTime? ReleaseDateEnd { get; set; }
+    public DateTime? ReleaseDateBegin { get; set; } // Applies as an AND filter
+    public DateTime? ReleaseDateEnd { get; set; } // Applies as an AND filter
 
-    public List<Guid>? CircleIds { get; set; }
+    public List<Guid>? CircleIds { get; set; } // Applies as an OR filter
 
-    public List<string>? OriginalAlbumIds { get; set; }
+    public List<string>? OriginalAlbumIds { get; set; } // Applies as an OR filter
 
-    public List<string>? OriginalTrackIds { get; set; }
+    public List<string>? OriginalTrackIds { get; set; } // Applies as an OR filter
 
     public bool IsEmpty()
     {
@@ -107,7 +107,7 @@ public class AlbumController : Controller
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         var user = HttpContext.User;
-        var claimidentity = user.Identity as ClaimsIdentity;
+        var claimIdentity = user.Identity as ClaimsIdentity;
 
         var (albums, total) = await _albumRepo.GetAlbums(start, limit, sort, sortOrder);
         var mapped = _mapper.Map<IEnumerable<Album>, IEnumerable<AlbumReadDto>>(albums);

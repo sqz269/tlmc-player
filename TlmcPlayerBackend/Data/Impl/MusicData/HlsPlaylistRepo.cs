@@ -21,7 +21,7 @@ public class HlsPlaylistRepo : IHlsPlaylistRepo
     public async Task<HlsPlaylist?> GetPlaylistForTrack(Guid trackId, int? quality)
     {
         return await _dbContext.HlsPlaylist.Where(a => a.TrackId == trackId && a.Bitrate == quality)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(); 
     }
 
     public async Task<HlsSegment?> GetSegment(Guid trackId, int quality, string segment)
