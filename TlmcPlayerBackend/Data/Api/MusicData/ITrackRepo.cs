@@ -13,6 +13,8 @@ public interface ITrackRepo
 
     public Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters);
 
+    public Task<long> GetNumberOfTracksGivenFilter(TrackFilterSelectableRanged? filters);
+
     public Task<Guid> CreateTrack(Guid albumGuid, Track track);
 
     public Task<bool> UpdateTrack(Guid trackId, Track track);

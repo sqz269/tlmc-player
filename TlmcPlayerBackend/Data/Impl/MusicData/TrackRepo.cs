@@ -6,6 +6,11 @@ using TlmcPlayerBackend.Models.MusicData;
 
 namespace TlmcPlayerBackend.Data.Impl.MusicData;
 
+public class CountResult
+{
+    public long Count { get; set; }
+}
+
 public class TrackRepo : ITrackRepo
 {
     private readonly AppDbContext _context;
@@ -140,23 +145,23 @@ public class TrackRepo : ITrackRepo
         if (filters.ReleaseDateBegin != null)
         {
             andConditions.Add($"""
-                           "ReleaseDate" >= {filters.ReleaseDateBegin.Value.ToShortDateString()}
+                           "ReleaseDate" >= '{filters.ReleaseDateBegin.Value.ToShortDateString()}'::date
                            """);
         }
 
         if (filters.ReleaseDateEnd != null)
         {
             andConditions.Add($"""
-                            "ReleaseDate" <= {filters.ReleaseDateEnd.Value.ToShortDateString()}
+                            "ReleaseDate" <= '{filters.ReleaseDateEnd.Value.ToShortDateString()}'::date
                             """);
         }
 
         if (filters.CircleIds != null)
         {
             // Transform all the CircleIds to be single quoted
-            var idsQuoted = filters.CircleIds.Select(id => $"'{id.ToString()}'");
+            var idsQuoted = filters.CircleIds.Select(id => $"'{id}'");
             orConditions.Add($"""
-                            "CircleIds" && ARRAY [ {string.Join(',', idsQuoted)} ]
+                            "CircleIds" && ARRAY [ {string.Join(',', idsQuoted)} ]::uuid[]
                             """);
         }
 
@@ -235,7 +240,7 @@ public class TrackRepo : ITrackRepo
                      (
                          SELECT
                              "Tracks".*,
-                             "Albums"."ReleaseDate" as c,
+                             "Albums"."ReleaseDate",
                              array_agg(DISTINCT "Circles"."Id") as "CircleIds",
                              array_agg(DISTINCT "OriginalTracks"."Id") as "OriginalTrackIds",
                              array_agg(DISTINCT "OriginalAlbums"."Id") as "OriginalAlbumIds"
@@ -262,5 +267,46 @@ public class TrackRepo : ITrackRepo
     public async Task<bool> UpdateTrack(Guid trackId, Track track)
     {
         throw new NotImplementedException();
+    }
+
+    public async Task<long> GetNumberOfTracksGivenFilter(TrackFilterSelectableRanged? filters)
+    {
+        if (filters == null || filters.IsEmpty())
+        {
+            return await _context.Tracks.LongCountAsync();
+        }
+
+        var whereStatement = await CreateTrackFilterWhereStatement(filters);
+        var query = $"""
+                     SELECT count(*)
+                     FROM
+                     (
+                         SELECT
+                             "Tracks".*,
+                             "Albums"."ReleaseDate",
+                             array_agg(DISTINCT "Circles"."Id") as "CircleIds",
+                             array_agg(DISTINCT "OriginalTracks"."Id") as "OriginalTrackIds",
+                             array_agg(DISTINCT "OriginalAlbums"."Id") as "OriginalAlbumIds"
+                         FROM "Tracks"
+                         LEFT JOIN "Albums" on "Tracks"."AlbumId" = "Albums"."Id"
+                         LEFT JOIN "AlbumCircle" on "Albums"."Id" = "AlbumCircle"."AlbumsId"
+                         LEFT JOIN "Circles" ON "AlbumCircle"."AlbumArtistId" = "Circles"."Id"
+                         LEFT JOIN "OriginalTrackTrack" ON "Tracks"."Id" = "OriginalTrackTrack"."TracksId"
+                         LEFT JOIN "OriginalTracks" ON "OriginalTrackTrack"."OriginalId" = "OriginalTracks"."Id"
+                         LEFT JOIN "OriginalAlbums" ON "OriginalTracks"."AlbumId" = "OriginalAlbums"."Id"
+                         GROUP BY "Tracks"."Id", "Albums"."ReleaseDate"
+                     ) as sq
+                        {whereStatement}
+                     """;
+
+        var results = _context
+            .Set<CountResult>()
+            .FromSqlRaw(query)
+            .AsEnumerable();  // Execute the query and get the results as an enumerable
+
+        var countResult = results.FirstOrDefault();
+        long count = countResult?.Count ?? 0;
+
+        return count;
     }
 }
