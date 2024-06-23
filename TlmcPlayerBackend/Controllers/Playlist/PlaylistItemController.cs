@@ -50,7 +50,7 @@ public class PlaylistItemsController : Controller
 
     [HttpPost("tracks", Name = nameof(AddTrackToPlaylist))]
     [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(List<PlaylistItemReadDto>))]
-    public async Task<ActionResult> AddTrackToPlaylist(Guid playlistId, [FromBody] List<Guid> trackIds)
+    public async Task<ActionResult<List<PlaylistItemReadDto>>> AddTrackToPlaylist(Guid playlistId, [FromBody] List<Guid> trackIds)
     {
         var userClaim = HttpContext.User.ToUserClaim();
 
@@ -63,7 +63,11 @@ public class PlaylistItemsController : Controller
 
         var addedItems = await _playlistItemRepo.InsertPlaylistItems(playlistId, trackIds);
 
-        return CreatedAtRoute(nameof(GetPlaylistItems), new { playlistId }, addedItems);
+
+        // Map them into the read dto
+        var playlistItemReadDtos = _mapper.Map<List<PlaylistItem>, List<PlaylistItemReadDto>>(addedItems);
+
+        return CreatedAtRoute(nameof(GetPlaylistItems), new { playlistId }, playlistItemReadDtos);
     }
 
     [HttpDelete("tracks", Name = nameof(DeleteTrackFromPlaylist))]
