@@ -38,6 +38,9 @@ public class Album
 
     public List<string>? DataSource { get; set; } = new();
 
+    // Stores the reference to the original TLMC directory
+    public List<string>? TlmcRootReference { get; set; } = new();
+
     public List<Track>? Tracks { get; set; } = new();
 
     public Album? ParentAlbum { get; set; }
