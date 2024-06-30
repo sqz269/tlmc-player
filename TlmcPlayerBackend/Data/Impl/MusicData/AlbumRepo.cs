@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NpgsqlTypes;
 using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
+using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils.Extensions;
 
@@ -212,20 +213,5 @@ public class AlbumRepo : IAlbumRepo
         album.Tracks.Add(addedTrack.Entity);
 
         return addedTrack.Entity;
-    }
-
-    public Task<Track> GetTrack(Guid id)
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task<IEnumerable<Track>> GetTracksFiltered(TrackFilter filter, int start, int limit)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task UpdateTrackData(Track track)
-    {
-        throw new NotImplementedException();
     }
 }

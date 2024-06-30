@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
+using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils.Extensions;
 
@@ -65,12 +66,6 @@ public class CircleRepo : ICircleRepo
             return null;
         }
 
-        //return await _context.Albums
-        //    .Where(a => a.AlbumArtist.Any(c => c.Id == circle.Id) &&
-        //                ((a.NumberOfDiscs > 1 && a.DiscNumber == 0) || (a.NumberOfDiscs == 1 && a.DiscNumber == 1)))
-        //    .OrderBy(a => a.Id)
-        //    .Skip(start).Take(limit)
-        //    .ToListAsync();
         return await GetCircleAlbums(circle.Id, start, limit, sort, sortOrder);
     }
 

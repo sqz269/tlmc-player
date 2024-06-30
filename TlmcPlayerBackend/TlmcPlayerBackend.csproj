@@ -33,7 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\MusicData\" />
     <Folder Include="Controllers\Playlist\" />
     <Folder Include="Data\Api\Playlist\" />
     <Folder Include="Data\Impl\Playlist\" />

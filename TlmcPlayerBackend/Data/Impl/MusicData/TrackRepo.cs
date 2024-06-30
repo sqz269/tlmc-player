@@ -2,7 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
+using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
+using TlmcPlayerBackend.Utils.Extensions;
 
 namespace TlmcPlayerBackend.Data.Impl.MusicData;
 
@@ -36,11 +38,6 @@ public class TrackRepo : ITrackRepo
             .ThenInclude(a => a.AlbumArtist)
             .Include(t => t.TrackFile)
             .FirstOrDefaultAsync();
-
-        //if (track != null)
-        //{
-        //    track.Album.Tracks = null;
-        //}
         return track;
     }
 
@@ -69,6 +66,49 @@ public class TrackRepo : ITrackRepo
                 entities.Select(e => e.Id))
             .ToList();
         return new Tuple<List<Track>, List<Guid>>(entities, diff);
+    }
+
+    public async Task<Tuple<IEnumerable<Track>, long>> GetTracksFiltered(
+        TrackFilterSelectableRanged? filters, 
+        int limit, 
+        int offset, 
+        TrackOrderOptions options=TrackOrderOptions.Id,
+        SortOrder sortOrder=SortOrder.Ascending)
+    {
+        var trackQueryable = _context.Tracks
+            .Include(t => t.Album)
+            .ThenInclude(a => a.AlbumArtist)
+            .Include(t => t.Album)
+            .Include(t => t.Album.Thumbnail)
+            .Include(t => t.TrackFile)
+            .AsQueryable();
+
+        if (filters != null && !filters.IsEmpty())
+        {
+            trackQueryable = await CreateTrackFilterEFWhere(filters, trackQueryable);
+        }
+
+        // Apply order by and limit
+        trackQueryable = options switch
+        {
+            TrackOrderOptions.Id => trackQueryable.OrderByEx(t => t.Id, sortOrder),
+            TrackOrderOptions.Date => trackQueryable.OrderByEx(t => t.Album.ReleaseConvention, sortOrder),
+            TrackOrderOptions.Title => trackQueryable.OrderByEx(t => t.Name.Default, sortOrder),
+            TrackOrderOptions.Duration => trackQueryable.OrderByEx(t => t.Duration, sortOrder),
+            TrackOrderOptions.AlbumId => trackQueryable.OrderByEx(t => t.Album.Id, sortOrder),
+            TrackOrderOptions.AlbumTitle => trackQueryable.OrderByEx(t => t.Album.Name.Default, sortOrder),
+            _ => throw new ArgumentOutOfRangeException(nameof(options), options, null)
+        };
+
+        var result = await trackQueryable
+            .Skip(offset)
+            .Take(limit)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var count = trackQueryable.LongCount();
+
+        return new Tuple<IEnumerable<Track>, long>(result, count);
     }
 
     public async Task<Guid> CreateTrack(Guid albumId, Track track)
@@ -134,6 +174,38 @@ public class TrackRepo : ITrackRepo
         }
 
         return true;
+    }
+
+    private async Task<IQueryable<Track>> CreateTrackFilterEFWhere(TrackFilterSelectableRanged filters, IQueryable<Track> trackQueryable)
+    {
+        await ValidateTrackFilters(filters);
+
+        if (filters.ReleaseDateBegin != null)
+        {
+            trackQueryable = trackQueryable.Where(t => t.Album.ReleaseDate >= filters.ReleaseDateBegin);
+        }
+
+        if (filters.ReleaseDateEnd != null)
+        {
+            trackQueryable = trackQueryable.Where(t => t.Album.ReleaseDate <= filters.ReleaseDateEnd);
+        }
+
+        if (filters.CircleIds != null)
+        {
+            trackQueryable = trackQueryable.Where(t => t.Album.AlbumArtist.Any(c => filters.CircleIds.Contains(c.Id)));
+        }
+
+        if (filters.OriginalAlbumIds != null)
+        {
+            trackQueryable = trackQueryable.Where(t => t.Original.Any(o => filters.OriginalAlbumIds.Contains(o.Album.Id)));
+        }
+
+        if (filters.OriginalTrackIds != null)
+        {
+            trackQueryable = trackQueryable.Where(t => t.Original.Any(o => filters.OriginalTrackIds.Contains(o.Id)));
+        }
+
+        return trackQueryable;
     }
 
     private async Task<string> CreateTrackFilterWhereStatement(TrackFilterSelectableRanged filters)

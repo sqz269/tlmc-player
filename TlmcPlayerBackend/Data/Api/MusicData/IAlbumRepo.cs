@@ -1,4 +1,5 @@
 ﻿using TlmcPlayerBackend.Controllers.MusicData;
+using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils.Extensions;
 
@@ -23,10 +24,4 @@ public interface IAlbumRepo
     public Task<Guid> AddAlbum(Album album);
 
     public Task<Track> AddTrackToAlbum(Guid albumId, Track track);
-
-    public Task<Track> GetTrack(Guid id);
-
-    public Task<IEnumerable<Track>> GetTracksFiltered(TrackFilter filter, int start, int limit);
-
-    public Task UpdateTrackData(Track track);
 }

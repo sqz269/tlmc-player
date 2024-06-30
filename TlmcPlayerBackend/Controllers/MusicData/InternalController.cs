@@ -144,7 +144,7 @@ public class InternalController : Controller
 
         await _trackRepo.SaveChanges();
 
-        return CreatedAtRoute(nameof(AlbumController.GetTrack), 
+        return CreatedAtRoute(nameof(TrackController.GetTrack), 
             new { Id = addedTrack.Id },
             new {Id = addedTrack.Id});
     }
