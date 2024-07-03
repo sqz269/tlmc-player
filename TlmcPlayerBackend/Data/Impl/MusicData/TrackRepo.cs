@@ -296,7 +296,6 @@ public class TrackRepo : ITrackRepo
                 .FromSqlRaw(@"
                     SELECT *
                     FROM ""Tracks""
-                    TABLESAMPLE BERNOULLI(0.1)
                     ORDER BY random()
                     LIMIT {0}", limit)
                 .IgnoreAutoIncludes()
