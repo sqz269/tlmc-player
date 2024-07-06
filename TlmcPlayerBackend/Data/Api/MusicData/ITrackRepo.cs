@@ -14,14 +14,15 @@ public interface ITrackRepo
     public Task<Tuple<List<Track>, List<Guid>>> GetTracks(IList<Guid> tracks);
 
     public Task<Tuple<IEnumerable<Track>, long>> GetTracksFiltered(
-        TrackFilterSelectableRanged? filters, 
-        int limit, 
-        int offset, 
-        TrackOrderOptions options, 
+        TrackFilterSelectableRanged? filters,
+        int limit,
+        int offset,
+        TrackOrderOptions options,
         SortOrder sortOrder);
 
     public Task<IEnumerable<Track>> SampleRandomTrack(
-        int limit, 
+        int limit,
+        int offset,
         TrackFilterSelectableRanged? filters,
         double? seed);
 

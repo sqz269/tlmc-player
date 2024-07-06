@@ -11,14 +11,6 @@ using TlmcPlayerBackend.Utils.Extensions;
 
 namespace TlmcPlayerBackend.Controllers.MusicData;
 
-
-
-
-
-
-
-
-
 [ApiController]
 [Route("api/music")]
 public class AlbumController : Controller
@@ -29,7 +21,7 @@ public class AlbumController : Controller
     private readonly long _totalAlbums;
 
     public AlbumController(
-        IAlbumRepo albumRepo, 
+        IAlbumRepo albumRepo,
         IMapper mapper)
     {
         _albumRepo = albumRepo;
@@ -40,9 +32,9 @@ public class AlbumController : Controller
     [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
     //[RoleRequired(KnownRoles.Guest)]
     public async Task<AlbumsListResult> GetAlbums(
-        [FromQuery] int start = 0, 
-        [FromQuery] [Range(1, 50)] int limit = 20, 
-        [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, 
+        [FromQuery] int start = 0,
+        [FromQuery][Range(1, 50)] int limit = 20,
+        [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id,
         [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         var user = HttpContext.User;
@@ -96,9 +88,9 @@ public class AlbumController : Controller
 
     [HttpGet("album/filter", Name = nameof(GetAlbumFiltered))]
     public async Task<ActionResult<IEnumerable<AlbumReadDto>>> GetAlbumFiltered(
-        [FromQuery] AlbumFilter filter, 
-        [FromQuery] int start = 0, 
-        [FromQuery] [Range(1, 50)] int limit = 20)
+        [FromQuery] AlbumFilter filter,
+        [FromQuery] int start = 0,
+        [FromQuery][Range(1, 50)] int limit = 20)
     {
         return Ok(
             _mapper.Map<IEnumerable<AlbumReadDto>>(await _albumRepo.GetAlbumsFiltered(filter, start, limit)));
