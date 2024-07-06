@@ -80,7 +80,7 @@ public class TrackController : Controller
     }
 
     [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
-    [ProducesResponseType(typeof(List<TrackRandomResult>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TrackRandomResult), StatusCodes.Status200OK)]
     public async Task<ActionResult<TrackRandomResult>> GetRandomSampleTrack(
         [FromQuery][Range(1, 100)] int limit = 20,
         [FromQuery] TrackFilterSelectableRanged? filters = null,
@@ -92,7 +92,7 @@ public class TrackController : Controller
             _mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, filters, seedValue));
         var tracksCount = tracks.Count;
         var trackTotalForFilter = _trackRepo.GetNumberOfTracksGivenFilter(filters);
-        
+
         return Ok(new TrackRandomResult
         {
             Tracks = tracks,
