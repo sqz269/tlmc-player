@@ -22,7 +22,8 @@ public interface ITrackRepo
 
     public Task<IEnumerable<Track>> SampleRandomTrack(
         int limit, 
-        TrackFilterSelectableRanged? filters);
+        TrackFilterSelectableRanged? filters,
+        double? seed);
 
     public Task<long> GetNumberOfTracksGivenFilter(TrackFilterSelectableRanged? filters);
 

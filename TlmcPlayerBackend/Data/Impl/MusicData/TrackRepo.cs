@@ -287,11 +287,21 @@ public class TrackRepo : ITrackRepo
         return whereStatement;
     }
 
-    public async Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters)
+    public async Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters, double? seed)
     {
+        // If no seed is provided, generate a random seed between -1 and 1
+        if (seed == null)
+        {
+            seed = new Random().NextDouble() * 2 - 1;
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlAsync($"SELECT setseed({seed})");
+
         // Construct where statements
         if (filters == null || filters.IsEmpty())
         {
+            // set seed
             return await _context.Tracks
                 .FromSqlRaw(@"
                     SELECT *
@@ -329,10 +339,14 @@ public class TrackRepo : ITrackRepo
                      LIMIT {limit}
                      """;
 
-        return await _context.Tracks
+        var result = await _context.Tracks
             .FromSqlRaw(query)
             .AsNoTracking()
             .ToListAsync();
+
+        await transaction.CommitAsync();
+
+        return result;
     }
 
     public async Task<bool> UpdateTrack(Guid trackId, Track track)
