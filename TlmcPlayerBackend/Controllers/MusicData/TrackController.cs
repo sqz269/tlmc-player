@@ -5,6 +5,7 @@ using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Dtos.MusicData.Track;
 using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
+using TlmcPlayerBackend.Utils;
 using TlmcPlayerBackend.Utils.Extensions;
 
 namespace TlmcPlayerBackend.Controllers.MusicData;
@@ -79,11 +80,26 @@ public class TrackController : Controller
     }
 
     [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
-    [ProducesResponseType(typeof(List<TrackReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TrackReadDto>> GetRandomSampleTrack(
-        [FromQuery][Range(1, 100)] int limit = 20,
-        [FromQuery] TrackFilterSelectableRanged? filters = null)
+    [ProducesResponseType(typeof(TrackRandomResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TrackRandomResult>> GetRandomSampleTrack(
+        [FromQuery] int start = 0,
+        [FromQuery][Range(1, 50)] int limit = 20,
+        [FromQuery] TrackFilterSelectableRanged? filters = null,
+        [FromQuery] string? seed = null)
     {
-        return Ok(_mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, filters)));
+        var seedValue = SeedUtils.GetSeed(seed);
+
+        var tracks =
+            _mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, start, filters, seedValue));
+        var tracksCount = tracks.Count;
+        var trackTotalForFilter = _trackRepo.GetNumberOfTracksGivenFilter(filters);
+
+        return Ok(new TrackRandomResult
+        {
+            Tracks = tracks,
+            Count = tracksCount,
+            Total = await trackTotalForFilter,
+            Seed = SeedUtils.GetSeedString(seed, seedValue)
+        });
     }
 }

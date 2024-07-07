@@ -69,11 +69,11 @@ public class TrackRepo : ITrackRepo
     }
 
     public async Task<Tuple<IEnumerable<Track>, long>> GetTracksFiltered(
-        TrackFilterSelectableRanged? filters, 
-        int limit, 
-        int offset, 
-        TrackOrderOptions options=TrackOrderOptions.Id,
-        SortOrder sortOrder=SortOrder.Ascending)
+        TrackFilterSelectableRanged? filters,
+        int limit,
+        int offset,
+        TrackOrderOptions options = TrackOrderOptions.Id,
+        SortOrder sortOrder = SortOrder.Ascending)
     {
         var trackQueryable = _context.Tracks
             .Include(t => t.Album)
@@ -287,17 +287,32 @@ public class TrackRepo : ITrackRepo
         return whereStatement;
     }
 
-    public async Task<IEnumerable<Track>> SampleRandomTrack(int limit, TrackFilterSelectableRanged? filters)
+    public async Task<IEnumerable<Track>> SampleRandomTrack(
+        int limit,
+        int offset,
+        TrackFilterSelectableRanged? filters,
+        double? seed)
     {
+        // If no seed is provided, generate a random seed between -1 and 1
+        if (seed == null)
+        {
+            seed = new Random().NextDouble() * 2 - 1;
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await _context.Database.ExecuteSqlAsync($"SELECT setseed({seed})");
+
         // Construct where statements
         if (filters == null || filters.IsEmpty())
         {
+            // set seed
             return await _context.Tracks
                 .FromSqlRaw(@"
                     SELECT *
                     FROM ""Tracks""
                     ORDER BY random()
-                    LIMIT {0}", limit)
+                    LIMIT {0}
+                    OFFSET {1}", limit, offset)
                 .IgnoreAutoIncludes()
                 .AsNoTracking()
                 .ToListAsync();
@@ -327,12 +342,17 @@ public class TrackRepo : ITrackRepo
                         {whereStatement}
                      ORDER BY random()
                      LIMIT {limit}
+                     OFFSET {offset}
                      """;
 
-        return await _context.Tracks
+        var result = await _context.Tracks
             .FromSqlRaw(query)
             .AsNoTracking()
             .ToListAsync();
+
+        await transaction.CommitAsync();
+
+        return result;
     }
 
     public async Task<bool> UpdateTrack(Guid trackId, Track track)
