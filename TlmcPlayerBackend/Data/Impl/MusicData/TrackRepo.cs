@@ -369,7 +369,7 @@ public class TrackRepo : ITrackRepo
 
         var whereStatement = await CreateTrackFilterWhereStatement(filters);
         var query = $"""
-                     SELECT count(*)
+                     SELECT *
                      FROM
                      (
                          SELECT
@@ -390,13 +390,12 @@ public class TrackRepo : ITrackRepo
                         {whereStatement}
                      """;
 
-        var results = _context
-            .Set<CountResult>()
+        var results = await _context
+            .Tracks
             .FromSqlRaw(query)
-            .AsEnumerable();  // Execute the query and get the results as an enumerable
+            .LongCountAsync();
 
-        var countResult = results.FirstOrDefault();
-        long count = countResult?.Count ?? 0;
+        long count = results;
 
         return count;
     }
