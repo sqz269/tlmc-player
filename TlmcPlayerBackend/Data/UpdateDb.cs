@@ -1,4 +1,5 @@
-﻿using FFMpegCore;
+﻿using System.Web.Http.Controllers;
+using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Writers;
 using MimeDetective;
@@ -16,6 +17,7 @@ public static class UpdateDb
         using var serviceScope = application.ApplicationServices.CreateScope();
         var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
         await UpdateTrackDuration(application, environment.IsProduction());
+        await UpdateAssetMimeAndDuration(serviceScope, environment.IsProduction());
         await GenerateAlbumThumbnail(serviceScope, environment.IsProduction());
         await GenerateThumbnailDomColor(dbContext, environment.IsProduction());
     }
@@ -94,7 +96,7 @@ public static class UpdateDb
         if (!isProduction) return;
 
         var dbContext = serviceScope.ServiceProvider.GetService<AppDbContext>();
-        var assets = await dbContext.Assets.Where(a => a.Mime == null || a.Size == 0).ToListAsync();
+        var assets = await dbContext.Assets.Where(a => a.Mime == null && a.Size == 0).ToListAsync();
 
         var AllDefintions = new MimeDetective.Definitions.ExhaustiveBuilder()
         {
@@ -116,22 +118,33 @@ public static class UpdateDb
             Definitions = AllDefintions,
         }.Build();
 
+        var count = 0;
         foreach (var asset in assets)
         {
+            count += 1;
             var fileInfo = new FileInfo(asset.Path);
             asset.Size = fileInfo.Length;
 
             // Detect Mime Type
-            // read the first 96 bytes of the file
-            var buffer = new byte[96];
-            using var fileStream = File.OpenRead(asset.Path);
-            fileStream.Read(buffer, 0, 96);
-
-            var mimeType = Inspector.Inspect(asset.Name);
+            var mimeType = Inspector.Inspect(asset.Path);
             var match = mimeType.FirstOrDefault();
+            if (match != null)
+            {
+                var mimeString = match.Definition.File.MimeType;
+                asset.Mime = mimeString;
+            }
+
+            Console.WriteLine($"[{count}/{assets.Count}] Updating Asset: {asset.Id} Mime: {asset.Mime} Size: {asset.Size}");
+
+            if (count % 500 == 0)
+            {
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine("Saving changes");
+            }
         }
 
         await dbContext.SaveChangesAsync();
+        Console.WriteLine("Saving Changes");
     }
 
     private static async Task GenerateAlbumThumbnail(IServiceScope serviceScope, bool isProduction)
