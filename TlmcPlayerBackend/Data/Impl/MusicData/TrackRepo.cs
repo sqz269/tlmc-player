@@ -208,8 +208,13 @@ public class TrackRepo : ITrackRepo
         return trackQueryable;
     }
 
-    private async Task<string> CreateTrackFilterWhereStatement(TrackFilterSelectableRanged filters)
+    private async Task<string> CreateTrackFilterWhereStatement(TrackFilterSelectableRanged? filters)
     {
+        if (filters == null)
+        {
+            return "";
+        }
+
         await ValidateTrackFilters(filters);
 
         var andConditions = new List<string>();
@@ -287,9 +292,19 @@ public class TrackRepo : ITrackRepo
         return whereStatement;
     }
 
+    private string CreateStratificationOperator(TrackStratificationMode? stratificationMode) => stratificationMode switch
+    {
+        TrackStratificationMode.None => "\"Id\"",
+        TrackStratificationMode.Album => "\"AlbumId\"",
+        TrackStratificationMode.Circle => "unnest(\"CircleIds\")",
+        null => "\"Id\"",
+        _ => throw new ArgumentOutOfRangeException(nameof(stratificationMode), stratificationMode, null),
+    };
+
     public async Task<IEnumerable<Track>> SampleRandomTrack(
         int limit,
         int offset,
+        TrackStratificationMode? stratificationMode,
         TrackFilterSelectableRanged? filters,
         double? seed)
     {
@@ -303,50 +318,69 @@ public class TrackRepo : ITrackRepo
         await _context.Database.ExecuteSqlAsync($"SELECT setseed({seed})");
 
         // Construct where statements
-        if (filters == null || filters.IsEmpty())
-        {
-            // set seed
-            return await _context.Tracks
-                .FromSqlRaw(@"
-                    SELECT *
-                    FROM ""Tracks""
-                    ORDER BY random()
-                    LIMIT {0}
-                    OFFSET {1}", limit, offset)
-                .IgnoreAutoIncludes()
-                .AsNoTracking()
-                .ToListAsync();
-        }
+        // if (filters == null || filters.IsEmpty())
+        // {
+        //     // set seed
+        //     return await _context.Tracks
+        //         .FromSqlRaw(@"
+        //             SELECT *
+        //             FROM ""Tracks""
+        //             ORDER BY random()
+        //             LIMIT {0}
+        //             OFFSET {1}", limit, offset)
+        //         .IgnoreAutoIncludes()
+        //         .AsNoTracking()
+        //         .ToListAsync();
+        // }
 
         var whereStatement = await CreateTrackFilterWhereStatement(filters);
+        var stratificationOperator = CreateStratificationOperator(stratificationMode);
+        var cteQuery = $"""
+                        WITH AggregatedTracks AS (
+                            SELECT
+                                "Tracks".*,
+                                array_agg(DISTINCT "Circles"."Id") AS "CircleIds",
+                                array_agg(DISTINCT "OriginalTracks"."Id") AS "OriginalTrackIds",
+                                array_agg(DISTINCT "OriginalAlbums"."Id") AS "OriginalAlbumIds"
+                            FROM "Tracks"
+                            LEFT JOIN "Albums" ON "Tracks"."AlbumId" = "Albums"."Id"
+                            LEFT JOIN "AlbumCircle" ON "Albums"."Id" = "AlbumCircle"."AlbumsId"
+                            LEFT JOIN "Circles" ON "AlbumCircle"."AlbumArtistId" = "Circles"."Id"
+                            LEFT JOIN "OriginalTrackTrack" ON "Tracks"."Id" = "OriginalTrackTrack"."TracksId"
+                            LEFT JOIN "OriginalTracks" ON "OriginalTrackTrack"."OriginalId" = "OriginalTracks"."Id"
+                            LEFT JOIN "OriginalAlbums" ON "OriginalTracks"."AlbumId" = "OriginalAlbums"."Id"
+                            GROUP BY "Tracks"."Id", "Tracks"."AlbumId"
+                        ),
+                        FilteredTracks AS (
+                            SELECT *
+                            FROM AggregatedTracks
+                            {whereStatement}
+                        ),
+                        StratifiedTracks AS (
+                            SELECT
+                                *,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY {stratificationOperator}
+                                    ORDER BY random()
+                                ) AS stratified_rank
+                            FROM FilteredTracks
+                        ),
+                        RandomSample AS (
+                            SELECT *
+                            FROM StratifiedTracks
+                            WHERE stratified_rank = 1 -- Select one random track per Circle
+                        )
+                        SELECT *
+                        FROM RandomSample
+                        ORDER BY random()
+                        LIMIT {limit}
+                        OFFSET {offset}
+                        """;
 
-        var query = $"""
-                     SELECT sq.*
-                     FROM
-                     (
-                         SELECT
-                             "Tracks".*,
-                             "Albums"."ReleaseDate",
-                             array_agg(DISTINCT "Circles"."Id") as "CircleIds",
-                             array_agg(DISTINCT "OriginalTracks"."Id") as "OriginalTrackIds",
-                             array_agg(DISTINCT "OriginalAlbums"."Id") as "OriginalAlbumIds"
-                         FROM "Tracks"
-                         LEFT JOIN "Albums" on "Tracks"."AlbumId" = "Albums"."Id"
-                         LEFT JOIN "AlbumCircle" on "Albums"."Id" = "AlbumCircle"."AlbumsId"
-                         LEFT JOIN "Circles" ON "AlbumCircle"."AlbumArtistId" = "Circles"."Id"
-                         LEFT JOIN "OriginalTrackTrack" ON "Tracks"."Id" = "OriginalTrackTrack"."TracksId"
-                         LEFT JOIN "OriginalTracks" ON "OriginalTrackTrack"."OriginalId" = "OriginalTracks"."Id"
-                         LEFT JOIN "OriginalAlbums" ON "OriginalTracks"."AlbumId" = "OriginalAlbums"."Id"
-                         GROUP BY "Tracks"."Id", "Albums"."ReleaseDate"
-                     ) as sq
-                        {whereStatement}
-                     ORDER BY random()
-                     LIMIT {limit}
-                     OFFSET {offset}
-                     """;
+        Console.WriteLine(cteQuery);
 
         var result = await _context.Tracks
-            .FromSqlRaw(query)
+            .FromSqlRaw(cteQuery)
             .AsNoTracking()
             .ToListAsync();
 

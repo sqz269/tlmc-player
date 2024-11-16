@@ -23,6 +23,7 @@ public interface ITrackRepo
     public Task<IEnumerable<Track>> SampleRandomTrack(
         int limit,
         int offset,
+        TrackStratificationMode? stratificationMode,
         TrackFilterSelectableRanged? filters,
         double? seed);
 

@@ -84,13 +84,14 @@ public class TrackController : Controller
     public async Task<ActionResult<TrackRandomResult>> GetRandomSampleTrack(
         [FromQuery] int start = 0,
         [FromQuery][Range(1, 50)] int limit = 20,
+        [FromQuery] TrackStratificationMode? stratificationMode = null,
         [FromQuery] TrackFilterSelectableRanged? filters = null,
         [FromQuery] string? seed = null)
     {
         var seedValue = SeedUtils.GetSeed(seed);
 
         var tracks =
-            _mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, start, filters, seedValue));
+            _mapper.Map<List<TrackReadDto>>(await _trackRepo.SampleRandomTrack(limit, start, stratificationMode, filters, seedValue));
         var tracksCount = tracks.Count;
         var trackTotalForFilter = _trackRepo.GetNumberOfTracksGivenFilter(filters);
 
