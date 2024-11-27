@@ -15,10 +15,9 @@ public static class IQueryableExtensions
         return sortOrder == SortOrder.Ascending ? queryable.OrderBy(selector) : queryable.OrderByDescending(selector);
     }
 
-    //public static IIncludableQueryable<TEntity, TProperty> OrderByEx<TEntity, TProperty, TKey>(
-    //    this IIncludableQueryable<TEntity, TProperty> queryable, Expression<Func<TEntity, TKey>> selector,
-    //    SortOrder sortOrder)
-    //{
-    //    return sortOrder == SortOrder.Ascending ? queryable.OrderBy(selector) : queryable.OrderByDescending(selector);
-    //}
+    public static IOrderedQueryable<TSource> ThenByEx<TSource, TKey>(this IOrderedQueryable<TSource> orderedQueryable,
+        Expression<Func<TSource, TKey>> selector, SortOrder sortOrder)
+    {
+        return sortOrder == SortOrder.Ascending ? orderedQueryable.ThenBy(selector) : orderedQueryable.ThenByDescending(selector);
+    }
 }

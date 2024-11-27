@@ -38,7 +38,7 @@ public class AlbumRepo : IAlbumRepo
         albumsQueryable = sort switch
         {
             AlbumOrderOptions.Id => albumsQueryable.OrderByEx(a => a.Id, sortOrder),
-            AlbumOrderOptions.Date => albumsQueryable.OrderByEx(a => a.ReleaseDate, sortOrder),
+            AlbumOrderOptions.Date => albumsQueryable.OrderBy(a => a.ReleaseDate == null).ThenByEx(a => a.ReleaseDate, sortOrder),
             AlbumOrderOptions.Title => albumsQueryable.OrderByEx(a => a.Name.Default, sortOrder),
             _ => throw new ArgumentOutOfRangeException(nameof(sort), sort, null)
         };
