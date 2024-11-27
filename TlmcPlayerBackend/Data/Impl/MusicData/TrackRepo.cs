@@ -294,7 +294,7 @@ public class TrackRepo : ITrackRepo
 
     private string CreateStratificationOperator(TrackStratificationMode? stratificationMode) => stratificationMode switch
     {
-        TrackStratificationMode.None => "\"Id\"",
+        TrackStratificationMode.None => "\"TrackId\"",
         TrackStratificationMode.Album => "\"AlbumId\"",
         TrackStratificationMode.Circle => "unnest(\"CircleIds\")",
         null => "\"Id\"",
@@ -317,28 +317,14 @@ public class TrackRepo : ITrackRepo
         await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.Database.ExecuteSqlAsync($"SELECT setseed({seed})");
 
-        // Construct where statements
-        // if (filters == null || filters.IsEmpty())
-        // {
-        //     // set seed
-        //     return await _context.Tracks
-        //         .FromSqlRaw(@"
-        //             SELECT *
-        //             FROM ""Tracks""
-        //             ORDER BY random()
-        //             LIMIT {0}
-        //             OFFSET {1}", limit, offset)
-        //         .IgnoreAutoIncludes()
-        //         .AsNoTracking()
-        //         .ToListAsync();
-        // }
-
         var whereStatement = await CreateTrackFilterWhereStatement(filters);
         var stratificationOperator = CreateStratificationOperator(stratificationMode);
         var cteQuery = $"""
                         WITH AggregatedTracks AS (
                             SELECT
-                                "Tracks".*,
+                                "Tracks"."Id" as "TrackId",
+                                "Albums"."Id" as "A_AlbumId",
+                                "Tracks".*, "Albums"."ReleaseDate",
                                 array_agg(DISTINCT "Circles"."Id") AS "CircleIds",
                                 array_agg(DISTINCT "OriginalTracks"."Id") AS "OriginalTrackIds",
                                 array_agg(DISTINCT "OriginalAlbums"."Id") AS "OriginalAlbumIds"
@@ -349,7 +335,7 @@ public class TrackRepo : ITrackRepo
                             LEFT JOIN "OriginalTrackTrack" ON "Tracks"."Id" = "OriginalTrackTrack"."TracksId"
                             LEFT JOIN "OriginalTracks" ON "OriginalTrackTrack"."OriginalId" = "OriginalTracks"."Id"
                             LEFT JOIN "OriginalAlbums" ON "OriginalTracks"."AlbumId" = "OriginalAlbums"."Id"
-                            GROUP BY "Tracks"."Id", "Tracks"."AlbumId"
+                            GROUP BY "Tracks"."Id", "A_AlbumId"
                         ),
                         FilteredTracks AS (
                             SELECT *
