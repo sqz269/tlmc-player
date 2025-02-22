@@ -38,5 +38,5 @@ public class Lyrics
     [Column(TypeName = "jsonb")]
     public required List<LyricsVariant> Variants { get; set; }
 
-    public string? ReferenceUrl;
+    public string? ReferenceUrl { get; set; }
 }

@@ -19,7 +19,7 @@ namespace TlmcPlayerBackend.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.4")
+                .HasAnnotation("ProductVersion", "9.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -63,14 +63,13 @@ namespace TlmcPlayerBackend.Migrations
                     b.Property<string>("CatalogNumber")
                         .HasColumnType("text");
 
-                    b.Property<List<string>>("DataSource")
+                    b.PrimitiveCollection<List<string>>("DataSource")
                         .HasColumnType("text[]");
 
                     b.Property<string>("DiscName")
                         .HasColumnType("text");
 
-                    b.Property<int?>("DiscNumber")
-                        .IsRequired()
+                    b.Property<int>("DiscNumber")
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("ImageId")
@@ -80,8 +79,7 @@ namespace TlmcPlayerBackend.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
-                    b.Property<int?>("NumberOfDiscs")
-                        .IsRequired()
+                    b.Property<int>("NumberOfDiscs")
                         .HasColumnType("integer");
 
                     b.Property<Guid?>("ParentAlbumId")
@@ -96,10 +94,10 @@ namespace TlmcPlayerBackend.Migrations
                     b.Property<Guid?>("ThumbnailId")
                         .HasColumnType("uuid");
 
-                    b.Property<List<string>>("TlmcRootReference")
+                    b.PrimitiveCollection<List<string>>("TlmcRootReference")
                         .HasColumnType("text[]");
 
-                    b.Property<List<string>>("Website")
+                    b.PrimitiveCollection<List<string>>("Website")
                         .HasColumnType("text[]");
 
                     b.HasKey("Id");
@@ -149,14 +147,14 @@ namespace TlmcPlayerBackend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<List<string>>("Alias")
+                    b.PrimitiveCollection<List<string>>("Alias")
                         .IsRequired()
                         .HasColumnType("text[]");
 
                     b.Property<string>("Country")
                         .HasColumnType("text");
 
-                    b.Property<List<string>>("DataSource")
+                    b.PrimitiveCollection<List<string>>("DataSource")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -262,6 +260,9 @@ namespace TlmcPlayerBackend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ReferenceUrl")
+                        .HasColumnType("text");
+
                     b.Property<List<LyricsVariant>>("Variants")
                         .IsRequired()
                         .HasColumnType("jsonb");
@@ -326,7 +327,7 @@ namespace TlmcPlayerBackend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<List<string>>("Colors")
+                    b.PrimitiveCollection<List<string>>("Colors")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -369,7 +370,7 @@ namespace TlmcPlayerBackend.Migrations
                     b.Property<Guid>("AlbumId")
                         .HasColumnType("uuid");
 
-                    b.Property<List<string>>("Arrangement")
+                    b.PrimitiveCollection<List<string>>("Arrangement")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -379,14 +380,14 @@ namespace TlmcPlayerBackend.Migrations
                     b.Property<TimeSpan?>("Duration")
                         .HasColumnType("interval");
 
-                    b.Property<List<string>>("Genre")
+                    b.PrimitiveCollection<List<string>>("Genre")
                         .IsRequired()
                         .HasColumnType("text[]");
 
                     b.Property<int>("Index")
                         .HasColumnType("integer");
 
-                    b.Property<List<string>>("Lyricist")
+                    b.PrimitiveCollection<List<string>>("Lyricist")
                         .IsRequired()
                         .HasColumnType("text[]");
 
@@ -400,14 +401,14 @@ namespace TlmcPlayerBackend.Migrations
                     b.Property<bool?>("OriginalNonTouhou")
                         .HasColumnType("boolean");
 
-                    b.Property<List<string>>("Staff")
+                    b.PrimitiveCollection<List<string>>("Staff")
                         .IsRequired()
                         .HasColumnType("text[]");
 
                     b.Property<Guid?>("TrackFileId")
                         .HasColumnType("uuid");
 
-                    b.Property<List<string>>("Vocalist")
+                    b.PrimitiveCollection<List<string>>("Vocalist")
                         .IsRequired()
                         .HasColumnType("text[]");
 
