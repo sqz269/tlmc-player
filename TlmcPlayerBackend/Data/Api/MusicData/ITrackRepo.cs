@@ -32,4 +32,8 @@ public interface ITrackRepo
     public Task<Guid> CreateTrack(Guid albumGuid, Track track);
 
     public Task<bool> UpdateTrack(Guid trackId, Track track);
+
+    public Task<Lyrics?> GetTrackLyrics(Guid trackId);
+
+    public Task<Lyrics?> PutTrackLyrics(Guid lyricsId, Guid trackId, Lyrics lyrics);
 }

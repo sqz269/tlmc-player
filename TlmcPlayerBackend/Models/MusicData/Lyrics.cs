@@ -6,27 +6,34 @@ namespace TlmcPlayerBackend.Models.MusicData;
 
 public class Ruby
 {
-    public required int Index;
-    public required int Length;
-    public required string Text;
+    public required int Index { get; set; }
+    public required int Length { get; set; }
+    public required string Text { get; set; }
 }
 
 public class LyricsText
 {
-    public required string Lang;
-    public required string Text;
-    public List<Ruby> Ruby = [];
+    public required string Lang { get; set; }
+    public required string Text { get; set; }
+    public List<Ruby> Ruby { get; set; } = [];
 }
 
 public class LyricsLine
 {
-    public TimeSpan? Time;
-    public required List<LyricsText> Blocks;
+    // Index MUST be specified, if timespan is specified also
+    // then SHOULD be Index(A) > Index(B) given TimeSpan(A) > TimeSpan(B)
+    // however, this is not necessary
+    // Index specifies the order of the lines if
+    // time was not specified, otherwise, time should always
+    // be prioritized
+    public required int Index { get; set; }
+    public TimeSpan? Time { get; set; }
+    public required List<LyricsText> Blocks { get; set; }
 }
 
 public class LyricsVariant
 {
-    public required string Variant { get; set; }
+    public string? Variant { get; set; }
     public required List<LyricsLine> Lines { get; set; } = [];
 }
 

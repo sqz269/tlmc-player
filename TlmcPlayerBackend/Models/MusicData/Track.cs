@@ -39,5 +39,6 @@ public class Track
 
     public Asset? TrackFile { get; set; }
 
+    [ForeignKey("LyricsId")]
     public Lyrics? Lyrics { get; set; }
 }

@@ -48,7 +48,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPut("album/add/{albumId:Guid}")]
+    [HttpPut("album/add/{albumId:Guid}", Name = $"___INTERNAL_{nameof(AddAlbum)}")]
     public async Task<IActionResult> AddAlbum(Guid albumId, [FromQuery] Guid? parentId, [FromBody] AlbumWriteDto albumWrite)
     {
         var a = await _dbContext.Albums.Where(a => a.Id == albumId).FirstOrDefaultAsync();
@@ -110,7 +110,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPut("album/{albumId:Guid}/track/add/{trackId:guid}")]
+    [HttpPut("album/{albumId:Guid}/track/add/{trackId:guid}", Name = $"___INTERNAL_{nameof(AddTrack)}")]
     public async Task<IActionResult> AddTrack(Guid albumId, Guid trackId, [FromBody] TrackWriteDto trackWrite)
     {
         var t = await _trackRepo.GetTrack(trackId);
@@ -150,7 +150,20 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPut("asset/add")]
+    [HttpPut("track/{trackId:Guid}/lyrics/add/{lyricsId:Guid}", Name = $"___INTERNAL_{nameof(AddLyrics)}")]
+    public async Task<IActionResult> AddLyrics(Guid trackId, Guid lyricsId, [FromBody] Lyrics lyrics)
+    {
+        var result = await _trackRepo.PutTrackLyrics(lyricsId, trackId, lyrics);
+        if (result != null)
+        {
+            return Ok(result); 
+        }
+
+        return Problem("Failed to put, check log for problem");
+    }
+
+    [DevelopmentOnly]
+    [HttpPut("asset/add", Name = $"___INTERNAL_{nameof(AddAssetUnchecked)}")]
     public async Task<IActionResult> AddAssetUnchecked([FromBody] Asset asset)
     {
         var a = await _assetRepo.GetAssetById(asset.Id);
@@ -170,7 +183,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPut("asset/track/{trackId:guid}/segment")]
+    [HttpPut("asset/track/{trackId:guid}/segment", Name = $"___INTERNAL_{nameof(AddHlsFileSegment)}")]
     public async Task<IActionResult> AddHlsFileSegment(Guid trackId, [FromQuery] int quality, [FromBody] HlsSegmentWriteDto segmentWrite)
     {
         if (segmentWrite.Id == Guid.Empty)
@@ -194,7 +207,7 @@ public class InternalController : Controller
     }
     
     [DevelopmentOnly]
-    [HttpPut("asset/track/{trackId:guid}/playlist")]
+    [HttpPut("asset/track/{trackId:guid}/playlist", Name = $"___INTERNAL_{nameof(AddHlsFilePlaylist)}")]
     public async Task<IActionResult> AddHlsFilePlaylist([FromBody] HlsPlaylistWriteDto playlistWrite)
     {
         if (playlistWrite.Id == Guid.Empty)
@@ -217,7 +230,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPatch("album/{albumId:guid}")]
+    [HttpPatch("album/{albumId:guid}", Name = $"___INTERNAL_{nameof(UpdateAlbum)}")]
     public async Task<IActionResult> UpdateAlbum(Guid albumId, [FromBody] JsonPatchDocument<AlbumUpdateDto> albumWrite)
     {
         var album = await _albumRepo.GetAlbum(albumId);
@@ -234,7 +247,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPatch("track/{trackId:guid}")]
+    [HttpPatch("track/{trackId:guid}", Name = $"___INTERNAL_{nameof(UpdateTrack)}")]
     public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] TrackUpdateDto trackWrite)
     {
         var track = await _trackRepo.GetTrack(trackId);
@@ -282,7 +295,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPatch("track/jsonpatch/{trackId:guid}")]
+    [HttpPatch("track/jsonpatch/{trackId:guid}", Name = $"___INTERNAL_PATCH_{nameof(UpdateTrack)}")]
     public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] JsonPatchDocument<TrackUpdateDtoForJsonPatch> trackWrite)
     {
         var track = await _trackRepo.GetTrack(trackId);
@@ -295,7 +308,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPut("circle/add/{id:Guid}")]
+    [HttpPut("circle/add/{id:Guid}", Name = $"___INTERNAL_{nameof(AddCircle)}")]
     public async Task<IActionResult> AddCircle(Guid id, [FromBody] CircleWriteDto circleWrite)
     {
         var circle = _mapper.Map<Circle>(circleWrite);
@@ -307,7 +320,7 @@ public class InternalController : Controller
     }
 
     [DevelopmentOnly]
-    [HttpPatch("circle/{id:guid}")]
+    [HttpPatch("circle/{id:guid}", Name = $"___INTERNAL_{nameof(UpdateCircle)}")]
     public async Task<IActionResult> UpdateCircle(Guid id, [FromBody] JsonPatchDocument<CircleUpdateDto> circleUpdate)
     {
         var circle = await _circleRepo.GetCircleById(id);
