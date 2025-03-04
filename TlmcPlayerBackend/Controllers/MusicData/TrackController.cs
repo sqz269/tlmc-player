@@ -45,10 +45,10 @@ public class TrackController : Controller
         return Ok(mapped);
     }
 
-    [HttpGet("track/{trackIds:Guid}/lyrics", Name = nameof(GetLyrics))]
-    public async Task<IActionResult> GetLyrics(Guid trackIds)
+    [HttpGet("track/{trackId:Guid}/lyrics", Name = nameof(GetLyrics))]
+    public async Task<IActionResult> GetLyrics(Guid trackId)
     {
-        var lyrics = await _trackRepo.GetTrackLyrics(trackIds);
+        var lyrics = await _trackRepo.GetTrackLyrics(trackId);
         if (lyrics == null)
         {
             NotFound();
