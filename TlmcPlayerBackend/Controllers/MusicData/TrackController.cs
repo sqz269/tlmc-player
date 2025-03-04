@@ -45,6 +45,18 @@ public class TrackController : Controller
         return Ok(mapped);
     }
 
+    [HttpGet("track/{trackIds:Guid}/lyrics", Name = nameof(GetLyrics))]
+    public async Task<IActionResult> GetLyrics(Guid trackIds)
+    {
+        var lyrics = await _trackRepo.GetTrackLyrics(trackIds);
+        if (lyrics == null)
+        {
+            NotFound();
+        }
+
+        return Ok(lyrics);
+    }
+
     [HttpPost("track", Name = nameof(GetTracks))]
     [ProducesResponseType(typeof(TrackGetMultipleResp), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTracks([FromBody] IEnumerable<Guid> trackIds)
