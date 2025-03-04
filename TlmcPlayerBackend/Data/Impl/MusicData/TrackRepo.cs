@@ -416,7 +416,7 @@ public class TrackRepo : ITrackRepo
             if (track == null)
             {
                 await transaction.RollbackAsync();
-                Console.WriteLine("Track not found");
+                Console.WriteLine($"Track not found: {trackId}");
                 return null;
             }
 

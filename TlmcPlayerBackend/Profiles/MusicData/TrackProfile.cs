@@ -16,7 +16,8 @@ public class TrackProfile : Profile
 
         CreateMap<Operation<TrackUpdateDtoForJsonPatch>, Operation<Track>>();
 
-        CreateMap<Track, TrackReadDto>();
+        CreateMap<Track, TrackReadDto>()
+            .ForMember(dest => dest.HasLyrics, opt => opt.MapFrom(src => src.LyricsId != null)); ;
         CreateMap<TrackWriteDto, Track>()
             .ForMember(t => t.TrackFile, t => t.Ignore());
     }

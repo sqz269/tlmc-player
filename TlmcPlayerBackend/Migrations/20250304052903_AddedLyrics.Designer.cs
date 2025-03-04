@@ -14,8 +14,8 @@ using TlmcPlayerBackend.Models.MusicData;
 namespace TlmcPlayerBackend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250222181823_LyricsModel")]
-    partial class LyricsModel
+    [Migration("20250304052903_AddedLyrics")]
+    partial class AddedLyrics
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

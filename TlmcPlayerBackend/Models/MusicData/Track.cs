@@ -41,4 +41,5 @@ public class Track
 
     [ForeignKey("LyricsId")]
     public Lyrics? Lyrics { get; set; }
+    public Guid? LyricsId { get; set; }
 }

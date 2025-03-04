@@ -35,4 +35,6 @@ public class TrackReadDto
     public AlbumReadDto Album { get; set; }
 
     public AssetReadDto? TrackFile { get; set; }
+
+    public bool HasLyrics { get; set; }
 }
