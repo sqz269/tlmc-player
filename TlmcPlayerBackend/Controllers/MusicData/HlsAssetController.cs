@@ -97,6 +97,6 @@ public class HlsAssetController : Controller
             return Problem(statusCode: StatusCodes.Status500InternalServerError,
                 title: "Internal Server Error: Read Segment Failed", detail: "Physical Segment File Not Found");
 
-        return PhysicalFile(seg.Path, "audio/mp4", enableRangeProcessing: true);
+        return PhysicalFile(seg.Path, "video/mp4", enableRangeProcessing: true);
     }
 }
