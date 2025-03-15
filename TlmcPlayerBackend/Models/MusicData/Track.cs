@@ -38,4 +38,8 @@ public class Track
     public List<OriginalTrack> Original { get; set; } = new();
 
     public Asset? TrackFile { get; set; }
+
+    [ForeignKey("LyricsId")]
+    public Lyrics? Lyrics { get; set; }
+    public Guid? LyricsId { get; set; }
 }

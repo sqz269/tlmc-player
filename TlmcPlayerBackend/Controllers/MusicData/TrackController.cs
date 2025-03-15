@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using TlmcPlayerBackend.Data.Api.MusicData;
+using TlmcPlayerBackend.Dtos.MusicData.Lyrics;
 using TlmcPlayerBackend.Dtos.MusicData.Track;
 using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
@@ -43,6 +44,20 @@ public class TrackController : Controller
             return NotFound();
         var mapped = _mapper.Map<Track, TrackReadDto>(track);
         return Ok(mapped);
+    }
+
+    [HttpGet("track/{trackId:Guid}/lyrics", Name = nameof(GetLyrics))]
+    [ProducesResponseType(typeof(LyricsReadDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(void), StatusCodes.Status200OK)]
+    public async Task<ActionResult<LyricsReadDto>> GetLyrics(Guid trackId)
+    {
+        var lyrics = await _trackRepo.GetTrackLyrics(trackId);
+        if (lyrics == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(_mapper.Map<Lyrics, LyricsReadDto>(lyrics));
     }
 
     [HttpPost("track", Name = nameof(GetTracks))]

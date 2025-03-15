@@ -380,6 +380,63 @@ public class TrackRepo : ITrackRepo
         throw new NotImplementedException();
     }
 
+    public async Task<Lyrics?> GetTrackLyrics(Guid trackId)
+    {
+        var result = await _context.Tracks
+                .Where(t => t.Id == trackId)
+                .Include(t => t.Lyrics)
+                .FirstOrDefaultAsync();
+
+        return result?.Lyrics;
+    }
+
+    // should be called internally only
+    public async Task<Lyrics?> PutTrackLyrics(Guid lyricsId, Guid trackId, Lyrics lyrics)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // Insert new lyrics
+            var insertedLyrics = await _context.Lyrics.AddAsync(lyrics);
+            var result = await _context.SaveChangesAsync();
+            if (result == 0)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine("Failed to insert lyrics, save changes returned 0");
+                return null;
+            }
+
+            // Find track and attach lyrics
+            var track = await _context.Tracks
+                .Where(t => t.Id == trackId)
+                .Include(track => track.Lyrics)
+                .FirstOrDefaultAsync();
+
+            if (track == null)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Track not found: {trackId}");
+                return null;
+            }
+
+            track.Lyrics = insertedLyrics.Entity;
+            _context.Tracks.Update(track); // Explicitly mark as modified
+
+            await _context.SaveChangesAsync(); // Persist the relation
+
+            await transaction.CommitAsync();
+            return track.Lyrics;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error inserting lyrics: {ex.Message}");
+            return null;
+        }
+    }
+
+
     public async Task<long> GetNumberOfTracksGivenFilter(TrackFilterSelectableRanged? filters)
     {
         if (filters == null || filters.IsEmpty())

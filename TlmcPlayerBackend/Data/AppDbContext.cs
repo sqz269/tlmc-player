@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<HlsPlaylist> HlsPlaylist { get; set; }
     public DbSet<HlsSegment> HlsSegment { get; set; }
     public DbSet<Thumbnail> Thumbnails { get; set; }
+    public DbSet<Lyrics> Lyrics { get; set; }
 
     public DbSet<UserProfile> UserProfiles { get; set; }
 
