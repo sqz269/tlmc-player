@@ -50,7 +50,7 @@ public class HlsMusicAssetController : Controller
         return string.Join("\n", lines);
     }
 
-    [HttpGet("hls/{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
+    [HttpGet("{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
     public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality)
     {
         var playlist = await _hlsPlaylistRepo.GetPlaylistForTrack(trackId, quality);
@@ -69,7 +69,7 @@ public class HlsMusicAssetController : Controller
         return Content(content, "application/vnd.apple.mpegurl");
     }
 
-    [HttpGet("hls/{quality:int}k/{segment}")]
+    [HttpGet("{quality:int}k/{segment}")]
     public async Task<IActionResult> GetSegment(Guid trackId, int quality, string segment)
     {
         var seg = await _hlsPlaylistRepo.GetSegment(trackId, quality, segment);

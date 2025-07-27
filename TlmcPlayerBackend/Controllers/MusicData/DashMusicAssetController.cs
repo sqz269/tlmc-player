@@ -6,13 +6,13 @@ namespace TlmcPlayerBackend.Controllers.MusicData;
 
 [ApiController]
 [Route("api/asset/track/{trackId:Guid}/dash")]
-public class MpegDashMusicAssetController : Controller
+public class DashMusicAssetController : Controller
 {
     private readonly IDashPlaylistRepo _dashPlaylistRepo;
     private readonly LinkGenerator _linkGenerator;
-    private readonly ILogger<MpegDashMusicAssetController> _logger;
+    private readonly ILogger<DashMusicAssetController> _logger;
 
-    public MpegDashMusicAssetController(IDashPlaylistRepo dashPlaylistRepo, LinkGenerator linkGenerator, ILogger<MpegDashMusicAssetController> logger)
+    public DashMusicAssetController(IDashPlaylistRepo dashPlaylistRepo, LinkGenerator linkGenerator, ILogger<DashMusicAssetController> logger)
     {
         _dashPlaylistRepo = dashPlaylistRepo;
         _linkGenerator = linkGenerator;
@@ -20,7 +20,7 @@ public class MpegDashMusicAssetController : Controller
     }
 
     // DASH MPD Endpoint
-    [HttpGet("dash/manifest.mpd", Name = nameof(GetDashManifest))]
+    [HttpGet("manifest.mpd", Name = nameof(GetDashManifest))]
     public async Task<IActionResult> GetDashManifest(Guid trackId)
     {
         var dashPlaylist = await _dashPlaylistRepo.GetDashManifestForTrack(trackId);
@@ -34,7 +34,7 @@ public class MpegDashMusicAssetController : Controller
     }
 
     // DASH Segment Endpoint
-    [HttpGet("dash/{quality:int}k/{segment}")]
+    [HttpGet("{quality:int}k/{segment}")]
     public async Task<IActionResult> GetDashSegment(Guid trackId, int quality, string segment)
     {
         var seg = await _dashPlaylistRepo.GetDashSegment(trackId, quality, segment);
