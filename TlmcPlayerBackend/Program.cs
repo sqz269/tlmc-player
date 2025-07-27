@@ -32,6 +32,7 @@ builder.Services.AddScoped<IAssetRepo, AssetRepo>();
 builder.Services.AddScoped<IHlsPlaylistRepo, HlsPlaylistRepo>();
 builder.Services.AddScoped<IOriginalTrackRepo, OriginalTrackRepo>();
 builder.Services.AddScoped<IOriginalAlbumRepo, OriginalAlbumRepo>();
+builder.Services.AddScoped<IDashPlaylistRepo, DashPlaylistRepo>();
 
 builder.Services.AddScoped<IUserProfileRepo, UserProfileRepo>();
 
