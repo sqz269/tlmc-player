@@ -67,7 +67,7 @@ public class HlsMusicAssetController : Controller
 
         // one of them is garenteed to be init.mp4
         var initMp4 = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment="init.mp4" });
-        lines.Add($"#EXT-X-MAP:URI=\"{initMp4}");
+        lines.Add($"#EXT-X-MAP:URI=\"{initMp4}\"");
         foreach (var segment in segments)
         {
             if (segment.Index < 0)
