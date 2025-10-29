@@ -1,43 +1,33 @@
 using Microsoft.AspNetCore.Mvc;
+using MimeDetective.Storage;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 
 namespace TlmcPlayerBackend.Controllers.MusicData;
 
 [ApiController]
-[Route("api/asset/track/{trackId:Guid}")]
-public class HlsAssetController : Controller
+[Route("api/asset/track/{trackId:Guid}/hls")]
+public class HlsMusicAssetController : Controller
 {
     private readonly IHlsPlaylistRepo _hlsPlaylistRepo;
     private readonly LinkGenerator _linkGenerator;
-    private readonly ILogger<HlsAssetController> _logger;
+    private readonly ILogger<HlsMusicAssetController> _logger;
 
-    public HlsAssetController(IHlsPlaylistRepo hlsPlaylistRepo, LinkGenerator linkGenerator, ILogger<HlsAssetController> logger)
+    public HlsMusicAssetController(IHlsPlaylistRepo hlsPlaylistRepo, LinkGenerator linkGenerator, ILogger<HlsMusicAssetController> logger)
     {
         this._hlsPlaylistRepo = hlsPlaylistRepo;
         _linkGenerator = linkGenerator;
-        _logger = logger;
+        _logger = logger;   
     }
 
     [HttpGet("")]
-    //[ProducesResponseType(typeof(string), StatusCodes.Status200OK, contentType: "application/vnd.apple.mpegurl")]
     public async Task<IActionResult> GetMasterPlaylist(Guid trackId)
     {
         var playlist = await _hlsPlaylistRepo.GetPlaylistForTrack(trackId, null);
         if (playlist == null)
             return NotFound();
 
-        //return Ok(playlist);
-        //if (!System.IO.File.Exists(playlist.HlsPlaylistPath))
-        //    return Problem(statusCode: StatusCodes.Status500InternalServerError,
-        //        title: "Internal Server Error: Read Playlist Failed", detail: "Physical Playlist File Not Found");
-
-        //Response.ContentType = "application/vnd.apple.mpegurl";
-
         return Content(GenerateMasterPlaylist(await _hlsPlaylistRepo.GetPlaylistsForTrack(trackId), trackId), "application/vnd.apple.mpegurl");
-        //var content = await System.IO.File.ReadAllTextAsync(playlist.HlsPlaylistPath);
-
-        //return Ok(content);
     }
 
     private string GenerateMasterPlaylist(List<HlsPlaylist> playlists, Guid trackId)
@@ -61,38 +51,71 @@ public class HlsAssetController : Controller
         return string.Join("\n", lines);
     }
 
-    [HttpGet("hls/{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
-    //[ProducesResponseType(typeof(string), StatusCodes.Status200OK, contentType: "application/vnd.apple.mpegurl")]
-    public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality)
+    private async Task<string?> GetMediaPlaylistDefinition(Guid trackId, int quality)
     {
+        var segments = await _hlsPlaylistRepo.GetSegmentsForTrack(trackId, quality);
+        if (segments == null || segments.Count == 0)
+            return null;
+
+        var lines = new List<string>()
+        {
+            "#EXTM3U",
+            "#EXT-X-VERSION:7",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXT-X-MEDIA-SEQUENCE:0",
+        };
+
+        // one of them is garenteed to be init.mp4
+        var initMp4 = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment="init.mp4" });
+        lines.Add($"#EXT-X-MAP:URI=\"{initMp4}");
+        foreach (var segment in segments)
+        {
+            if (segment.Index < 0)
+                continue; // skip init segment
+
+            lines.Add($"#EXTINF:10.007800,"); // let's just put a fixed duration for now
+            var segmentUrl = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment = segment.Name });
+            lines.Add(segmentUrl);
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    [HttpGet("{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
+    public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality, [FromQuery] bool generated=false)
+    {
+        if (generated)
+        {
+            var generatedPlaylist = await GetMediaPlaylistDefinition(trackId, quality);
+            if (generatedPlaylist == null)
+                return NotFound();
+
+            return Content(generatedPlaylist, "application/vnd.apple.mpegurl");
+        }
+
         var playlist = await _hlsPlaylistRepo.GetPlaylistForTrack(trackId, quality);
         if (playlist == null)
             return NotFound();
 
-        //return Ok(playlist);
         if (!System.IO.File.Exists(playlist.HlsPlaylistPath))
         {
-            _logger.LogError($"Physical Playlist File Not Found: {playlist.HlsPlaylistPath}");
+            _logger.LogError("Physical Playlist File Not Found: {PlaylistHlsPlaylistPath}", playlist.HlsPlaylistPath);
             return Problem(statusCode: StatusCodes.Status500InternalServerError,
                 title: "Internal Server Error: Read Playlist Failed", detail: "Physical Playlist File Not Found");
         }
-
-        //Response.ContentType = "application/vnd.apple.mpegurl";
 
         var content = await System.IO.File.ReadAllTextAsync(playlist.HlsPlaylistPath);
 
         return Content(content, "application/vnd.apple.mpegurl");
     }
 
-    [HttpGet("hls/{quality:int}k/{segment}")]
-    //[Produces("audio/mp4")]
+    [HttpGet("{quality:int}k/{segment}", Name=nameof(GetSegment))]
     public async Task<IActionResult> GetSegment(Guid trackId, int quality, string segment)
     {
         var seg = await _hlsPlaylistRepo.GetSegment(trackId, quality, segment);
         if (seg == null)
             return NotFound();
 
-        //return Ok(seg);
         if (!System.IO.File.Exists(seg.Path))
             return Problem(statusCode: StatusCodes.Status500InternalServerError,
                 title: "Internal Server Error: Read Segment Failed", detail: "Physical Segment File Not Found");
