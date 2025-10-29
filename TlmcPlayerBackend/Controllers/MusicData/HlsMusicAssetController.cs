@@ -64,6 +64,7 @@ public class HlsMusicAssetController : Controller
             "#EXT-X-VERSION:7",
             "#EXT-X-TARGETDURATION:10",
             "#EXT-X-MEDIA-SEQUENCE:0",
+            "#EXT-X-PLAYLIST-TYPE:VOD"
         };
 
         // one of them is garenteed to be init.mp4
@@ -78,6 +79,7 @@ public class HlsMusicAssetController : Controller
             var segmentUrl = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment = segment.Name });
             lines.Add(segmentUrl);
         }
+        lines.Add("#EXT-X-ENDLIST");
 
         return string.Join("\n", lines);
     }
