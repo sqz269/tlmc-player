@@ -21,6 +21,7 @@ public class HlsMusicAssetController : Controller
     }
 
     [HttpGet("")]
+    [HttpHead("")]
     public async Task<IActionResult> GetMasterPlaylist(Guid trackId)
     {
         var playlist = await _hlsPlaylistRepo.GetPlaylistForTrack(trackId, null);
@@ -82,6 +83,7 @@ public class HlsMusicAssetController : Controller
     }
 
     [HttpGet("{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
+    [HttpHead("{quality:int}k/playlist.m3u8")]
     public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality, [FromQuery] bool generated=false)
     {
         if (generated)
@@ -110,6 +112,7 @@ public class HlsMusicAssetController : Controller
     }
 
     [HttpGet("{quality:int}k/{segment}", Name=nameof(GetSegment))]
+    [HttpHead("{quality:int}k/{segment}")]
     public async Task<IActionResult> GetSegment(Guid trackId, int quality, string segment)
     {
         var seg = await _hlsPlaylistRepo.GetSegment(trackId, quality, segment);
