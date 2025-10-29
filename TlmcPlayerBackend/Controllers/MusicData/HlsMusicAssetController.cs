@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using MimeDetective.Storage;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.MusicData;
 
@@ -50,9 +51,48 @@ public class HlsMusicAssetController : Controller
         return string.Join("\n", lines);
     }
 
-    [HttpGet("{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
-    public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality)
+    private async Task<string?> GetMediaPlaylistDefinition(Guid trackId, int quality)
     {
+        var segments = await _hlsPlaylistRepo.GetSegmentsForTrack(trackId, quality);
+        if (segments == null || segments.Count == 0)
+            return null;
+
+        var lines = new List<string>()
+        {
+            "#EXTM3U",
+            "#EXT-X-VERSION:7",
+            "#EXT-X-TARGETDURATION:10",
+            "#EXT-X-MEDIA-SEQUENCE:0",
+        };
+
+        // one of them is garenteed to be init.mp4
+        var initMp4 = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment="init.mp4" });
+        lines.Add($"#EXT-X-MAP:URI=\"{initMp4}");
+        foreach (var segment in segments)
+        {
+            if (segment.Index < 0)
+                continue; // skip init segment
+
+            lines.Add($"#EXTINF:10.007800,"); // let's just put a fixed duration for now
+            var segmentUrl = _linkGenerator.GetUriByName(HttpContext, nameof(GetSegment), new { trackId, quality, segment = segment.Name });
+            lines.Add(segmentUrl);
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    [HttpGet("{quality:int}k/playlist.m3u8", Name = nameof(GetMediaPlaylist))]
+    public async Task<IActionResult> GetMediaPlaylist(Guid trackId, int quality, [FromQuery] bool generated=false)
+    {
+        if (generated)
+        {
+            var generatedPlaylist = await GetMediaPlaylistDefinition(trackId, quality);
+            if (generatedPlaylist == null)
+                return NotFound();
+
+            return Content(generatedPlaylist, "application/vnd.apple.mpegurl");
+        }
+
         var playlist = await _hlsPlaylistRepo.GetPlaylistForTrack(trackId, quality);
         if (playlist == null)
             return NotFound();
@@ -69,7 +109,7 @@ public class HlsMusicAssetController : Controller
         return Content(content, "application/vnd.apple.mpegurl");
     }
 
-    [HttpGet("{quality:int}k/{segment}")]
+    [HttpGet("{quality:int}k/{segment}", Name=nameof(GetSegment))]
     public async Task<IActionResult> GetSegment(Guid trackId, int quality, string segment)
     {
         var seg = await _hlsPlaylistRepo.GetSegment(trackId, quality, segment);

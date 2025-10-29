@@ -24,6 +24,11 @@ public class HlsPlaylistRepo : IHlsPlaylistRepo
             .FirstOrDefaultAsync(); 
     }
 
+    public async Task<List<HlsSegment>> GetSegmentsForTrack(Guid trackId, int qualtiy)
+    {
+        return await _dbContext.HlsSegment.Where(a => a.HlsPlaylist.TrackId == trackId && a.HlsPlaylist.Bitrate == qualtiy).OrderBy(a => a.Index).ToListAsync();
+    }
+
     public async Task<HlsSegment?> GetSegment(Guid trackId, int quality, string segment)
     {
         return await _dbContext.HlsSegment.Where(a =>
