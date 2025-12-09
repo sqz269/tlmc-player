@@ -94,6 +94,23 @@ public class TrackController : Controller
         });
     }
 
+    [HttpGet("track/similar", Name = nameof(GetSimilarTracks))]
+    [ProducesResponseType(typeof(TrackListResult), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TrackListResult>> GetSimilarTracks(
+        [FromQuery] Guid trackId,
+        [FromQuery][Range(1, 50)] int limit = 20,
+        [FromQuery] TrackEmbeddingPoolingMode poolingMode = TrackEmbeddingPoolingMode.Mean)
+    {
+        var tracks = await _trackRepo.GetSimilarTracks(trackId, limit, poolingMode);
+        var trackDto = _mapper.Map<IEnumerable<TrackReadDto>>(tracks);
+        return Ok(new TrackListResult
+        {
+            Tracks = trackDto,
+            Count = trackDto.Count(),
+            Total = trackDto.Count()
+        });
+    }
+
     [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
     [ProducesResponseType(typeof(TrackRandomResult), StatusCodes.Status200OK)]
     public async Task<ActionResult<TrackRandomResult>> GetRandomSampleTrack(

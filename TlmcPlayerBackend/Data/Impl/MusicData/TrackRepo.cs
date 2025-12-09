@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Models.Api;
@@ -475,5 +476,36 @@ public class TrackRepo : ITrackRepo
         long count = results;
 
         return count;
+    }
+
+    public async Task<IEnumerable<Track>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode)
+    {
+        var srcTrack = await _context.TrackEmbeddings
+            .Where(te => te.TrackId == trackId)
+            .FirstOrDefaultAsync() ?? throw new Exception($"No embedding found for track with id: {trackId}");
+
+        List<TrackEmbedding> similarities;
+        if (poolingMode == TrackEmbeddingPoolingMode.Mean)
+        {
+            similarities = await _context.TrackEmbeddings
+                .OrderBy(t => t.EmbeddingMean!.CosineDistance(srcTrack.EmbeddingMean!))
+                .Take(limit)
+                .Include(t => t.Track)
+                .ToListAsync();
+        }
+        else if (poolingMode == TrackEmbeddingPoolingMode.MeanMax)
+        {
+            similarities = await _context.TrackEmbeddings
+                .OrderBy(t => t.EmbeddingMeanMax!.CosineDistance(srcTrack.EmbeddingMeanMax!))
+                .Take(limit)
+                .Include(t => t.Track)
+                .ToListAsync();
+        }
+        else
+        {
+            throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null);
+        }
+
+        return similarities.Select(te => te.Track);
     }
 }

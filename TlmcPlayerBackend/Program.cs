@@ -18,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Register DB Related services
 NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
+NpgsqlConnection.GlobalTypeMapper.UseVector();
+
 Console.WriteLine($"Connecting to: {builder.Configuration.GetConnectionString("PostgreSql")}");
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"), optionsBuilder =>

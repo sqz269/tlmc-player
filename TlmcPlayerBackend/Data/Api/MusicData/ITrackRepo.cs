@@ -36,4 +36,6 @@ public interface ITrackRepo
     public Task<Lyrics?> GetTrackLyrics(Guid trackId);
 
     public Task<Lyrics?> PutTrackLyrics(Guid lyricsId, Guid trackId, Lyrics lyrics);
+
+    public Task<IEnumerable<Track>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode);
 }

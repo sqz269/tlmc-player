@@ -27,6 +27,8 @@ public class AppDbContext : DbContext
 
     public DbSet<PlaylistItem> PlaylistItems { get; set; }
 
+    public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
+
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
     {
     }

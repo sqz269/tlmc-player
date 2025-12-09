@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: backend-pgsql-depl
-          image: postgres:15.4-bullseye
+          image: pgvector/pgvector:pg15
           ports:
             - containerPort: 5432
           env:
