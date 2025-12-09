@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Models.Playlist;
 using TlmcPlayerBackend.Models.UserProfile;
@@ -29,9 +30,12 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
     {
     }
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Enable Vector support
+        modelBuilder.HasPostgresExtension("vector");
+
         // Music Data Configuration
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Tiny).AutoInclude();
         modelBuilder.Entity<Thumbnail>().Navigation(t => t.Small).AutoInclude();
@@ -45,6 +49,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Track>().Navigation(t => t.Album).AutoInclude(false);
 
         modelBuilder.Entity<OriginalTrack>().Navigation(og => og.Album).AutoInclude();
+
+        modelBuilder.Entity<Track>()
+                    .HasOne(t => t.Embedding)
+                    .WithOne(e => e.Track)
+                    .HasForeignKey<TrackEmbedding>(e => e.TrackId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Circle>()
             .Property(c => c.Status)
@@ -60,7 +70,7 @@ public class AppDbContext : DbContext
         
         // Playlist Configuration
         modelBuilder.Entity<PlaylistItem>().Navigation(t => t.Track).AutoInclude();
-        
+
         modelBuilder.Entity<Playlist>().Navigation(t => t.Owner).AutoInclude();
 
         base.OnModelCreating(modelBuilder);

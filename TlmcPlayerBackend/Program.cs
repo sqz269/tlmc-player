@@ -23,6 +23,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"), optionsBuilder =>
     {
         optionsBuilder.CommandTimeout(5);
+        optionsBuilder.UseVector();
     }));
 
 builder.Services.AddScoped<IAlbumRepo, AlbumRepo>();

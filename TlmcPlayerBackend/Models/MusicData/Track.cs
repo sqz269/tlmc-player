@@ -39,6 +39,8 @@ public class Track
 
     public Asset? TrackFile { get; set; }
 
+    public TrackEmbedding? Embedding { get; set; }
+
     [ForeignKey("LyricsId")]
     public Lyrics? Lyrics { get; set; }
     public Guid? LyricsId { get; set; }
