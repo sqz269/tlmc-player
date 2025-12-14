@@ -1,4 +1,5 @@
-﻿using TlmcPlayerBackend.Controllers.MusicData;
+﻿using Pgvector;
+using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils.Extensions;
@@ -7,6 +8,12 @@ namespace TlmcPlayerBackend.Data.Api.MusicData;
 
 public interface ITrackRepo
 {
+    static Dictionary<TrackEmbeddingPoolingMode, int> EmbeddingDims = new()
+    {
+        {TrackEmbeddingPoolingMode.Mean, 1024 },
+        {TrackEmbeddingPoolingMode.MeanMax, 2048 },
+    };
+
     public Task<bool> SaveChanges();
 
     public Task<Track?> GetTrack(Guid trackId);
@@ -37,5 +44,7 @@ public interface ITrackRepo
 
     public Task<Lyrics?> PutTrackLyrics(Guid lyricsId, Guid trackId, Lyrics lyrics);
 
-    public Task<IEnumerable<Track>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode);
+    public Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode);
+
+    public Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(Vector embedding, int limit, TrackEmbeddingPoolingMode poolingMode);
 }

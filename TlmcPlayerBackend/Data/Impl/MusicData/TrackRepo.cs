@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
 using Pgvector.EntityFrameworkCore;
 using TlmcPlayerBackend.Controllers.MusicData;
 using TlmcPlayerBackend.Data.Api.MusicData;
@@ -478,34 +479,60 @@ public class TrackRepo : ITrackRepo
         return count;
     }
 
-    public async Task<IEnumerable<Track>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode)
+    public async Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode)
     {
         var srcTrack = await _context.TrackEmbeddings
             .Where(te => te.TrackId == trackId)
             .FirstOrDefaultAsync() ?? throw new Exception($"No embedding found for track with id: {trackId}");
+        
+        Vector embedding = poolingMode switch
+        {
+            TrackEmbeddingPoolingMode.Mean => srcTrack.EmbeddingMean!,
+            TrackEmbeddingPoolingMode.MeanMax => srcTrack.EmbeddingMeanMax!,
+            _ => throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null)
+        };
 
-        List<TrackEmbedding> similarities;
-        if (poolingMode == TrackEmbeddingPoolingMode.Mean)
+        return await GetSimilarTracks(
+            embedding,  
+            limit,
+            poolingMode
+        );
+    }
+
+    public async Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(
+        Vector embedding,
+        int limit,
+        TrackEmbeddingPoolingMode poolingMode)
+    {
+        var expectedDim = ITrackRepo.EmbeddingDims[poolingMode];
+        if (expectedDim != embedding.Memory.Length)
         {
-            similarities = await _context.TrackEmbeddings
-                .OrderBy(t => t.EmbeddingMean!.CosineDistance(srcTrack.EmbeddingMean!))
-                .Take(limit)
-                .Include(t => t.Track)
-                .ToListAsync();
-        }
-        else if (poolingMode == TrackEmbeddingPoolingMode.MeanMax)
-        {
-            similarities = await _context.TrackEmbeddings
-                .OrderBy(t => t.EmbeddingMeanMax!.CosineDistance(srcTrack.EmbeddingMeanMax!))
-                .Take(limit)
-                .Include(t => t.Track)
-                .ToListAsync();
-        }
-        else
-        {
-            throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null);
+            throw new ArgumentException(
+                $"Embedding dimension mismatch. Expected: {expectedDim}, Actual: {embedding.Memory.Length}");
         }
 
-        return similarities.Select(te => te.Track);
+        var query = _context.TrackEmbeddings
+            .Include(t => t.Track)
+            .Include(t => t.Track.Album)
+            .ThenInclude(a => a.AlbumArtist)
+            .AsNoTracking();
+
+        var projectedQuery = poolingMode switch
+        {
+            TrackEmbeddingPoolingMode.Mean => query
+                .Select(t => new { t.Track, Distance = t.EmbeddingMean!.CosineDistance(embedding) }),
+
+            TrackEmbeddingPoolingMode.MeanMax => query
+                .Select(t => new { t.Track, Distance = t.EmbeddingMeanMax!.CosineDistance(embedding) }),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null)
+        };
+
+        var results = await projectedQuery
+            .OrderBy(x => x.Distance)
+            .Take(limit)
+            .ToListAsync();
+
+        return results.Select(r => (r.Track, r.Distance));
     }
 }

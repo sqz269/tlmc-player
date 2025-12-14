@@ -94,15 +94,24 @@ public class TrackController : Controller
         });
     }
 
-    [HttpGet("track/similar", Name = nameof(GetSimilarTracks))]
+    [HttpGet("track/{trackId:guid}/similar", Name = nameof(GetSimilarTracksDiverse))]
     [ProducesResponseType(typeof(TrackListResult), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TrackListResult>> GetSimilarTracks(
-        [FromQuery] Guid trackId,
-        [FromQuery][Range(1, 50)] int limit = 20,
-        [FromQuery] TrackEmbeddingPoolingMode poolingMode = TrackEmbeddingPoolingMode.Mean)
+    public async Task<ActionResult<TrackListResult>> GetSimilarTracksDiverse(
+        Guid trackId,
+        [FromQuery] TrackEmbeddingPoolingMode poolingMode = TrackEmbeddingPoolingMode.MeanMax,
+        [FromQuery, Range(1, 50)] int limit = 20,
+        [FromQuery] TrackSimilarityRankingPenaltyAttribute penaltyAttributes = TrackSimilarityRankingPenaltyAttribute.Title | TrackSimilarityRankingPenaltyAttribute.Artist | TrackSimilarityRankingPenaltyAttribute.CosineDistThreshold,
+        [FromQuery][Range(0.0, 1.0)] double relevanceWeight = 0.5, // lambda
+        [FromQuery][Range(0.0, 1.0)] double cosineDistThreshold = 0.0001
+        )
     {
-        var tracks = await _trackRepo.GetSimilarTracks(trackId, limit, poolingMode);
-        var trackDto = _mapper.Map<IEnumerable<TrackReadDto>>(tracks);
+        var overfetchLimit = Math.Min(300, limit * 7);
+        var tracks = await _trackRepo.GetSimilarTracks(trackId, overfetchLimit, poolingMode);
+
+        // Diversity Re-ranking
+        var resampled = DiversitySampler.ApplyDiversitySampler(tracks, limit, relevanceWeight, penaltyAttributes, cosineDistThreshold);
+
+        var trackDto = _mapper.Map<IEnumerable<TrackReadDto>>(resampled.Select(t => t.track));
         return Ok(new TrackListResult
         {
             Tracks = trackDto,
