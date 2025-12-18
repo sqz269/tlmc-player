@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using TlmcPlayerBackend.Models.Api;
+﻿using TlmcPlayerBackend.Models.Api;
 using TlmcPlayerBackend.Models.MusicData;
+
+namespace TlmcPlayerBackend.Utils;
 
 public static class DiversitySampler
 {
@@ -101,12 +100,12 @@ public static class DiversitySampler
             }
         }
 
-        // If Title penalty is on, check for duplicate titles (e.g. Remixes)
+        // If Title penalty is on, check for duplicate titles
         if (penalties.HasFlag(TrackSimilarityRankingPenaltyAttribute.Title))
         {
             if (LevenshteinDistance(
-                candidate.Name.Default,
-                selected.Name.Default) < 3) // Penalize if titles differ by less than 3 characters
+                    candidate.Name.Default,
+                    selected.Name.Default) < 3) // Penalize if titles differ by less than 3 characters
             {
                 Console.WriteLine($"Penalize {candidate.Name.Default} | Title overlap");
                 return 1.0;
