@@ -96,7 +96,7 @@ public class TrackController : Controller
 
     [HttpGet("track/{trackId:guid}/similar", Name = nameof(GetSimilarTracksDiverse))]
     [ProducesResponseType(typeof(TrackListResult), StatusCodes.Status200OK)]
-    public async Task<ActionResult<TrackListResult>> GetSimilarTracksDiverse(
+    public async Task<ActionResult<TrackSimilaritiesResult>> GetSimilarTracksDiverse(
         Guid trackId,
         [FromQuery] TrackEmbeddingPoolingMode poolingMode = TrackEmbeddingPoolingMode.MeanMax,
         [FromQuery, Range(1, 50)] int limit = 20,
@@ -109,14 +109,18 @@ public class TrackController : Controller
         var tracks = await _trackRepo.GetSimilarTracks(trackId, overfetchLimit, poolingMode);
 
         // Diversity Re-ranking
-        var resampled = DiversitySampler.ApplyDiversitySampler(tracks, limit, relevanceWeight, penaltyAttributes, cosineDistThreshold);
+        var resampled = DiversitySampler.ApplyDiversitySamplerAndRerank(tracks, limit, relevanceWeight, penaltyAttributes, cosineDistThreshold);
 
-        var trackDto = _mapper.Map<IEnumerable<TrackReadDto>>(resampled.Select(t => t.track));
-        return Ok(new TrackListResult
+        var simResults = resampled.Select(t => new TrackSimilarity
         {
-            Tracks = trackDto,
-            Count = trackDto.Count(),
-            Total = trackDto.Count()
+            Track = _mapper.Map<TrackReadDto>(t.track),
+            SimilarityScore = Math.Round(1 - t.distance, 4)
+        }).ToList();
+
+        return Ok(new TrackSimilaritiesResult
+        {
+            Items = simResults,
+            Count = simResults.Count,
         });
     }
 

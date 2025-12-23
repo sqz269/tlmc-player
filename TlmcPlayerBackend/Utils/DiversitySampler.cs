@@ -5,14 +5,14 @@ namespace TlmcPlayerBackend.Utils;
 
 public static class DiversitySampler
 {
-    public static IEnumerable<(Track track, double rank)> ApplyDiversitySampler(
+    public static IEnumerable<(Track track, double distance)> ApplyDiversitySamplerAndRerank(
         IEnumerable<(Track Track, double Distance)> candidates,
         int finalLimit,
         double diversityBias,
         TrackSimilarityRankingPenaltyAttribute penalties,
         double cosineThreshold=0.01)
     {
-        var selected = new List<(Track track, double rank)>();
+        var selected = new List<(Track track, double distance)>();
         // Clone the list so we can remove items as we pick them
         var remainingCandidates = candidates.ToList();
 
@@ -68,7 +68,8 @@ public static class DiversitySampler
             // 4. Move best candidate to selected list
             if (bestCandidateIndex != -1)
             {
-                selected.Add((remainingCandidates[bestCandidateIndex].Track, bestMmrScore));
+                // Keep using the vector distances
+                selected.Add((remainingCandidates[bestCandidateIndex].Track, remainingCandidates[bestCandidateIndex].Distance));
                 remainingCandidates.RemoveAt(bestCandidateIndex);
             }
             else
