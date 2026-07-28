@@ -26,14 +26,14 @@ spec:
             - name: Keycloak__RealmUrl
               value: https://sso.marisad.me/realms/MusicPlayer
           volumeMounts:
-            - mountPath: /external_data/torrent/TLMC v2/
+            - mountPath: /mnt/tlmc/TLMC v6/
               name: musicdata
             - mountPath: /thumbdata/
               name: thumbdata
       volumes:
         - name: musicdata
           hostPath:
-            path: /external_data/torrent/TLMC v2/
+            path: /mnt/tlmc/TLMC v6/
             type: Directory
         - name: thumbdata
           hostPath:
