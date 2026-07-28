@@ -482,21 +482,18 @@ public class TrackRepo : ITrackRepo
     public async Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(Guid trackId, int limit, TrackEmbeddingPoolingMode poolingMode)
     {
         var srcTrack = await _context.TrackEmbeddings
+            .AsNoTracking()
             .Where(te => te.TrackId == trackId)
             .FirstOrDefaultAsync() ?? throw new Exception($"No embedding found for track with id: {trackId}");
-        
-        Vector embedding = poolingMode switch
+
+        var neighbors = poolingMode switch
         {
-            TrackEmbeddingPoolingMode.Mean => srcTrack.EmbeddingMean!,
-            TrackEmbeddingPoolingMode.MeanMax => srcTrack.EmbeddingMeanMax!,
+            TrackEmbeddingPoolingMode.Mean => await NearestByMean(srcTrack.EmbeddingMean!, limit),
+            TrackEmbeddingPoolingMode.MeanMax => await NearestByMeanMax(srcTrack.EmbeddingMeanMax!, limit),
             _ => throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null)
         };
 
-        return await GetSimilarTracks(
-            embedding,  
-            limit,
-            poolingMode
-        );
+        return await HydrateTracks(neighbors);
     }
 
     public async Task<IEnumerable<(Track Track, double Distance)>> GetSimilarTracks(
@@ -511,28 +508,75 @@ public class TrackRepo : ITrackRepo
                 $"Embedding dimension mismatch. Expected: {expectedDim}, Actual: {embedding.Memory.Length}");
         }
 
-        var query = _context.TrackEmbeddings
-            .Include(t => t.Track)
-            .Include(t => t.Track.Album)
-            .ThenInclude(a => a.AlbumArtist)
-            .AsNoTracking();
-
-        var projectedQuery = poolingMode switch
+        var neighbors = poolingMode switch
         {
-            TrackEmbeddingPoolingMode.Mean => query
-                .Select(t => new { t.Track, Distance = t.EmbeddingMean!.CosineDistance(embedding) }),
+            TrackEmbeddingPoolingMode.Mean => await NearestByMean(embedding, limit),
 
-            TrackEmbeddingPoolingMode.MeanMax => query
-                .Select(t => new { t.Track, Distance = t.EmbeddingMeanMax!.CosineDistance(embedding) }),
+            // MeanMax is stored as halfvec; an externally supplied fp32 query
+            // vector is narrowed to fp16 to match the column
+            TrackEmbeddingPoolingMode.MeanMax => await NearestByMeanMax(ToHalfVector(embedding), limit),
 
             _ => throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null)
         };
 
-        var results = await projectedQuery
-            .OrderBy(x => x.Distance)
+        return await HydrateTracks(neighbors);
+    }
+
+    // The ANN query and the metadata hydration are deliberately separate
+    // round-trips: pgvector's HNSW index is only considered for a bare
+    // `ORDER BY embedding <=> $1 LIMIT n` scan, and dragging the Track/Album/
+    // Artist joins into that query invites the planner to fall back to a
+    // sequential scan over every embedding.
+    private async Task<List<(Guid TrackId, double Distance)>> NearestByMean(Vector embedding, int limit)
+    {
+        var rows = await _context.TrackEmbeddings
+            .AsNoTracking()
+            .OrderBy(t => t.EmbeddingMean!.CosineDistance(embedding))
             .Take(limit)
+            .Select(t => new { t.TrackId, Distance = t.EmbeddingMean!.CosineDistance(embedding) })
             .ToListAsync();
 
-        return results.Select(r => (r.Track, r.Distance));
+        return rows.Select(r => (r.TrackId, r.Distance)).ToList();
+    }
+
+    private async Task<List<(Guid TrackId, double Distance)>> NearestByMeanMax(HalfVector embedding, int limit)
+    {
+        var rows = await _context.TrackEmbeddings
+            .AsNoTracking()
+            .OrderBy(t => t.EmbeddingMeanMax!.CosineDistance(embedding))
+            .Take(limit)
+            .Select(t => new { t.TrackId, Distance = t.EmbeddingMeanMax!.CosineDistance(embedding) })
+            .ToListAsync();
+
+        return rows.Select(r => (r.TrackId, r.Distance)).ToList();
+    }
+
+    private async Task<IEnumerable<(Track Track, double Distance)>> HydrateTracks(
+        List<(Guid TrackId, double Distance)> neighbors)
+    {
+        var ids = neighbors.Select(n => n.TrackId).ToList();
+
+        var tracks = await _context.Tracks
+            .Where(t => ids.Contains(t.Id))
+            .Include(t => t.Album)
+            .ThenInclude(a => a.AlbumArtist)
+            .AsNoTracking()
+            .ToDictionaryAsync(t => t.Id);
+
+        return neighbors
+            .Where(n => tracks.ContainsKey(n.TrackId))
+            .Select(n => (tracks[n.TrackId], n.Distance));
+    }
+
+    private static HalfVector ToHalfVector(Vector embedding)
+    {
+        var floats = embedding.Memory.Span;
+        var halves = new Half[floats.Length];
+        for (var i = 0; i < floats.Length; i++)
+        {
+            halves[i] = (Half)floats[i];
+        }
+
+        return new HalfVector(halves);
     }
 }

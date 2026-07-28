@@ -58,6 +58,16 @@ public class AppDbContext : DbContext
                     .HasForeignKey<TrackEmbedding>(e => e.TrackId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<TrackEmbedding>()
+            .HasIndex(e => e.EmbeddingMean)
+            .HasMethod("hnsw")
+            .HasOperators("vector_cosine_ops");
+
+        modelBuilder.Entity<TrackEmbedding>()
+            .HasIndex(e => e.EmbeddingMeanMax)
+            .HasMethod("hnsw")
+            .HasOperators("halfvec_cosine_ops");
+
         modelBuilder.Entity<Circle>()
             .Property(c => c.Status)
             .HasConversion(v => v.ToString(),

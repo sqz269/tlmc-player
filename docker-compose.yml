@@ -2,7 +2,10 @@ version: '3.4'
 
 services:
   postgres:
-    image: postgres:14.3
+    # pgvector image to match the K8s deployment (backend-pgsql-depl.yaml);
+    # stock postgres has no vector extension, so the TrackEmbeddings
+    # migrations cannot even apply against it
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: tlmcplayer
       POSTGRES_PASSWORD: tlmcplayer

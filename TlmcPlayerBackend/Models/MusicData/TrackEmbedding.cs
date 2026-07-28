@@ -12,8 +12,12 @@ public class TrackEmbedding
     [Column(TypeName = "vector(1024)")]
     public Vector EmbeddingMean { get; set; }
 
-    [Column(TypeName = "vector(2048)")]
-    public Vector EmbeddingMeanMax { get; set; }
+    // halfvec, not vector: pgvector's HNSW/IVFFlat indexes cap out at 2000 dims
+    // for vector but 4000 for halfvec. As vector(2048) this column could never
+    // be ANN-indexed and every similarity query was a sequential scan. fp16 is
+    // ample precision for a recall stage.
+    [Column(TypeName = "halfvec(2048)")]
+    public HalfVector EmbeddingMeanMax { get; set; }
 
     public Track Track { get; set; }
 }
