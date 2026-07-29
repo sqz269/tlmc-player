@@ -62,6 +62,11 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddHttpContextAccessor();
 
+// Liveness/readiness target for container orchestrators. Deliberately does not
+// touch the database: this answers "is the process serving?", and the startup
+// migration/backfill already gates when the process begins listening.
+builder.Services.AddHealthChecks();
+
 builder.Services.AddCors(opt =>
 {
     opt.AddDefaultPolicy(policy =>
@@ -109,6 +114,8 @@ if (app.Environment.IsProduction())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.MapHealthChecks("/healthz").AllowAnonymous();
 
 app.MapControllers();
 

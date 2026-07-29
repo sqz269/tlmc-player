@@ -29,7 +29,17 @@ public class OpenIdConnectConfigurationProviderService
 
         RealmUrl = realmUrl;
 
-        var documentRetriever = new HttpDocumentRetriever { RequireHttps = true };
+        // Mirrors JwtBearerOptions.RequireHttpsMetadata: on by default, opt-out
+        // only for local clusters where Keycloak is reached over plain HTTP.
+        var requireHttps = configuration.GetSection("Keycloak")
+            .GetValue<bool?>("RequireHttpsMetadata") ?? true;
+
+        if (!requireHttps)
+        {
+            _logger.LogWarning("Keycloak metadata HTTPS requirement disabled - do not use this outside local development");
+        }
+
+        var documentRetriever = new HttpDocumentRetriever { RequireHttps = requireHttps };
         _configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{realmUrl}/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
