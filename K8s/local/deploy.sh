@@ -77,8 +77,10 @@ if ! kubectl -n "$NS" get secret backend-pgsql-credentials >/dev/null 2>&1; then
     --from-literal=KEYCLOAK_ADMIN=admin \
     --from-literal=KEYCLOAK_ADMIN_PASSWORD="$KC_ADMIN_PW" \
     --from-literal=TEST_USER_PASSWORD="$TEST_USER_PW" >/dev/null
+  INTERNAL_API_KEY="$(gen_pw)"
   kubectl -n "$NS" create secret generic backend-api-config \
-    --from-literal=ConnectionStrings__PostgreSql="Host=backend-pgsql-clusterip.$NS.svc.cluster.local;Port=5432;Database=tlmcplayer;Username=tlmcplayer;Password=$BACKEND_PG_PW" >/dev/null
+    --from-literal=ConnectionStrings__PostgreSql="Host=backend-pgsql-clusterip.$NS.svc.cluster.local;Port=5432;Database=tlmcplayer;Username=tlmcplayer;Password=$BACKEND_PG_PW" \
+    --from-literal=Internal__ApiKey="$INTERNAL_API_KEY" >/dev/null
 else
   echo "==> reusing existing credentials"
 fi
@@ -89,6 +91,20 @@ fi
 secret_val() {
   kubectl -n "$NS" get secret "$1" -o jsonpath="{.data.$2}" | base64 -d
 }
+
+# Backfill keys added after a secret was first created. Without this, a cluster
+# deployed by an older revision of this script keeps a secret missing the new key,
+# and the pod fails to start on a missing secretKeyRef rather than saying why.
+ensure_secret_key() {
+  local secret="$1" key="$2" value="$3"
+  if [[ -z "$(kubectl -n "$NS" get secret "$secret" -o jsonpath="{.data.$key}")" ]]; then
+    echo "    adding $key to $secret"
+    kubectl -n "$NS" patch secret "$secret" \
+      --type merge -p "{\"stringData\":{\"$key\":\"$value\"}}" >/dev/null
+  fi
+}
+ensure_secret_key backend-api-config Internal__ApiKey "$(gen_pw)"
+
 TEST_USER_PW="$(secret_val keycloak-admin-credentials TEST_USER_PASSWORD)"
 
 ( umask 077
@@ -106,6 +122,8 @@ KEYCLOAK_REALM_URL=$KC_ISSUER_BASE/realms/MusicPlayer
 KEYCLOAK_CLIENT_ID=tlmc-player-web
 TEST_USER=testuser
 TEST_USER_PASSWORD=$TEST_USER_PW
+# Send as the X-Internal-Api-Key header to use the api/internal write surface.
+INTERNAL_API_KEY=$(secret_val backend-api-config Internal__ApiKey)
 API_URL=http://$NODE_IP:$API_NODEPORT
 EOF
 )

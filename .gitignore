@@ -527,3 +527,6 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio,aspnetcore
+# Rendered Kubernetes secrets: only the template belongs in the repo.
+K8s/**/secrets.yaml
+K8s/**/secretes.yaml

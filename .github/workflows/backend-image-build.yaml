@@ -1,20 +1,43 @@
-name: Build and Push Backend Image'
+name: Build and Push Backend Image
 
+# Only master publishes. This previously ran on every push with no branch filter and
+# tagged the result :latest -- the tag the production Deployment pulls, with an
+# implicit imagePullPolicy: Always -- so pushing any branch replaced the production
+# image and the next pod restart rolled it out.
 on:
   workflow_dispatch:
   push:
+    branches:
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Build the Docker image
-      run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/backend-api . -f ./TlmcPlayerBackend/Dockerfile
+    - uses: actions/checkout@v4
 
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+    - name: Build the Docker image
+      run: |
+        docker build \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/backend-api:${{ github.sha }} \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/backend-api:latest \
+          . -f ./TlmcPlayerBackend/Dockerfile
+
+    # Both tags are the same image, but the immutable one is what a Deployment should
+    # reference: :latest cannot be rolled back to a known build.
     - name: Push the Docker image
       run: |
-        echo ${{ secrets.DOCKERHUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend-api
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend-api:${{ github.sha }}
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/backend-api:latest
+
+    - name: Summary
+      run: |
+        echo "Pushed backend-api:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "Pin the Deployment to that tag to deploy this build." >> $GITHUB_STEP_SUMMARY

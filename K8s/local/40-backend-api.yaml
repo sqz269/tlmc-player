@@ -60,6 +60,24 @@ spec:
             # true.
             - name: Keycloak__RequireHttpsMetadata
               value: "__KC_REQUIRE_HTTPS__"
+            # Swagger is no longer served unconditionally; ASPNETCORE_ENVIRONMENT is
+            # Staging here, so it has to be asked for explicitly.
+            - name: Swagger__Enabled
+              value: "true"
+            # Constrains which filesystem paths stored assets may be served from.
+            # Asset rows hold absolute paths written by the ETL and the API opens them
+            # directly, so this is the containment boundary for that.
+            - name: Assets__Roots__0
+              value: /mnt/tlmc/TLMC v6/
+            - name: Assets__Roots__1
+              value: /thumbdata/
+            # Shared secret for the api/internal write surface. Absent, those routes
+            # 404 rather than being reachable unauthenticated.
+            - name: Internal__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: backend-api-config
+                  key: Internal__ApiKey
           ports:
             - name: http
               containerPort: 8080

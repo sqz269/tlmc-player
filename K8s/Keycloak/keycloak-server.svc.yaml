@@ -8,22 +8,30 @@ spec:
   selector:
     app: keycloak
   ports:
+    # The container listens on 8080. This used to declare port 80 / targetPort 80,
+    # which matched nothing, while ingress.yaml asked for port 8080, which the
+    # service did not expose -- so SSO could not route at all as committed.
     - name: http-keycloak-server-port
       protocol: TCP
-      port: 80
-      targetPort: 80
-      appProtocol: TCP
+      port: 8080
+      targetPort: 8080
+      appProtocol: HTTP
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: keycloak-server-nodeport
+  # Without this the service is created in `default`, where its selector never
+  # matches the pods in tlmc-player and it has no endpoints.
+  namespace: tlmc-player
 spec:
   type: NodePort
   selector:
     app: keycloak
   ports:
-    - port: 8080
+    - name: http-keycloak-server-nodeport
+      protocol: TCP
+      port: 8080
       targetPort: 8080
       nodePort: 30080

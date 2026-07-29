@@ -61,22 +61,6 @@ spec:
                 name: backend-api-clusterip
                 port:
                   number: 80
-          - pathType: Prefix
-            path: "/api/playlistItem"
-            backend:
-              service:
-                name: backend-api-clusterip
-                port:
-                  number: 80
-
-          # Search Service
-          - pathType: Prefix
-            path: "/api/search"
-            backend:
-              service:
-                name: backend-api-clusterip
-                port:
-                  number: 80
 
           # User Profile Service
           - pathType: Prefix

@@ -17,7 +17,9 @@ spec:
     spec:
       containers:
         - name: backend-pgsql-depl
-          image: pgvector/pgvector:pg15
+          # Pinned: halfvec needs pgvector >= 0.7, so the floating :pg15 tag is not
+          # safe to depend on for the EmbeddingHalfvecAndHnsw migration.
+          image: pgvector/pgvector:0.8.6-pg15
           ports:
             - containerPort: 5432
           env:
