@@ -26,7 +26,7 @@ public class CircleController : Controller
     // TODO: Return 400 when limit exceeds certain number
     [ProducesResponseType(typeof(void), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(IEnumerable<CircleReadDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<CircleReadDto>>> GetCircles([FromQuery] int start = 0, [FromQuery] [Range(1, 200)] int limit = 100)
+    public async Task<ActionResult<IEnumerable<CircleReadDto>>> GetCircles([FromQuery] [Range(0, int.MaxValue)] int start = 0, [FromQuery] [Range(1, 200)] int limit = 100)
     {
         return Ok(_mapper.Map<IEnumerable<CircleReadDto>>(await _circleRepo.GetCircles(start, limit)));
     }
@@ -60,7 +60,7 @@ public class CircleController : Controller
 
     [HttpGet("{name}/albums", Name = nameof(GetCircleAlbumsByName))]
     [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
-    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsByName(string name, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsByName(string name, [FromQuery] [Range(0, int.MaxValue)] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         var result = await _circleRepo.GetCircleAlbums(name, start, limit, sort, sortOrder);
@@ -80,7 +80,7 @@ public class CircleController : Controller
 
     [HttpGet("{id:Guid}/albums", Name = nameof(GetCircleAlbumsById))]
     [ProducesResponseType(typeof(AlbumsListResult), StatusCodes.Status200OK)]
-    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsById(Guid id, [FromQuery] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
+    public async Task<ActionResult<AlbumsListResult>> GetCircleAlbumsById(Guid id, [FromQuery] [Range(0, int.MaxValue)] int start = 0, [FromQuery] [Range(1, 50)] int limit = 20,
         [FromQuery] AlbumOrderOptions sort = AlbumOrderOptions.Id, [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
     {
         var result = await _circleRepo.GetCircleAlbums(id, start, limit, sort, sortOrder);

@@ -33,7 +33,7 @@ public class AlbumRepo : IAlbumRepo
         var albumsQueryable = _context.Albums
             .Where(a => a.NumberOfDiscs > 1 && a.DiscNumber == 0 || a.NumberOfDiscs == 1 && a.DiscNumber == 1);
 
-        var total = albumsQueryable.Count();
+        var total = await albumsQueryable.CountAsync();
 
         albumsQueryable = sort switch
         {

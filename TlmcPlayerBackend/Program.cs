@@ -1,11 +1,11 @@
 using FFMpegCore;
 using KeycloakAuthProvider.Authentication;
-using KeycloakAuthProvider.Service;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using Npgsql;
 using TlmcPlayerBackend.Data;
+using TlmcPlayerBackend.Utils;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Data.Api.Playlist;
 using TlmcPlayerBackend.Data.Api.UserProfile;
@@ -20,9 +20,17 @@ var builder = WebApplication.CreateBuilder(args);
 NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 NpgsqlConnection.GlobalTypeMapper.UseVector();
 
-Console.WriteLine($"Connecting to: {builder.Configuration.GetConnectionString("PostgreSql")}");
+// Host and database only: the full connection string contains the password, and
+// this line put it in container logs on every boot.
+var pgConnectionString = builder.Configuration.GetConnectionString("PostgreSql");
+{
+    var redacted = string.Join(';', (pgConnectionString ?? string.Empty)
+        .Split(';', StringSplitOptions.RemoveEmptyEntries)
+        .Where(part => !part.TrimStart().StartsWith("Password", StringComparison.OrdinalIgnoreCase)));
+    Console.WriteLine($"Connecting to: {redacted}");
+}
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"), optionsBuilder =>
+    opt.UseNpgsql(pgConnectionString, optionsBuilder =>
     {
         optionsBuilder.CommandTimeout(5);
         optionsBuilder.UseVector();
@@ -43,8 +51,7 @@ builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
 builder.Services.AddScoped<IPlaylistItemRepo, PlaylistItemRepo>();
 
 // Configure Jwt Authentication
-builder.Services.AddSingleton<OpenIdConnectConfigurationProviderService>();
-builder.Services.ConfigureJwt();
+builder.Services.ConfigureJwt(builder.Configuration);
 builder.Services.AddTransient<IClaimsTransformation>(_ => new KeycloakClaimTransformer());
 
 if (!Directory.Exists(builder.Configuration["FFMpegDirectory"]))
@@ -61,6 +68,10 @@ GlobalFFOptions.Configure(opt =>
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddHttpContextAccessor();
+
+// Asset rows hold absolute filesystem paths that are opened directly, so what counts
+// as a servable path is a deployment decision (Assets:Roots).
+builder.Services.AddSingleton<AssetPathPolicy>();
 
 // Liveness/readiness target for container orchestrators. Deliberately does not
 // touch the database: this answers "is the process serving?", and the startup
@@ -96,11 +107,14 @@ var app = builder.Build();
 app.UseCors();
 
 // Configure the HTTP request pipeline.
-//if (app.Environment.IsDevelopment())
-//{
-app.UseSwagger();
-app.UseSwaggerUI();
-//}
+// The environment check here was commented out, so the full OpenAPI document -- every
+// route, parameter and DTO, including the api/internal write surface -- was served
+// publicly. Development still gets it by default; anywhere else has to ask for it.
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 if (app.Environment.IsProduction())
 {

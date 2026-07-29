@@ -23,7 +23,11 @@ public class CircleRepo : ICircleRepo
 
     public async Task<IEnumerable<Circle>> GetCircles(int start, int limit)
     {
-        return await _context.Circles.Skip(start).Take(limit).OrderBy(c => c.Name).ToListAsync();
+        // Ordering must precede Skip/Take. Applied afterwards it sorts only the rows
+        // that survived an unordered window, and Postgres guarantees no particular
+        // order there -- so consecutive pages could repeat and omit circles, and the
+        // result could change after a plan change or a vacuum.
+        return await _context.Circles.OrderBy(c => c.Name).Skip(start).Take(limit).ToListAsync();
     }
 
     public async Task<IEnumerable<Circle>> GetCircles(IEnumerable<Guid> ids)
@@ -37,7 +41,7 @@ public class CircleRepo : ICircleRepo
                                                         (a.NumberOfDiscs > 1 && a.DiscNumber == 0 ||
                                                          a.NumberOfDiscs == 1 && a.DiscNumber == 1));
 
-        var count = albumQueryable.Count();
+        var count = await albumQueryable.CountAsync();
 
         albumQueryable = sort switch
         {

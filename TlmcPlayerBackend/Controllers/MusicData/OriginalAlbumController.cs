@@ -26,7 +26,7 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("album", Name = nameof(GetOriginalAlbums))]
     [ProducesResponseType(typeof(IEnumerable<OriginalAlbumReadDto>), StatusCodes.Status200OK)]
-    public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
+    public async Task<IEnumerable<OriginalAlbumReadDto>> GetOriginalAlbums([FromQuery] [Range(0, int.MaxValue)] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
     {
         var albums = await _originalAlbumRepo.GetOriginalAlbums(start, limit);
         return _mapper.Map<IEnumerable<OriginalAlbum>, IEnumerable<OriginalAlbumReadDto>>(albums);
@@ -34,13 +34,19 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("album/{id}", Name = nameof(GetOriginalAlbum))]
     [ProducesResponseType(typeof(OriginalAlbumReadDto), StatusCodes.Status200OK)]
-    public async Task<OriginalAlbumReadDto> GetOriginalAlbum(string id)
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OriginalAlbumReadDto>> GetOriginalAlbum(string id)
     {
         var album = await _originalAlbumRepo.GetOriginalAlbum(id);
-        return _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(album);
+        if (album == null)
+        {
+            return NotFound($"No original album with id: {id} exists");
+        }
+
+        return Ok(_mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(album));
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPost("album", Name = nameof(AddOriginalAlbum))]
     [ProducesResponseType(typeof(ActionResult<OriginalAlbumReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<OriginalAlbumReadDto>> AddOriginalAlbum([FromBody] OriginalAlbumWriteDto album)
@@ -55,12 +61,23 @@ public class OriginalAlbumController : Controller
             _mapper.Map<OriginalAlbum, OriginalAlbumReadDto>(result));
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPost("album/{albumId}/track", Name = nameof(AddOriginalTrack))]
     [ProducesResponseType(typeof(ActionResult<OriginalTrackReadDto>), StatusCodes.Status201Created)]
     public async Task<ActionResult<OriginalTrackReadDto>> AddOriginalTrack(string albumId, [FromBody] OriginalTrackWriteDto track)
     {
-        var addedTrack = await _originalAlbumRepo.AddOriginalTrackToAlbum(albumId, _mapper.Map<OriginalTrackWriteDto, OriginalTrack>(track));
+        OriginalTrack addedTrack;
+        try
+        {
+            addedTrack = await _originalAlbumRepo.AddOriginalTrackToAlbum(
+                albumId, _mapper.Map<OriginalTrackWriteDto, OriginalTrack>(track));
+        }
+        catch (ArgumentException)
+        {
+            // The repo throws for an unknown album id or a missing track id. Both are
+            // bad input, and unhandled they answered 500.
+            return NotFound($"No original album with id: {albumId} exists, or the track id is missing");
+        }
 
         await _originalAlbumRepo.SaveChanges();
 
@@ -70,7 +87,7 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("track", Name = nameof(GetOriginalTracks))]
     [ProducesResponseType(typeof(IEnumerable<OriginalTrackReadDto>), StatusCodes.Status200OK)]
-    public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
+    public async Task<IEnumerable<OriginalTrackReadDto>> GetOriginalTracks([FromQuery] [Range(0, int.MaxValue)] int start = 0, [FromQuery] [Range(1, 100)] int limit = 50)
     {
         var tracks = await _originalTrackRepo.GetOriginalTracks(start, limit);
         return _mapper.Map<IEnumerable<OriginalTrack>, IEnumerable<OriginalTrackReadDto>>(tracks);
@@ -78,11 +95,15 @@ public class OriginalAlbumController : Controller
 
     [HttpGet("track/{id}", Name = nameof(GetOriginalTrack))]
     [ProducesResponseType(typeof(OriginalTrackReadDto), StatusCodes.Status200OK)]
-    public async Task<OriginalTrackReadDto?> GetOriginalTrack(string id)
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OriginalTrackReadDto>> GetOriginalTrack(string id)
     {
         var track = await _originalTrackRepo.GetOriginalTrack(id);
         if (track == null)
-            return null;
-        return _mapper.Map<OriginalTrack, OriginalTrackReadDto>(track);
+        {
+            return NotFound($"No original track with id: {id} exists");
+        }
+
+        return Ok(_mapper.Map<OriginalTrack, OriginalTrackReadDto>(track));
     }
 }
