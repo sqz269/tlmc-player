@@ -7,15 +7,17 @@ using Microsoft.EntityFrameworkCore;
 using TlmcPlayerBackend.Data;
 using TlmcPlayerBackend.Data.Api.MusicData;
 using TlmcPlayerBackend.Dtos.MusicData.Album;
+using TlmcPlayerBackend.Dtos.MusicData.Asset;
 using TlmcPlayerBackend.Dtos.MusicData.Circle;
 using TlmcPlayerBackend.Dtos.MusicData.Hls;
 using TlmcPlayerBackend.Dtos.MusicData.Track;
 using TlmcPlayerBackend.Models.MusicData;
+using TlmcPlayerBackend.Utils;
 using TlmcPlayerBackend.Utils.Extensions;
 
 namespace TlmcPlayerBackend.Controllers.MusicData;
 
-// Controllers for Internal use only. All actions should have [DevelopmentOnly] Attribute
+// Controllers for Internal use only. All actions should have [InternalApiKey] Attribute
 [ApiController]
 [Route("api/internal")]
 public class InternalController : Controller
@@ -28,6 +30,7 @@ public class InternalController : Controller
     private readonly IMapper _mapper;
 
     private readonly IAssetRepo _assetRepo;
+    private readonly AssetPathPolicy _assetPathPolicy;
 
     public InternalController(
         IAlbumRepo albumRepo, 
@@ -36,8 +39,10 @@ public class InternalController : Controller
         IAssetRepo assetRepo,
         IOriginalTrackRepo originalTrackRepo,
         AppDbContext dbContext,
+        AssetPathPolicy assetPathPolicy,
         IMapper mapper)
     {
+        _assetPathPolicy = assetPathPolicy;
         _albumRepo = albumRepo;
         _trackRepo = trackRepo;
         _circleRepo = circleRepo;
@@ -47,7 +52,7 @@ public class InternalController : Controller
         _mapper = mapper;
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("album/add/{albumId:Guid}", Name = $"___INTERNAL_{nameof(AddAlbum)}")]
     public async Task<IActionResult> AddAlbum(Guid albumId, [FromQuery] Guid? parentId, [FromBody] AlbumWriteDto albumWrite)
     {
@@ -109,7 +114,7 @@ public class InternalController : Controller
             addedAlbum);
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("album/{albumId:Guid}/track/add/{trackId:guid}", Name = $"___INTERNAL_{nameof(AddTrack)}")]
     public async Task<IActionResult> AddTrack(Guid albumId, Guid trackId, [FromBody] TrackWriteDto trackWrite)
     {
@@ -149,7 +154,7 @@ public class InternalController : Controller
             new {Id = addedTrack.Id});
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("track/{trackId:Guid}/lyrics/add/{lyricsId:Guid}", Name = $"___INTERNAL_{nameof(AddLyrics)}")]
     public async Task<IActionResult> AddLyrics(Guid trackId, Guid lyricsId, [FromBody] Lyrics lyrics)
     {
@@ -162,16 +167,26 @@ public class InternalController : Controller
         return Problem("Failed to put, check log for problem");
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("asset/add", Name = $"___INTERNAL_{nameof(AddAssetUnchecked)}")]
-    public async Task<IActionResult> AddAssetUnchecked([FromBody] Asset asset)
+    public async Task<IActionResult> AddAssetUnchecked([FromBody] AssetWriteDto assetWrite)
     {
-        var a = await _assetRepo.GetAssetById(asset.Id);
-        if (a != null)
+        // Path is stored and later opened directly by AssetController, so it is
+        // validated here rather than on the way out only.
+        if (!_assetPathPolicy.IsAllowed(assetWrite.Path))
         {
-            return Conflict($"Asset with id: {asset.Id} already exists");
+            return BadRequest(_assetPathPolicy.IsConstrained
+                ? "Asset path is outside the permitted asset roots"
+                : "Asset path must be an absolute path without traversal segments");
         }
 
+        var a = await _assetRepo.GetAssetById(assetWrite.Id);
+        if (a != null)
+        {
+            return Conflict($"Asset with id: {assetWrite.Id} already exists");
+        }
+
+        var asset = _mapper.Map<Asset>(assetWrite);
         var addedId = await _assetRepo.AddAsset(asset);
         await _assetRepo.SaveChanges();
         var addedAsset = await _assetRepo.GetAssetById(addedId);
@@ -179,10 +194,10 @@ public class InternalController : Controller
         if (addedAsset == null)
             throw new InvalidOperationException("Failed to Verify Transaction. Unable to retrieve newly added entry");
 
-        return CreatedAtRoute(nameof(AssetController.GetAsset), new { Id = asset.Id }, new { Id = asset.Id });
+        return CreatedAtRoute(nameof(AssetController.GetAsset), new { Id = addedAsset.Id }, new { Id = addedAsset.Id });
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("asset/track/{trackId:guid}/segment", Name = $"___INTERNAL_{nameof(AddHlsFileSegment)}")]
     public async Task<IActionResult> AddHlsFileSegment(Guid trackId, [FromQuery] int quality, [FromBody] HlsSegmentWriteDto segmentWrite)
     {
@@ -206,7 +221,7 @@ public class InternalController : Controller
         return Ok();
     }
     
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("asset/track/{trackId:guid}/playlist", Name = $"___INTERNAL_{nameof(AddHlsFilePlaylist)}")]
     public async Task<IActionResult> AddHlsFilePlaylist([FromBody] HlsPlaylistWriteDto playlistWrite)
     {
@@ -229,15 +244,25 @@ public class InternalController : Controller
         return Ok();
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPatch("album/{albumId:guid}", Name = $"___INTERNAL_{nameof(UpdateAlbum)}")]
     public async Task<IActionResult> UpdateAlbum(Guid albumId, [FromBody] JsonPatchDocument<AlbumUpdateDto> albumWrite)
     {
         var album = await _albumRepo.GetAlbum(albumId);
+        if (album == null)
+        {
+            return NotFound($"No album with id: {albumId} exists");
+        }
 
         var updatedAlbum = _mapper.Map<JsonPatchDocument<AlbumUpdateDto>, JsonPatchDocument<Album>>(albumWrite);
 
-        updatedAlbum.ApplyTo(album);
+        // ModelState overload: an unresolvable "path" becomes a 400 instead of an
+        // unhandled JsonPatchException.
+        updatedAlbum.ApplyTo(album, ModelState);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
         _dbContext.Albums.Update(album);
 
@@ -246,11 +271,15 @@ public class InternalController : Controller
         return Ok();
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPatch("track/{trackId:guid}", Name = $"___INTERNAL_{nameof(UpdateTrack)}")]
     public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] TrackUpdateDto trackWrite)
     {
         var track = await _trackRepo.GetTrack(trackId);
+        if (track == null)
+        {
+            return NotFound($"No track with id: {trackId} exists");
+        }
 
         //var updatedTrack = _mapper.Map<JsonPatchDocument<TrackUpdateDto>, JsonPatchDocument<Track>>(trackWrite);
         //updatedTrack.ApplyTo(track);
@@ -294,20 +323,29 @@ public class InternalController : Controller
         return Ok();
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPatch("track/jsonpatch/{trackId:guid}", Name = $"___INTERNAL_PATCH_{nameof(UpdateTrack)}")]
     public async Task<IActionResult> UpdateTrack(Guid trackId, [FromBody] JsonPatchDocument<TrackUpdateDtoForJsonPatch> trackWrite)
     {
         var track = await _trackRepo.GetTrack(trackId);
+        if (track == null)
+        {
+            return NotFound($"No track with id: {trackId} exists");
+        }
+
         var updatedTrack = _mapper.Map<JsonPatchDocument<TrackUpdateDtoForJsonPatch>, JsonPatchDocument<Track>>(trackWrite);
-        updatedTrack.ApplyTo(track);
+        updatedTrack.ApplyTo(track, ModelState);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
         _dbContext.Tracks.Update(track);
         await _trackRepo.SaveChanges();
         return Ok();
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPut("circle/add/{id:Guid}", Name = $"___INTERNAL_{nameof(AddCircle)}")]
     public async Task<IActionResult> AddCircle(Guid id, [FromBody] CircleWriteDto circleWrite)
     {
@@ -319,15 +357,19 @@ public class InternalController : Controller
         return Ok(resultId);
     }
 
-    [DevelopmentOnly]
+    [InternalApiKey]
     [HttpPatch("circle/{id:guid}", Name = $"___INTERNAL_{nameof(UpdateCircle)}")]
     public async Task<IActionResult> UpdateCircle(Guid id, [FromBody] JsonPatchDocument<CircleUpdateDto> circleUpdate)
     {
         var circle = await _circleRepo.GetCircleById(id);
+        if (circle == null)
+        {
+            return NotFound($"No circle with id: {id} exists");
+        }
 
         var updatedCircle = _mapper.Map<JsonPatchDocument<CircleUpdateDto>, JsonPatchDocument<Circle>>(circleUpdate);
 
-        updatedCircle.ApplyTo(circle);
+        updatedCircle.ApplyTo(circle, ModelState);
         
         if (!ModelState.IsValid)
         {
