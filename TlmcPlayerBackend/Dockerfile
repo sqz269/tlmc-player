@@ -10,7 +10,8 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["TlmcPlayerBackend/TlmcPlayerBackend.csproj", "TlmcPlayerBackend/"]
-RUN dotnet restore "./TlmcPlayerBackend/./TlmcPlayerBackend.csproj"
+COPY ["KeycloakAuthProvider/KeycloakAuthProvider.csproj", "KeycloakAuthProvider/"]
+RUN dotnet restore "TlmcPlayerBackend/TlmcPlayerBackend.csproj"
 COPY . .
 WORKDIR "/src/TlmcPlayerBackend"
 RUN dotnet build "./TlmcPlayerBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
@@ -22,7 +23,9 @@ RUN dotnet publish "./TlmcPlayerBackend.csproj" -c $BUILD_CONFIGURATION -o /app/
 FROM base AS final
 # Install ffmpeg
 USER root
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 USER app
 WORKDIR /app
 COPY --from=publish /app/publish .
