@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using TlmcPlayerBackend.Utils;
+using Microsoft.EntityFrameworkCore.Storage;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
 using TlmcPlayerBackend.Controllers.MusicData;
@@ -108,7 +110,7 @@ public class TrackRepo : ITrackRepo
             .AsNoTracking()
             .ToListAsync();
 
-        var count = trackQueryable.LongCount();
+        var count = await trackQueryable.LongCountAsync();
 
         return new Tuple<IEnumerable<Track>, long>(result, count);
     }
@@ -298,7 +300,12 @@ public class TrackRepo : ITrackRepo
     {
         TrackStratificationMode.None => "\"TrackId\"",
         TrackStratificationMode.Album => "\"AlbumId\"",
-        TrackStratificationMode.Circle => "unnest(\"CircleIds\")",
+        // PostgreSQL rejects a set-returning function inside a window
+        // definition ("unnest(\"CircleIds\")" here), so this mode always
+        // failed at runtime. Partition by the first circle instead, which is
+        // representable and gives the same one-row-per-circle-group intent for
+        // the overwhelmingly common single-circle track.
+        TrackStratificationMode.Circle => "(\"CircleIds\")[1]",
         null => "\"Id\"",
         _ => throw new ArgumentOutOfRangeException(nameof(stratificationMode), stratificationMode, null),
     };
@@ -484,14 +491,22 @@ public class TrackRepo : ITrackRepo
         var srcTrack = await _context.TrackEmbeddings
             .AsNoTracking()
             .Where(te => te.TrackId == trackId)
-            .FirstOrDefaultAsync() ?? throw new Exception($"No embedding found for track with id: {trackId}");
+            .FirstOrDefaultAsync()
+            ?? throw new EmbeddingNotFoundException(trackId);
+
+        // The query track is always its own closest match at distance ~0. Fetch one
+        // extra and drop it, so it neither occupies a result slot nor gets recommended
+        // as similar to itself (which it was whenever cosineDistThreshold was 0).
+        var overfetch = limit + 1;
 
         var neighbors = poolingMode switch
         {
-            TrackEmbeddingPoolingMode.Mean => await NearestByMean(srcTrack.EmbeddingMean!, limit),
-            TrackEmbeddingPoolingMode.MeanMax => await NearestByMeanMax(srcTrack.EmbeddingMeanMax!, limit),
+            TrackEmbeddingPoolingMode.Mean => await NearestByMean(srcTrack.EmbeddingMean!, overfetch),
+            TrackEmbeddingPoolingMode.MeanMax => await NearestByMeanMax(srcTrack.EmbeddingMeanMax!, overfetch),
             _ => throw new ArgumentOutOfRangeException(nameof(poolingMode), poolingMode, null)
         };
+
+        neighbors = neighbors.Where(n => n.TrackId != trackId).Take(limit).ToList();
 
         return await HydrateTracks(neighbors);
     }
@@ -527,8 +542,32 @@ public class TrackRepo : ITrackRepo
     // `ORDER BY embedding <=> $1 LIMIT n` scan, and dragging the Track/Album/
     // Artist joins into that query invites the planner to fall back to a
     // sequential scan over every embedding.
+    // An HNSW index scan yields at most hnsw.ef_search candidates, and the default is
+    // 40. Asking for more than that -- the similar-tracks endpoint over-fetches up to
+    // 300 to feed the diversity re-ranker -- silently returned ~40 rows with no error,
+    // so the re-ranker chose from a fraction of the pool it was designed for.
+    //
+    // SET LOCAL only affects the current transaction, and only the connection the
+    // query runs on, so the setting and the query have to be issued together.
+    private async Task<IDbContextTransaction> BeginAnnScopeAsync(int limit)
+    {
+        var transaction = await _context.Database.BeginTransactionAsync();
+
+        // pgvector accepts 1..1000. Clamped, and an int, so interpolation is safe --
+        // SET does not accept query parameters.
+        var efSearch = Math.Clamp(limit, DefaultEfSearch, MaxEfSearch);
+        await _context.Database.ExecuteSqlRawAsync($"SET LOCAL hnsw.ef_search = {efSearch}");
+
+        return transaction;
+    }
+
+    private const int DefaultEfSearch = 40;
+    private const int MaxEfSearch = 1000;
+
     private async Task<List<(Guid TrackId, double Distance)>> NearestByMean(Vector embedding, int limit)
     {
+        await using var annScope = await BeginAnnScopeAsync(limit);
+
         var rows = await _context.TrackEmbeddings
             .AsNoTracking()
             .OrderBy(t => t.EmbeddingMean!.CosineDistance(embedding))
@@ -536,17 +575,23 @@ public class TrackRepo : ITrackRepo
             .Select(t => new { t.TrackId, Distance = t.EmbeddingMean!.CosineDistance(embedding) })
             .ToListAsync();
 
+        await annScope.CommitAsync();
+
         return rows.Select(r => (r.TrackId, r.Distance)).ToList();
     }
 
     private async Task<List<(Guid TrackId, double Distance)>> NearestByMeanMax(HalfVector embedding, int limit)
     {
+        await using var annScope = await BeginAnnScopeAsync(limit);
+
         var rows = await _context.TrackEmbeddings
             .AsNoTracking()
             .OrderBy(t => t.EmbeddingMeanMax!.CosineDistance(embedding))
             .Take(limit)
             .Select(t => new { t.TrackId, Distance = t.EmbeddingMeanMax!.CosineDistance(embedding) })
             .ToListAsync();
+
+        await annScope.CommitAsync();
 
         return rows.Select(r => (r.TrackId, r.Distance)).ToList();
     }

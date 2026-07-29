@@ -77,7 +77,7 @@ public class TrackController : Controller
     [ProducesResponseType(typeof(TrackListResult), StatusCodes.Status200OK)]
     public async Task<ActionResult<TrackListResult>> GetTracksFiltered(
         [FromQuery] TrackFilterSelectableRanged filter,
-        [FromQuery] int start = 0,
+        [FromQuery] [Range(0, int.MaxValue)] int start = 0,
         [FromQuery][Range(1, 50)] int limit = 20,
         [FromQuery] TrackOrderOptions sort = TrackOrderOptions.Id,
         [FromQuery] SortOrder sortOrder = SortOrder.Ascending)
@@ -106,7 +106,19 @@ public class TrackController : Controller
         )
     {
         var overfetchLimit = Math.Min(300, limit * 7);
-        var tracks = await _trackRepo.GetSimilarTracks(trackId, overfetchLimit, poolingMode);
+
+        IEnumerable<(Track Track, double Distance)> tracks;
+        try
+        {
+            tracks = await _trackRepo.GetSimilarTracks(trackId, overfetchLimit, poolingMode);
+        }
+        catch (EmbeddingNotFoundException)
+        {
+            // Embeddings come from a separate inference pipeline that lags ingestion,
+            // so a track without one is an expected state rather than a server fault.
+            return Problem(statusCode: StatusCodes.Status404NotFound, title: "No Embedding",
+                detail: $"Track {trackId} has no embedding, so similar tracks cannot be computed.");
+        }
 
         // Diversity Re-ranking
         var resampled = DiversitySampler.ApplyDiversitySamplerAndRerank(tracks, limit, relevanceWeight, penaltyAttributes, cosineDistThreshold);
@@ -127,7 +139,7 @@ public class TrackController : Controller
     [HttpGet("random", Name = nameof(GetRandomSampleTrack))]
     [ProducesResponseType(typeof(TrackRandomResult), StatusCodes.Status200OK)]
     public async Task<ActionResult<TrackRandomResult>> GetRandomSampleTrack(
-        [FromQuery] int start = 0,
+        [FromQuery] [Range(0, int.MaxValue)] int start = 0,
         [FromQuery][Range(1, 50)] int limit = 20,
         [FromQuery] TrackStratificationMode? stratificationMode = null,
         [FromQuery] TrackFilterSelectableRanged? filters = null,
