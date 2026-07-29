@@ -1,0 +1,141 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: tlmc-player
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:21.0.2
+          args: ["start", "--import-realm"]
+          env:
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-credentials
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-credentials
+                  key: KEYCLOAK_ADMIN_PASSWORD
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            - name: KC_LOG_LEVEL
+              value: INFO
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL_HOST
+              value: keycloak-pgsql-clusterip.tlmc-player.svc.cluster.local
+            - name: KC_DB_URL_DATABASE
+              value: keycloak
+            - name: KC_DB_USERNAME
+              value: keycloak
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-pgsql-credentials
+                  key: POSTGRES_PASSWORD
+            # Keycloak always serves plain HTTP here; TLS, when there is any,
+            # is terminated upstream. "none" for a direct NodePort, "edge"
+            # behind the Cloudflare tunnel -- without "edge" Keycloak would
+            # emit http:// links on an https:// origin.
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY
+              value: "__KC_PROXY_MODE__"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+            # The issuer baked into tokens. Must be byte-identical to the
+            # backend's Keycloak__RealmUrl minus the /realms/... suffix, and
+            # must be reachable from both inside the cluster and wherever
+            # clients live -- hence a node IP or the public tunnel hostname,
+            # never a service DNS name.
+            - name: KC_HOSTNAME_URL
+              value: __KC_ISSUER_BASE__
+            - name: KC_HOSTNAME_ADMIN_URL
+              value: __KC_ISSUER_BASE__
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm-import
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-server-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak
+  ports:
+    # The committed manifest has targetPort 80 here, which matches nothing --
+    # the container listens on 8080.
+    - name: http-keycloak
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-server-nodeport
+  namespace: tlmc-player
+spec:
+  type: NodePort
+  selector:
+    app: keycloak
+  ports:
+    - name: http-keycloak
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: __KC_NODEPORT__

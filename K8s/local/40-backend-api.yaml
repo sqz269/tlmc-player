@@ -1,0 +1,140 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-thumbdata
+  namespace: tlmc-player
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+    spec:
+      # The image runs as uid/gid 1654 (app); fsGroup makes the freshly
+      # provisioned thumbnail volume writable by it.
+      securityContext:
+        fsGroup: 1654
+      containers:
+        - name: backend-api
+          image: localhost:5000/tlmc-backend-api:local
+          imagePullPolicy: Always
+          env:
+            # Staging, not Development: keeps the unauthenticated
+            # InternalController write surface 404-gated. Also not Production,
+            # which force-rewrites Request.Scheme to https and breaks
+            # link generation on a plain-HTTP cluster.
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Staging
+            - name: FFMpegDirectory
+              value: /usr/bin
+            - name: ThumbnailRoot
+              value: /thumbdata/
+            - name: ConnectionStrings__PostgreSql
+              valueFrom:
+                secretKeyRef:
+                  name: backend-api-config
+                  key: ConnectionStrings__PostgreSql
+            - name: Keycloak__RealmUrl
+              value: __KC_ISSUER_BASE__/realms/MusicPlayer
+            # Only relaxed for a plain-HTTP local Keycloak, which OIDC
+            # discovery would otherwise refuse outright. Behind the Cloudflare
+            # tunnel the issuer is https:// and deploy.sh sets this back to
+            # true.
+            - name: Keycloak__RequireHttpsMetadata
+              value: "__KC_REQUIRE_HTTPS__"
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: musicdata
+              mountPath: /mnt/tlmc/TLMC v6/
+              readOnly: true
+            - name: thumbdata
+              mountPath: /thumbdata/
+          # Startup runs migrations plus the ffprobe/thumbnail backfill before
+          # Kestrel listens, so the startup budget is deliberately generous
+          # (5 min) while liveness stays tight afterwards.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+      volumes:
+        - name: musicdata
+          hostPath:
+            path: /mnt/tlmc/TLMC v6/
+            type: Directory
+        - name: thumbdata
+          persistentVolumeClaim:
+            claimName: backend-thumbdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-api
+  ports:
+    - name: http-backend-api
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+      appProtocol: HTTP
+---
+# There is no ingress controller on this cluster, so the API is reached by
+# NodePort rather than through K8s/ingress.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-api-nodeport
+  namespace: tlmc-player
+spec:
+  type: NodePort
+  selector:
+    app: backend-api
+  ports:
+    - name: http-backend-api
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+      nodePort: 30081

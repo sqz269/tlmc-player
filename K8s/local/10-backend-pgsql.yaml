@@ -1,0 +1,113 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-pgsql-data
+  namespace: tlmc-player
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 40Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-pgsql
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend-pgsql
+  template:
+    metadata:
+      labels:
+        app: backend-pgsql
+    spec:
+      containers:
+        - name: postgres
+          # Pinned: halfvec needs pgvector >= 0.7, so the floating :pg15 tag is
+          # not safe to depend on.
+          image: pgvector/pgvector:0.8.6-pg15
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: tlmcplayer
+            - name: POSTGRES_USER
+              value: tlmcplayer
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-pgsql-credentials
+                  key: POSTGRES_PASSWORD
+            # Keep the cluster in a subdirectory so a non-empty volume root
+            # (lost+found and friends) can never fail initdb.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "tlmcplayer", "-d", "tlmcplayer"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "tlmcplayer", "-d", "tlmcplayer"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: backend-pgsql-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-pgsql-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-pgsql
+  ports:
+    - name: tcp-postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+# Exposed so PushToDb / psql on the host can reach the database directly.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-pgsql-nodeport
+  namespace: tlmc-player
+spec:
+  type: NodePort
+  selector:
+    app: backend-pgsql
+  ports:
+    - name: tcp-postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+      nodePort: 30432

@@ -1,0 +1,3 @@
+# Generated at deploy time - never commit cluster credentials.
+.generated-credentials
+realm-MusicPlayer.rendered.json
