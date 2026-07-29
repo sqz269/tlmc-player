@@ -5,8 +5,9 @@ here is a data migration — v6 starts empty, so this is "what should the initia
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Six items are marked **DECISION** because they are judgement calls I should not make
-unilaterally. Everything else I'd treat as settled unless you disagree.
+Five items are marked **DECISION** because they are judgement calls I should not make
+unilaterally. Everything else I'd treat as settled unless you disagree. (§1's
+identifier scheme was one of them and is now settled: TypeID over UUIDv7.)
 
 The DDL below is the target shape. The backend is EF-first (migrations are generated
 from `Models/`), so the real work is model changes plus one generated migration; the
@@ -36,19 +37,128 @@ an in-transaction renumber that transiently collides), partial HNSW indexes on b
    indexed, not a `text[]`.
 5. **Version anything a model produces**, so re-running inference can't silently mix
    vector spaces.
+6. **Identifiers are legible at the boundary and narrow in storage** — a prefixed
+   string everywhere a human reads one, 16 bytes everywhere it is joined.
 
 ---
 
 ## 1. Identity and keys
 
-Keep UUID primary keys, but standardise on **UUIDv7** everywhere. EF Core 9 already
-mints v7 for `Guid` keys it generates; the ETL mints v4 (`Guid.NewGuid()` in PushToDb,
-`uuid.uuid4()` in the Python). v7's timestamp prefix gives index locality on bulk
-insert, which matters when a single ETL run appends 164k tracks plus their credits and
-search rows.
+Two separate decisions, answered differently: **what Postgres stores** and **what the
+API exposes**.
 
-- .NET: `Guid.CreateVersion7()` (available on .NET 9) in place of `Guid.NewGuid()`.
-- Python: `uuid6` package's `uuid7()`, or hand-roll from a timestamp prefix.
+### Storage: `uuid` holding a UUIDv7
+
+Every primary key stays a 16-byte `uuid` column. Standardise the value on **UUIDv7**.
+EF Core 9 already mints v7 for `Guid` keys it generates; the ETL mints v4
+(`Guid.NewGuid()` in PushToDb, `uuid.uuid4()` in the Python), so the catalogue is
+currently v4 and the playlists are v7 by accident. v7's timestamp prefix gives B-tree
+locality on bulk insert — inserts land near the right edge of the index instead of
+scattering across it — which matters when one ETL run appends 164k tracks plus their
+credits, search rows and 16.4M similarity rows.
+
+- .NET: `Guid.CreateVersion7()` (.NET 9) in place of `Guid.NewGuid()`.
+- Python: the `uuid6` package's `uuid7()`.
+
+### Presentation: TypeID
+
+The API, logs and ETL intermediates use [TypeID](https://github.com/jetify-com/typeid):
+a type prefix, an underscore, then the same 128-bit UUIDv7 rendered as 26 characters of
+Crockford base32.
+
+```
+trk_01jqx3v9k2ekhr8s7mnfz4b6cd
+     └── base32 of the UUIDv7 ──┘
+```
+
+The [spec](https://github.com/jetify-com/typeid/tree/main/spec) is explicit that the
+canonical storage form is the underlying UUID, which is exactly the split we want:
+`trk_…` wherever a human or a client sees an identifier, 16 bytes wherever it is stored
+or joined.
+
+Storing the prefixed string instead would be expensive here, because this schema is
+FK-dense. `similar_track` alone is ~16.4M rows carrying two id columns each: 32 bytes
+of key per row as `uuid`, ~62 bytes as text — roughly **490 MB of extra heap in one
+table**, before the primary key index and the neighbour index both widen too. The same
+tax applies to `playlist_item`, `track_credit`, `track_tag`, `play_event` and
+`track_original_song`. Text keys also make every comparison collation-dependent unless
+declared `COLLATE "C"`, which is an easy thing to forget and an invisible cost once
+forgotten.
+
+Base32 of a v7 preserves byte order, so TypeIDs still sort by creation time.
+
+### Prefix vocabulary
+
+| Entity | Prefix | Note |
+| --- | --- | --- |
+| `release` | `rel_` | |
+| `disc` | `dsc_` | |
+| `track` | `trk_` | a track in this collection (an arrangement, usually) |
+| `asset` | `file_` | a stored file |
+| `artwork` | `art_` | a cover image and its variants |
+| `circle` | `cir_` | |
+| `contributor` | `ctb_` | |
+| `tag` | `tag_` | |
+| `original_work` | `work_` | a Touhou game/album the music originates from |
+| `original_song` | `song_` | an original Touhou song |
+| `playlist` | `pls_` | |
+| `lyrics` | `lyr_` | |
+| `user_profile` | `usr_` | |
+
+`file_` rather than `ast_` on purpose: `ast_` and `art_` differ by one character and
+would be routinely misread, which defeats the point. The `work_`/`song_`/`trk_` split
+is worth noting — it makes "original song" and "the doujin track arranging it" visibly
+different things, which they constantly are in this domain and currently are not.
+
+`play_event` keeps its `bigint` identity key and gets no prefix; it is high-volume
+internal data and nothing addresses an individual play. If the API ever needs to (say,
+deleting one history entry), switch that column to `uuid` + `ply_` at the same time.
+
+### Strongly-typed ids
+
+The prefix fixes *human* confusion. It does not stop the compiler accepting a release
+id where a track id belongs — both are `Guid`. Since every signature is being touched
+anyway, wrap them:
+
+```csharp
+public readonly record struct TrackId(Guid Value)
+{
+    public const string Prefix = "trk";
+    public override string ToString() => TypeIdFormatter.Format(Prefix, Value);
+    public static TrackId Parse(string s) => new(TypeIdFormatter.Parse(Prefix, s));
+}
+```
+
+`GetTrack(ReleaseId id)` then fails to compile rather than 404ing at runtime, and
+parsing rejects `rel_…` where a `TrackId` is expected during model binding, before the
+request reaches a repository.
+
+`TypeIdFormatter` above is a placeholder. The reference implementations are Go and
+TypeScript, so the .NET package options are third-party and should be vetted before
+being taken as a dependency — the encoding is Crockford base32 over 16 bytes with a
+fixed 26-character output, which is short enough to implement and unit-test directly
+against the spec's test vectors if nothing suitable holds up.
+
+EF keeps the column as `uuid` through a convention-level converter, so no DDL changes:
+
+```csharp
+protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+{
+    builder.Properties<TrackId>().HaveConversion<TrackIdConverter>();   // TrackId <-> Guid
+    // ...one per id type
+}
+```
+
+Three wiring details that are easy to miss:
+
+- **Serialization must target Newtonsoft, not System.Text.Json.** This project calls
+  `AddNewtonsoftJson()`, so the id converters have to be `Newtonsoft.Json.JsonConverter`
+  or ids will serialize as `{"value":"..."}` objects.
+- **Route constraints change.** `{id:Guid}` no longer matches. Either drop to `{id}`
+  with a model binder, or register a custom route constraint that validates the prefix —
+  the latter gives a 404 at routing for a malformed id instead of a 400 deeper in.
+- **Swagger needs `MapType<TrackId>`** returning a string schema, otherwise the OpenAPI
+  document describes ids as objects and generated clients break.
 
 **DECISION — identifier casing.** Current tables are EF-default PascalCase, so all raw
 SQL needs `"Quoted"` identifiers. Since v6 is fresh and `TrackRepo` writes real SQL, I
@@ -598,6 +708,11 @@ desirable queries in this whole domain and is currently unsupported.
 
 **`Finalizer/PushToDb`** — the bulk of the work.
 - Mint UUIDv7 (`Guid.CreateVersion7()`).
+- Emit TypeIDs (`trk_…`, `rel_…`) in the JSON intermediates and log lines rather than
+  bare uuids. The database still receives uuids; this is purely so a worklist, a
+  journal entry or a failure message says what it is referring to. Given how much of
+  this pipeline is debugged by reading intermediate files, this is probably where the
+  prefixes earn their keep fastest.
 - Write `release` + `disc` instead of the album/disc-0 pair.
 - Stop emitting `HlsPlaylist`/`HlsSegment`; write `media_key` and `hls_bitrates`.
 - Write root-relative `storage_key` + `root` for assets, not absolute paths.
@@ -656,6 +771,7 @@ its `CircleWebsite` child. The two-tier retrieval design. EF as the access layer
 
 | # | Decision | My recommendation |
 | --- | --- | --- |
+| 0 | ~~Identifier scheme~~ | **Settled: TypeID over UUIDv7, stored as `uuid` (§1)** |
 | 1 | Identifier casing (snake_case vs EF PascalCase) | snake_case, since v6 is fresh and you write raw SQL |
 | 2 | Ship DASH at all? | Drop it unless a client needs it |
 | 3 | How far to normalize credits (§5) | Option 3: normalize *and* keep raw arrays transitionally |
