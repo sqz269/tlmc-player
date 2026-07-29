@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TlmcPlayerBackend.Data.Api.Playlist;
 using TlmcPlayerBackend.Models.Playlist;
 
@@ -20,7 +20,7 @@ public class PlaylistItemRepo(AppDbContext context) : IPlaylistItemRepo
 
 
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <param name="playlistId"></param>
     /// <param name="trackIds"></param>
@@ -33,79 +33,39 @@ public class PlaylistItemRepo(AppDbContext context) : IPlaylistItemRepo
             .ToListAsync();
     }
 
-    public async Task<PlaylistItem> InsertPlaylistItem(Guid playlistId, Guid trackId)
+    /// <summary>
+    /// Returns the subset of <paramref name="trackIds"/> that do not exist as tracks.
+    /// PlaylistItem.TrackId is a required foreign key, so inserting an unknown id
+    /// fails inside the database and surfaces as a 500; callers use this to answer
+    /// 400 instead.
+    /// </summary>
+    public async Task<List<Guid>> GetUnknownTrackIds(List<Guid> trackIds)
     {
-        var playlist = _context.Playlists
-            .Where(p => p.Id == playlistId)
-            .Include(p => p.Tracks)
-            .FirstOrDefault();
+        var known = await _context.Tracks
+            .AsNoTracking()
+            .IgnoreAutoIncludes()
+            .Where(t => trackIds.Contains(t.Id))
+            .Select(t => t.Id)
+            .ToListAsync();
 
-        if (playlist == null)
-        {
-            throw new NullReferenceException($"Playlist ({playlistId}) Does not exist");
-        }
-
-        var playlistItem = new PlaylistItem
-        {
-            TrackId = trackId,
-            Playlist = playlist,
-            DateAdded = DateTime.UtcNow,
-            Index = playlist.NumberOfTracks + 1,
-            TimesPlayed = 0
-        };
-
-        playlist.LastModified = DateTime.UtcNow;
-
-        playlist.Tracks.Add(playlistItem);
-        playlist.NumberOfTracks += 1;
-
-        var addedItem = await _context.PlaylistItems.AddAsync(playlistItem);
-
-        await _context.SaveChangesAsync();
-
-        return addedItem.Entity;
+        return trackIds.Distinct().Except(known).ToList();
     }
 
-    public async Task<PlaylistItem> DeletePlaylistItem(Guid playlistId, Guid trackId)
+    public async Task<PlaylistItem?> InsertPlaylistItem(Guid playlist, Guid trackId)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var inserted = await InsertPlaylistItems(playlist, [trackId]);
+        return inserted.FirstOrDefault();
+    }
 
-        var item = await _context.PlaylistItems
-            .Where(pi => pi.TrackId == trackId && pi.PlaylistId == playlistId)
-            .FirstOrDefaultAsync();
-
-        try
-        {
-            var updated = await _context.PlaylistItems
-                .Where(pi => pi.PlaylistId == playlistId && pi.Index > item.Index)
-                .ExecuteUpdateAsync(e =>
-                    e.SetProperty(p => p.Index, ind => ind.Index - 1));
-            Console.WriteLine($"Updated: {updated} Records");
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-
-        var playlist = await _context.Playlists.Where(p => p.Id == playlistId).FirstOrDefaultAsync();
-        playlist.LastModified = DateTime.UtcNow;
-        playlist.NumberOfTracks--;
-
-        _context.PlaylistItems.Remove(item);
-
-        await _context.SaveChangesAsync();
-
-        await transaction.CommitAsync();
-
-        return item;
+    public async Task<PlaylistItem?> DeletePlaylistItem(Guid playlist, Guid trackId)
+    {
+        var removed = await DeletePlaylistItems(playlist, [trackId]);
+        return removed.FirstOrDefault();
     }
 
     public async Task<List<PlaylistItem>> InsertPlaylistItems(Guid playlist, List<Guid> trackIds)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        var playlistItems = new List<PlaylistItem>();
 
         var playlistEntity = await _context.Playlists
             .Where(p => p.Id == playlist)
@@ -117,22 +77,43 @@ public class PlaylistItemRepo(AppDbContext context) : IPlaylistItemRepo
             throw new NullReferenceException($"Playlist ({playlist}) Does not exist");
         }
 
-        foreach (var trackId in trackIds)
+        // (TrackId, PlaylistId) is the primary key, so re-adding a track the playlist
+        // already holds is a key violation rather than a no-op, and naming the same
+        // track twice in one request collides the same way. Both are absorbed here.
+        var alreadyPresent = playlistEntity.Tracks.Select(t => t.TrackId).ToHashSet();
+        var toAdd = trackIds.Distinct().Where(id => !alreadyPresent.Contains(id)).ToList();
+
+        var playlistItems = new List<PlaylistItem>();
+        if (toAdd.Count == 0)
+        {
+            await transaction.CommitAsync();
+            return playlistItems;
+        }
+
+        // Derived from the rows themselves rather than from NumberOfTracks, which is
+        // a denormalised counter and can drift -- a cascade-deleted track removes a
+        // PlaylistItem without ever decrementing it.
+        var nextIndex = playlistEntity.Tracks.Count == 0
+            ? 1
+            : playlistEntity.Tracks.Max(t => t.Index) + 1;
+
+        foreach (var trackId in toAdd)
         {
             var playlistItem = new PlaylistItem
             {
                 TrackId = trackId,
                 Playlist = playlistEntity,
                 DateAdded = DateTime.UtcNow,
-                Index = playlistEntity.NumberOfTracks + 1,
+                Index = nextIndex++,
                 TimesPlayed = 0
             };
 
             playlistEntity.Tracks.Add(playlistItem);
-            playlistEntity.NumberOfTracks += 1;
-
             playlistItems.Add(playlistItem);
         }
+
+        playlistEntity.LastModified = DateTime.UtcNow;
+        playlistEntity.NumberOfTracks = playlistEntity.Tracks.Count;
 
         await _context.PlaylistItems.AddRangeAsync(playlistItems);
 
@@ -151,27 +132,46 @@ public class PlaylistItemRepo(AppDbContext context) : IPlaylistItemRepo
             .Where(pi => pi.PlaylistId == playlistId && trackId.Contains(pi.TrackId))
             .ToListAsync();
 
-        try
+        // A retried or duplicated delete matches nothing. The previous code called
+        // items.Max() unconditionally, which throws on an empty sequence, so an
+        // ordinary double-click answered 500.
+        if (items.Count == 0)
         {
-            var max = items.Max(i => i.Index);
-
-            var updated = await _context.PlaylistItems
-                .Where(pi => pi.PlaylistId == playlistId && pi.Index > max)
-                .ExecuteUpdateAsync(e =>
-                    e.SetProperty(p => p.Index, ind => ind.Index - items.Count));
-            Console.WriteLine($"Updated: {updated} Records");
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
+            await transaction.CommitAsync();
+            return items;
         }
 
-        var playlist = await _context.Playlists.Where(p => p.Id == playlistId).FirstOrDefaultAsync();
-        playlist.LastModified = DateTime.UtcNow;
-        playlist.NumberOfTracks -= items.Count;
+        var playlist = await _context.Playlists.FirstOrDefaultAsync(p => p.Id == playlistId);
+        if (playlist == null)
+        {
+            await transaction.CommitAsync();
+            return [];
+        }
 
         _context.PlaylistItems.RemoveRange(items);
+        await _context.SaveChangesAsync();
+
+        // Compact what survives. Shifting only the rows above the highest deleted
+        // index by the number of deletions -- the previous approach -- leaves rows
+        // sitting between two deleted entries untouched, so deleting a
+        // non-contiguous selection produced duplicate Index values that nothing
+        // later ever repaired.
+        var remaining = await _context.PlaylistItems
+            .Where(pi => pi.PlaylistId == playlistId)
+            .OrderBy(pi => pi.Index)
+            .ToListAsync();
+
+        for (var i = 0; i < remaining.Count; i++)
+        {
+            if (remaining[i].Index != i + 1)
+            {
+                remaining[i].Index = i + 1;
+            }
+        }
+
+        playlist.LastModified = DateTime.UtcNow;
+        // Assigned rather than decremented, so pre-existing drift is corrected here.
+        playlist.NumberOfTracks = remaining.Count;
 
         await _context.SaveChangesAsync();
 
