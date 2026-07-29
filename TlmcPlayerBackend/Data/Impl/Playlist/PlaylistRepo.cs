@@ -44,7 +44,9 @@ public class PlaylistRepo : IPlaylistRepo
         var query = _context.Playlists.Where(p => p.Id == playlistId);
         if (noTracking)
         {
-            query.AsNoTracking();
+            // LINQ operators return a new query; the previous code discarded this
+            // result, so noTracking:true still handed back tracked entities.
+            query = query.AsNoTracking();
         }
         return await query.FirstOrDefaultAsync();
     }
@@ -62,11 +64,18 @@ public class PlaylistRepo : IPlaylistRepo
         }
 
         return await _context.Playlists
-            .Where(p => 
-                    p.Id == playlistId && 
-                    (p.OwnerId == userId || 
-                     p.Visibility == PlaylistVisibility.Public || 
+            .Where(p =>
+                    p.Id == playlistId &&
+                    (p.OwnerId == userId ||
+                     p.Visibility == PlaylistVisibility.Public ||
                      p.Visibility == PlaylistVisibility.Unlisted))
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<Playlist?> GetOwnedPlaylist(Guid playlistId, Guid ownerId)
+    {
+        return await _context.Playlists
+            .Where(p => p.Id == playlistId && p.OwnerId == ownerId)
             .FirstOrDefaultAsync();
     }
 
@@ -110,13 +119,17 @@ public class PlaylistRepo : IPlaylistRepo
         return saved;
     }
 
-    public async Task<bool> DeletePlaylist(Guid playlistId)
+    public async Task<bool> DeletePlaylist(Guid playlistId, Guid ownerId)
     {
-        var playlist = await _context.Playlists.FirstOrDefaultAsync(p => p.Id == playlistId);
+        var playlist = await _context.Playlists
+            .FirstOrDefaultAsync(p => p.Id == playlistId && p.OwnerId == ownerId);
 
-        if (playlist != null)
-            _context.Playlists.Remove(playlist);
+        if (playlist == null)
+        {
+            return false;
+        }
 
+        _context.Playlists.Remove(playlist);
         return await SaveChanges();
     }
 }

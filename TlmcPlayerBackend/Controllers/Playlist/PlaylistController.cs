@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TlmcPlayerBackend.Data.Api.Playlist;
+using TlmcPlayerBackend.Data.Api.UserProfile;
 using TlmcPlayerBackend.Dtos.Playlist;
 using TlmcPlayerBackend.Models.Playlist;
 
@@ -21,33 +22,57 @@ public struct PlaylistInfo
 public class PlaylistController : Controller
 {
     private readonly IPlaylistRepo _playlistRepo;
+    private readonly IUserProfileRepo _userProfileRepo;
     private readonly IMapper _mapper;
 
 
     public PlaylistController(
         IPlaylistRepo playlistRepo,
+        IUserProfileRepo userProfileRepo,
         IMapper mapper)
     {
         _playlistRepo = playlistRepo;
+        _userProfileRepo = userProfileRepo;
         _mapper = mapper;
     }
 
-    private async Task CreatePersonalPlaylistIfNotExist(UserClaim userClaim)
+    /// <summary>
+    /// Returns false when the caller has no user profile yet, in which case no
+    /// playlists are created and the action should answer 400.
+    /// </summary>
+    private async Task<bool> CreatePersonalPlaylistIfNotExist(UserClaim userClaim)
     {
-        if (!await _playlistRepo.DoesPersonalPlaylistExist(userClaim.UserId))
+        if (await _playlistRepo.DoesPersonalPlaylistExist(userClaim.UserId))
         {
-            var history = Models.Playlist.Playlist.Create("History",
-                PlaylistVisibility.Private, userClaim, PlaylistType.History);
-
-            var queue = Models.Playlist.Playlist.Create("Queue",
-                PlaylistVisibility.Private, userClaim, PlaylistType.Queue);
-
-            var fav = Models.Playlist.Playlist.Create("Favorite",
-                PlaylistVisibility.Private, userClaim, PlaylistType.Favorite);
-
-            await _playlistRepo.InsertPlaylists(new List<Models.Playlist.Playlist> { history, queue, fav });
+            return true;
         }
+
+        // Playlist.OwnerId is a required FK to UserProfiles, so inserting the
+        // personal playlists before the profile row exists fails inside the
+        // database and surfaces as a 500. Every freshly registered identity hits
+        // this on its first playlist request, so check up front and let the
+        // caller return an actionable 400 instead.
+        if (await _userProfileRepo.GetUserProfileById(userClaim.UserId) == null)
+        {
+            return false;
+        }
+
+        var history = Models.Playlist.Playlist.Create("History",
+            PlaylistVisibility.Private, userClaim, PlaylistType.History);
+
+        var queue = Models.Playlist.Playlist.Create("Queue",
+            PlaylistVisibility.Private, userClaim, PlaylistType.Queue);
+
+        var fav = Models.Playlist.Playlist.Create("Favorite",
+            PlaylistVisibility.Private, userClaim, PlaylistType.Favorite);
+
+        await _playlistRepo.InsertPlaylists(new List<Models.Playlist.Playlist> { history, queue, fav });
+        return true;
     }
+
+    private ActionResult ProfileRequired() =>
+        Problem(statusCode: StatusCodes.Status400BadRequest, title: "User Profile Required",
+            detail: "No user profile exists for this account. Create one with POST /api/user first.");
 
     [HttpGet("{playlistId:Guid}", Name = nameof(GetPlaylistById))]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlaylistReadDto))]
@@ -98,7 +123,9 @@ public class PlaylistController : Controller
     {
         var user = HttpContext.User.ToUserClaim();
 
-        var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+        // Owner-scoped: a playlist the caller can merely *see* (public/unlisted)
+        // must not be editable by them.
+        var playlist = await _playlistRepo.GetOwnedPlaylist(playlistId, user.UserId);
 
         if (playlist == null)
         {
@@ -106,11 +133,14 @@ public class PlaylistController : Controller
                 detail: $"Playlist with Id: {playlistId} Does not exist");
         }
 
-        // Make sure playlist isn't special playlist
-        if (playlist?.Type != PlaylistType.Normal && playlistInfo.Name != null)
+        // Special playlists (History/Queue/Favorite) are fixed fixtures of an
+        // account. Neither their name nor their visibility may be changed -- the
+        // visibility half matters most, since these are created Private and hold
+        // listening history the user never chose to publish.
+        if (playlist.Type != PlaylistType.Normal)
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Playlist Not Updated",
-                detail: $"Playlist with Id: {playlistId} is a special playlist and it's name cannot be updated");
+                detail: $"Playlist with Id: {playlistId} is a special playlist and cannot be modified");
         }
 
         if (playlistInfo.Name != null)
@@ -139,14 +169,14 @@ public class PlaylistController : Controller
     {
         var user = HttpContext.User.ToUserClaim();
 
-        var playlist = await _playlistRepo.GetPlaylist(playlistId, user?.UserId);
+        var playlist = await _playlistRepo.GetOwnedPlaylist(playlistId, user.UserId);
         if (playlist == null)
         {
             return Problem(statusCode: StatusCodes.Status404NotFound, title: "Playlist Not Found",
                 detail: $"Playlist with Id: {playlistId} Does not exist");
         }
 
-        var deleted = await _playlistRepo.DeletePlaylist(playlistId);
+        var deleted = await _playlistRepo.DeletePlaylist(playlistId, user.UserId);
         if (!deleted)
         {
             return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Playlist Not Deleted",
@@ -171,7 +201,10 @@ public class PlaylistController : Controller
     public async Task<ActionResult<PlaylistReadDto>> GetCurrentUserPlaylists()
     {
         var user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        if (!await CreatePersonalPlaylistIfNotExist(user))
+        {
+            return ProfileRequired();
+        }
 
         var playlists = await _playlistRepo.GetUserPlaylist(user.UserId, user.UserId);
         return Ok(_mapper.Map<IEnumerable<PlaylistReadDto>>(playlists));
@@ -182,7 +215,10 @@ public class PlaylistController : Controller
     public async Task<ActionResult> GetCurrentUserHistory()
     {
         var user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        if (!await CreatePersonalPlaylistIfNotExist(user))
+        {
+            return ProfileRequired();
+        }
 
         var history = await _playlistRepo.GetHistoryPlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(history));
@@ -193,7 +229,10 @@ public class PlaylistController : Controller
     public async Task<ActionResult> GetCurrentUserQueue()
     {
         var user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        if (!await CreatePersonalPlaylistIfNotExist(user))
+        {
+            return ProfileRequired();
+        }
 
         var queue = await _playlistRepo.GetQueuePlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(queue));
@@ -204,7 +243,10 @@ public class PlaylistController : Controller
     public async Task<ActionResult> GetCurrentUserFavorite()
     {
         var user = HttpContext.User.ToUserClaim();
-        await CreatePersonalPlaylistIfNotExist(user);
+        if (!await CreatePersonalPlaylistIfNotExist(user))
+        {
+            return ProfileRequired();
+        }
 
         var fav = await _playlistRepo.GetFavoritesPlaylist(user.UserId);
         return Ok(_mapper.Map<PlaylistReadDto>(fav));
