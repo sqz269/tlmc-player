@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using System.Web.Http.ModelBinding;
+using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using KeycloakAuthProvider.Identity;
 using Microsoft.AspNetCore.Authorization;
 using TlmcPlayerBackend.Data.Api.UserProfile;
@@ -103,8 +103,6 @@ public class UserProfileController : Controller
     {
         var claim = HttpContext.User.ToUserClaim();
 
-        var patchActual = _mapper.Map<JsonPatchDocument<UserProfile>>(patch);
-
         var targetUser = await _userProfileRepo.GetUserProfileById(claim.UserId);
 
         if (targetUser == null)
@@ -112,12 +110,31 @@ public class UserProfileController : Controller
             return BadRequest("User profile not found. Did you create a profile first?");
         }
 
-        patchActual.ApplyTo(targetUser);
+        // The patch is applied to a DTO projection and only then mapped onto the
+        // entity. Retyping the document to JsonPatchDocument<UserProfile> (what this
+        // used to do) copied the caller's operations verbatim but resolved their
+        // paths against the entity, so "/Id" and "/DateJoined" became writable --
+        // the DTO's whole purpose is to bound which fields a caller may touch.
+        var editable = _mapper.Map<UserProfileUpdateDto>(targetUser);
+
+        // The ModelState overload records an invalid path as a validation error;
+        // the single-argument one throws JsonPatchException, which meant a typo in
+        // "path" answered 500 and left the check below unreachable.
+        patch.ApplyTo(editable, ModelState);
 
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
+
+        // ApplyTo bypasses data annotations, so DisplayName's length and character
+        // rules were previously enforced only incidentally, by the column width.
+        if (!TryValidateModel(editable))
+        {
+            return BadRequest(ModelState);
+        }
+
+        _mapper.Map(editable, targetUser);
 
         var success = await _userProfileRepo.UpdateUserProfile(targetUser);
 
