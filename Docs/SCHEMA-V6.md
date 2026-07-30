@@ -5,7 +5,7 @@ here is a data migration — v6 starts empty, so this is "what should the initia
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Judgement calls are collected in §15 — four are now settled (identifiers, DASH, search
+Judgement calls are collected in §16 — four are now settled (identifiers, DASH, search
 implementation, credit normalization) and five remain open. Everything not listed there
 I'd treat as settled unless you disagree.
 
@@ -216,6 +216,8 @@ change jsonb keys.
 
 **Recommendation:** snake_case for Postgres identifiers, and lowercase keys inside jsonb
 (`default`, `en`, `zh`, `jp`) so there's one rule rather than a boundary to keep straight.
+One deliberate exception: jsonb that the API returns verbatim rather than mapping is
+governed by the API's casing, not the database's — see §15.
 `default` is a reserved word in SQL but is only ever a string key here, so
 `name->>'default'` is fine. C# stays PascalCase throughout.
 
@@ -925,7 +927,7 @@ output plus a version column — the script already emits exactly this shape.
 
 ## 13. Rollout order
 
-1. Settle the five remaining decisions in §15.
+1. Settle the five remaining decisions in §16.
 2. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
    startup — a Job or an explicit `dotnet ef database update`, with its own timeout
    (per `8b97201`).
@@ -958,7 +960,83 @@ its `CircleWebsite` child. The two-tier retrieval design. EF as the access layer
 
 ---
 
-## 15. Open decisions
+## 15. Where the schema meets the API
+
+This is not an API design document — envelopes, error shape, versioning and the
+POST-for-a-read endpoints are a separate conversation. What belongs here is the places
+where a schema decision above dictates something on the wire.
+
+### The fourth casing surface
+
+§1 counted three naming surfaces. There is a fourth: the JSON the API emits. Today it is
+camelCase for properties and **PascalCase for enum values**, which is inconsistent:
+
+```json
+{ "displayName": "…", "lastModified": "…", "visibility": "Private", "type": "Queue" }
+```
+
+`AddNewtonsoftJson()` applies a camelCase resolver by default, but the registered
+`new StringEnumConverter()` has no naming strategy, so enum members serialize as
+declared. Fix while v6 is fresh and nothing depends on the current spelling:
+
+```csharp
+opt.SerializerSettings.Converters.Add(
+    new StringEnumConverter(new CamelCaseNamingStrategy()));
+```
+
+### Does the database's jsonb casing leak into the API?
+
+Only if you pass the document through. There are two patterns and they answer the
+question differently:
+
+**Mapped** (what happens today): jsonb → POCO via Npgsql → DTO via AutoMapper → JSON via
+Newtonsoft. Two independent serializers, so the stored keys and the wire keys are
+decoupled and may differ freely. For `LocalizedField` they happen to coincide, because
+every key is a single word (`default`, `en`, `zh`, `jp`); for a multi-word property they
+would not (`reference_url` stored, `referenceUrl` on the wire), and that is harmless.
+
+**Pass-through**: hand the stored jsonb to the client verbatim. Cheaper — no
+deserialize-remap-reserialize per row — but the stored keys **become the public API
+contract**.
+
+The rule that follows: **jsonb you query into follows the SQL convention; jsonb you pass
+through follows the API convention.**
+
+Applied here:
+
+- `LocalizedField` — **mapped**. Four small keys, and the schema queries into it for the
+  generated `name_sort` column, so its keys should match the SQL convention.
+- `Lyrics` — **pass-through** is worth it. Variants → lines → blocks → ruby is a deep
+  document that the backend never inspects; it only relays it. Rebuilding four levels of
+  POCO and re-serializing them on every request is pure overhead.
+
+  The consequence must be written down or someone will later "fix" it: if `Lyrics` is
+  passed through, **its jsonb keys are camelCase**, deliberately unlike every other
+  identifier in the database. Anyone applying §1's rule uniformly would break the API
+  contract without touching an API file.
+
+### Other consequences already implied above
+
+- **Ids are strings on the wire** (§1) — route constraints, model binders and Swagger
+  `MapType` all change.
+- **Keyset pagination** (§8 rationale) means the response envelope carries a cursor
+  rather than an offset, and `total` stops being free — make it a separate, cacheable
+  call rather than computing it per page.
+- **Credits are two fields, not one** (§5). The payload should carry the verbatim
+  `name` always, and a resolved `contributor` object only when `contributor_id` is set.
+  Clients render `name` and link only where the resolved entity exists, so partial
+  resolution degrades visibly but harmlessly.
+- **Similarity scores need rescaling** (§9). Chamfer scores compress into roughly
+  0.986–0.994, so `1 - distance` shown raw looks like everything is a 99% match. Rescale
+  against the observed distribution before display.
+- **Search returns ids, not documents** (§7) — or does it? If the engine returns whole
+  documents the API is a thin proxy and the payload can drift from the Postgres shape; if
+  it returns ids and the API hydrates, you pay a round-trip but have one rendering path.
+  I lean toward ids plus highlight fragments, hydrating from Postgres.
+
+---
+
+## 16. Open decisions
 
 Settled:
 
