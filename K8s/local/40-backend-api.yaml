@@ -61,6 +61,11 @@ spec:
             # without the key. Turn back off once a real client exists.
             - name: Swagger__Enabled
               value: "true"
+            # Subsonic facade (Docs/SUBSONIC.md). Auth is per-user API keys
+            # minted via the Keycloak-authorized /api/user/api-keys endpoints,
+            # so enabling it exposes nothing anonymous.
+            - name: Subsonic__Enabled
+              value: "true"
             # v6: rows hold storage keys, and these roots are what they resolve
             # against (StorageRootResolver). media_key and asset keys live in the
             # library root; generated thumbnails will land in the thumbnail root.
