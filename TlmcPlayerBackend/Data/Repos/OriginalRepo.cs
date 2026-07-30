@@ -40,11 +40,15 @@ public class OriginalRepo(AppDbContext context) : IOriginalRepo
 
     public async Task<OriginalWorkReadDto?> GetWork(OriginalWorkId id)
     {
-        return await _context.OriginalWorks
+        // ProjectWork is a client-side projection over the materialized entity,
+        // so the songs must actually be loaded — without the Include it silently
+        // projects an empty collection.
+        var work = await _context.OriginalWorks
             .AsNoTracking()
-            .Where(w => w.Id == id)
-            .Select(w => ProjectWork(w))
-            .FirstOrDefaultAsync();
+            .Include(w => w.Songs)
+            .FirstOrDefaultAsync(w => w.Id == id);
+
+        return work == null ? null : ProjectWork(work);
     }
 
     public async Task<CursorPage<TrackWithContext>> GetArrangements(OriginalSongId songId, string? cursor, int limit)
