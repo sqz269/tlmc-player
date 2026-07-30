@@ -5,8 +5,7 @@ here is a data migration — v6 starts empty, so this is "what should the initia
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Judgement calls are collected in §16 — five are now settled (identifiers, casing, DASH,
-search implementation, credit normalization) and four remain open. Everything not listed there
+Judgement calls are collected in §16 — seven are now settled and two remain open. Everything not listed there
 I'd treat as settled unless you disagree.
 
 The DDL below is the target shape. The backend is EF-first (migrations are generated
@@ -640,17 +639,22 @@ original song + work titles, tag names, duration, has_lyrics
 Note credits enter as the **raw `credit_name` strings** from §5, not as resolved
 contributors. That is what makes credit search work before normalization does.
 
-### Meilisearch or Elasticsearch
+### Settled: Meilisearch
 
-I'd take **Meilisearch** here. 164k documents is small; typo tolerance out of the box
-matters a lot for romanized Japanese, where users approximate spellings constantly; and
-it is one binary against Elasticsearch's JVM and cluster assumptions. That last point is
-concrete — this node already runs Keycloak, two Postgres instances and the API, and
-Elastic wants a couple of GB of heap before it does anything useful.
+164k documents is small for it; typo tolerance out of the box matters for romanized
+Japanese, where users approximate spellings constantly; and it is one container against
+Elasticsearch's JVM and cluster assumptions — concrete on a node already running
+Keycloak, two Postgres instances and the API.
 
-Take Elasticsearch instead if you expect to need real aggregation/analytics later, or
-you want kuromoji-grade Japanese analysis with hand-tuned dictionaries. Neither looks
-likely for a music catalogue browse UI.
+Because it is a projection and not a source of truth, its deployment is cheap to reason
+about: one container, a modest volume, and losing it entirely costs a reindex rather
+than data. Size the PVC for the index, not for durability, and do not back it up —
+rebuild it.
+
+The revisit condition, so it is written down rather than remembered: Elasticsearch earns
+its operational weight if you later want real aggregation/analytics over the catalogue,
+or kuromoji-grade Japanese analysis with hand-tuned dictionaries. Neither looks likely
+for a browse UI.
 
 ### The CJK trap — configure this explicitly or it will be subtly wrong
 
@@ -829,13 +833,41 @@ CREATE TABLE similar_track (
 CREATE INDEX similar_track_neighbor_idx ON similar_track (neighbor_track_id);
 ```
 
-**DECISION — serving path.** If `similar_track` is primary, `GET /track/{id}/similar`
-becomes a keyset read against the PK and the HNSW tier is only a fallback for tracks
-without a precomputed row (newly ingested, or arbitrary query vectors). That makes the
-`ef_search` work from `8b97201` off the critical path, and the diversity re-ranker
-operates on precomputed neighbours instead of ANN candidates. I recommend it. The
-alternative — ANN as primary — keeps one code path but permanently accepts pooled-vector
-recall quality when you've already measured that chamfer is much better.
+### Settled: precomputed neighbours are the primary serving path
+
+`GET /v1/tracks/{id}/similar` is a keyset read against `similar_track`'s primary key —
+`WHERE anchor_track_id = :id AND model_version = :v ORDER BY rank` — which is an index
+scan returning rows already in rank order. The diversity re-ranker then operates over
+precomputed chamfer neighbours instead of ANN candidates, so over-fetching is just
+reading further down the ranks rather than widening a vector search.
+
+That makes similarity a first-class part of the API rather than a bolt-on, and it takes
+the `ef_search` tuning from `8b97201` off the critical path entirely.
+
+**The ANN tier does not go away — it becomes the fallback**, and it is not optional:
+
+- Tracks ingested since the last precompute have no rows. New content is exactly what
+  people look at, so this path will be exercised routinely, not rarely.
+- Similarity from an arbitrary query vector (a seed upload, or an embedding computed on
+  the fly) has no anchor to look up by definition.
+
+So both paths stay live, and the API should say which one answered — a `source` field of
+`precomputed` or `approximate` — because their quality is not the same and a client
+showing "99% match" from the fallback is making a claim the pooled vectors do not
+support.
+
+Two further consequences worth designing for:
+
+- **Return `model_version`.** Clients caching neighbour lists need to know when the
+  basis changed, and it makes "why did my recommendations shift" answerable.
+- **Switching versions is atomic.** Because `model_version` is part of the key, a new
+  run loads alongside the old one and the serving version flips in configuration, with
+  the previous rows still present to roll back to. Delete the old version only once the
+  new one has been checked.
+
+Coverage is worth exposing internally too — the count of tracks with no `similar_track`
+rows for the serving version is the metric that tells you the precompute has fallen
+behind ingestion.
 
 `CHECK (anchor <> neighbor)` encodes at the schema level the self-exclusion bug fixed
 in `8b97201`.
@@ -946,7 +978,7 @@ output plus a version column — the script already emits exactly this shape.
 
 ## 13. Rollout order
 
-1. Settle the four remaining decisions in §16.
+1. Settle the two remaining decisions in §16.
 2. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
    startup — a Job or an explicit `dotnet ef database update`, with its own timeout
    (per `8b97201`).
@@ -1070,10 +1102,14 @@ Applied here:
 - **Similarity scores need rescaling** (§9). Chamfer scores compress into roughly
   0.986–0.994, so `1 - distance` shown raw looks like everything is a 99% match. Rescale
   against the observed distribution before display.
-- **Search returns ids, not documents** (§7) — or does it? If the engine returns whole
-  documents the API is a thin proxy and the payload can drift from the Postgres shape; if
-  it returns ids and the API hydrates, you pay a round-trip but have one rendering path.
-  I lean toward ids plus highlight fragments, hydrating from Postgres.
+- **Search returns ids plus highlight fragments**, hydrated from Postgres (§7). Letting
+  Meilisearch return whole documents would make the API a thin proxy and let the search
+  payload drift from the shape every other endpoint returns; hydrating costs a
+  round-trip and keeps one rendering path. Highlights are the exception — they only
+  exist in the engine, so they ride along with the ids.
+- **Similarity is a first-class endpoint** (§9), and its response carries `model_version`
+  plus a `source` of `precomputed` or `approximate`, because the fallback's quality is
+  not the same and clients should not present it as though it were.
 
 ---
 
@@ -1088,12 +1124,12 @@ Settled:
 | Ship DASH? | Yes, keep serving — but `DashPlaylists` still collapses to a column (§3) |
 | Search implementation | External engine, not Postgres FTS (§7) |
 | How far to normalize credits | Verbatim `credit_name` + revisable nullable FK (§5) |
+| Search engine | Meilisearch (§7) |
+| Similarity serving path | Precomputed `similar_track` primary, ANN as required fallback; first-class API (§9) |
 
 Still open:
 
 | # | Decision | My recommendation |
 | --- | --- | --- |
-| 1 | Meilisearch or Elasticsearch (§7) | Meilisearch — 164k docs is small, typo tolerance suits romanized titles, and one binary beats a JVM on this node |
-| 2 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
-| 3 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
-| 4 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
+| 1 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
+| 2 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
