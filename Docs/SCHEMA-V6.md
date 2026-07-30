@@ -1,12 +1,12 @@
 # TLMC v6 schema proposal
 
-Target: the fresh v6 deployment, before any of the 164,267 tracks are loaded. Nothing
+Target: the fresh v6 deployment, before any of the 164,287 tracks are loaded. Nothing
 here is a data migration — v6 starts empty, so this is "what should the initial
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Judgement calls are collected in §16 — seven are now settled and two remain open. Everything not listed there
-I'd treat as settled unless you disagree.
+Judgement calls are collected in §16 — everything substantive is now settled; two small
+ones remain open. Everything not listed there I'd treat as settled unless you disagree.
 
 The DDL below is the target shape. The backend is EF-first (migrations are generated
 from `Models/`), so the real work is model changes plus one generated migration; the
@@ -18,12 +18,17 @@ against the running pgvector 0.8.6 / PG15 instance before writing them down: gen
 sort columns over `jsonb`, `DEFERRABLE INITIALLY DEFERRED` unique constraints (including
 an in-transaction renumber that transiently collides), and partial HNSW indexes on both
 `vector` and `halfvec`. All three work. (`pg_trgm` GIN was verified too, but is no
-longer needed now that search leaves Postgres — see §7.)
+longer needed now that search leaves Postgres — see §7. The partial-HNSW result is
+likewise moot now that §9 keeps a single live model per database; it stands as a record
+of what was tested.)
 
-> **EF caveat:** EF Core cannot express `DEFERRABLE` constraints or partial HNSW indexes
-> through the fluent API. Those two need `migrationBuilder.Sql(...)` in the generated
-> migration, and the model snapshot won't know about them — so they must not be
-> reverse-engineered away by a later `dotnet ef migrations add`.
+> **EF caveat:** EF Core cannot express `DEFERRABLE` constraints through the fluent
+> API. Those need `migrationBuilder.Sql(...)` in the generated migration, and the model
+> snapshot won't know about them — so they must not be reverse-engineered away by a
+> later `dotnet ef migrations add`. (HNSW itself is not affected: the Npgsql provider
+> expresses it with `HasMethod("hnsw")`/`HasOperators(...)`, which the current
+> `AppDbContext` already uses — and with §9 dropping per-version partial indexes,
+> nothing on the vector side needs raw SQL either.)
 
 ---
 
@@ -50,15 +55,16 @@ API exposes**.
 ### Storage: `uuid` holding a UUIDv7
 
 Every primary key stays a 16-byte `uuid` column. Standardise the value on **UUIDv7**.
-EF Core 9 already mints v7 for `Guid` keys it generates; the ETL mints v4
-(`Guid.NewGuid()` in PushToDb, `uuid.uuid4()` in the Python), so the catalogue is
-currently v4 and the playlists are v7 by accident. v7's timestamp prefix gives B-tree
+EF Core 9 already mints v7 for `Guid` keys it generates; the catalogue's ids are minted
+as v4 in the Python aggregator (`uuid.uuid4()` in `id_assign_and_merge.py` — PushToDb
+only parses what the intermediates hand it), so the catalogue is currently v4 and the
+playlists are v7 by accident. v7's timestamp prefix gives B-tree
 locality on bulk insert — inserts land near the right edge of the index instead of
 scattering across it — which matters when one ETL run appends 164k tracks plus their
 credits and 16.4M similarity rows.
 
-- .NET: `Guid.CreateVersion7()` (.NET 9) in place of `Guid.NewGuid()`.
-- Python: the `uuid6` package's `uuid7()`.
+- Python, where the catalogue ids are born: the `uuid6` package's `uuid7()`.
+- .NET: `Guid.CreateVersion7()` (.NET 9) for anything the backend itself generates.
 
 ### Presentation: TypeID
 
@@ -97,7 +103,7 @@ Base32 of a v7 preserves byte order, so TypeIDs still sort by creation time.
 | `asset` | `file_` | a stored file |
 | `artwork` | `art_` | a cover image and its variants |
 | `circle` | `cir_` | |
-| `contributor` | `ctb_` | |
+| `contributor` | `ctb_` | reserved — the identity layer is deferred (§5) |
 | `tag` | `tag_` | |
 | `original_work` | `work_` | a Touhou game/album the music originates from |
 | `original_song` | `song_` | an original Touhou song |
@@ -113,6 +119,7 @@ different things, which they constantly are in this domain and currently are not
 `play_event` keeps its `bigint` identity key and gets no prefix; it is high-volume
 internal data and nothing addresses an individual play. If the API ever needs to (say,
 deleting one history entry), switch that column to `uuid` + `ply_` at the same time.
+`queue_item` (§8) gets the same treatment for the same reasons.
 
 ### Strongly-typed ids
 
@@ -249,10 +256,12 @@ where those options are supplied.
 
 **The change that matters most.** Today `Assets.Path`, `HlsPlaylist.HlsPlaylistPath`
 and `HlsSegment.Path` hold absolute host paths. That has already cost real work:
-commit `d873d96` exists only to repoint a mount because rows said `TLMC v2`; the 791
+commit `d873d96` exists only to repoint a mount because rows said `TLMC v2`; the
 directories carrying `U+F028`/`U+F029` from SMB round-tripping are only a problem
 because paths are identifiers; and the arbitrary-file-read hole fixed in `9fcc38c`
-existed because a path in a row is a path the API will open.
+existed because a path in a row is a path the API will open. That last class is still
+open, in fact: only `AssetController` routes through `AssetPathPolicy` — the HLS and
+DASH controllers `PhysicalFile()` their stored paths with no containment check at all.
 
 Rows store a **root-relative storage key** plus which root it belongs to. The root is
 config, exactly like the identity mount is today, but the invariant lives in the schema
@@ -275,8 +284,13 @@ CREATE TABLE asset (
     content_hash  char(64),
     created_at    timestamptz NOT NULL DEFAULT now(),
 
+    -- '..' is rejected as a *path segment*, not as a substring: TLMC filenames
+    -- legitimately contain consecutive dots, so a plain LIKE '%..%' would bounce
+    -- real rows at load time. Backslashes and normalization are AssetPathPolicy's job.
     CONSTRAINT asset_storage_key_shape CHECK (
-        storage_key <> '' AND storage_key NOT LIKE '/%' AND storage_key NOT LIKE '%..%'
+        storage_key <> ''
+        AND storage_key NOT LIKE '/%'
+        AND storage_key !~ '(^|/)\.\.(/|$)'
     ),
     CONSTRAINT asset_root_key_unique UNIQUE (root, storage_key)
 );
@@ -314,9 +328,13 @@ So `HlsPlaylist`, `HlsSegment` and `DashPlaylists` all collapse into two columns
     hls_bitrates   smallint[] NOT NULL DEFAULT '{}',   -- e.g. {128,192,256,320}
 ```
 
-The API composes URLs from a single convention constant that must stay in step with
-`hls_assignment.py`. 1.5M rows and two tables disappear, and an ETL step whose only job
-was recording facts a convention already fixes disappears with them.
+The API composes URLs from `media_key` plus a single convention constant that must stay
+in step with `hls_assignment.py`. One caveat keeps `media_key` a stored column rather
+than a derived one: `hls_assignment.py` renames colliding stems to `stem [ext]` (204
+directories in the v6 tree), so the track directory is not derivable from metadata
+alone — the finalizer manifest carries it (§12). 1.5M rows and two tables disappear,
+and an ETL step whose only job was recording facts a convention already fixes
+disappears with them.
 
 Keep a real table only if rungs will vary per track, or you want per-segment byte-range
 metadata in the database. Neither is true today.
@@ -338,6 +356,15 @@ one more column and no table:
 So `DashPlaylists` still goes away while DASH serving stays — the table was recording a
 path the convention already fixes, exactly as with HLS. `DashMusicAssetController`
 composes the manifest URL from `media_key` instead of reading a row.
+
+Two details belong in that convention doc, because today they are implicit in code.
+`dash-repackage.py` strips `hls/` from the `BaseURL` it emits (`.replace("hls/", "")`),
+so the manifest's internal references do **not** match the on-disk `hls/<rung>/` layout
+— today that only works because DASH segment requests are resolved through `HlsSegment`
+rows, which are going away. Either encode the strip in the URL template or fix the
+script to emit the true relpath. And the writer being deleted here is the *backend's*
+`EtlDataLoader/MpegDashPlaylistProcessor` — the same-named processor in tlmc-etl is an
+unreachable stub that writes nothing (§12).
 
 ---
 
@@ -361,7 +388,7 @@ CREATE TABLE release (
     websites            text[]      NOT NULL DEFAULT '{}',
     data_sources        text[]      NOT NULL DEFAULT '{}',
     tlmc_root_reference text[]      NOT NULL DEFAULT '{}',
-    artwork_asset_id    uuid        REFERENCES asset (id) ON DELETE SET NULL,
+    artwork_id          uuid        REFERENCES artwork (id) ON DELETE SET NULL,  -- §6
     created_at          timestamptz NOT NULL DEFAULT now()
 );
 
@@ -426,49 +453,39 @@ Note `AlbumCircle` currently lacks an index on the `AlbumArtistId` side, so
 ## 5. Contributors and credits
 
 `Genre`, `Staff`, `Arrangement`, `Vocalist`, `Lyricist` are `text[]` on `Tracks` and
-**nothing in the codebase ever queries them.** They are write-only: the ETL fills them,
-the API echoes them, no `WHERE` touches them, and there is no index on any of them.
+**nothing in the codebase ever queries them.** They are write-only: the ETL fills
+`Staff`, the internal API appends the rest (with its dedup lines commented out), the
+API echoes them, no `WHERE` touches them, and there is no index on any of them. The
+only filter model that mentions them (`TrackFilter.Staff`) is itself dead code.
 
 For this collection that's backwards. "Everything this vocalist sang on", "every
 arrangement of this original", "more from this arranger" is how people actually navigate
 Touhou doujin music. It's also why free text hurts: `nomico`, `Nomico` and `ノミコ` are
 three unrelated values today.
 
+A credit records two facts with very different epistemic status: **what the source
+said** — verbatim, ordered, immutable — and **who we think that string is** — an
+identity, revisable forever. v6 ships only the first. The second (the identity layer:
+a `contributor` table, aliases, match metadata) is deferred outright; see below for why
+and for what its eventual shape has to look like.
+
 ```sql
 CREATE TYPE credit_role AS ENUM ('arranger', 'vocalist', 'lyricist', 'performer', 'staff');
 
-CREATE TABLE contributor (
-    id         uuid  PRIMARY KEY,
-    name       text  NOT NULL,
-    name_sort  text  GENERATED ALWAYS AS (lower(name)) STORED,
-    -- Set when this contributor is (or fronts) a known circle, so credits and
-    -- release attribution can be reconciled without merging the two tables.
-    circle_id  uuid  REFERENCES circle (id) ON DELETE SET NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX contributor_name_sort_key ON contributor (name_sort);
-
--- Romanisations, kana, stage names. The variants you will inevitably accumulate.
-CREATE TABLE contributor_alias (
-    contributor_id uuid NOT NULL REFERENCES contributor (id) ON DELETE CASCADE,
-    alias          text NOT NULL,
-    alias_sort     text GENERATED ALWAYS AS (lower(alias)) STORED,
-    PRIMARY KEY (contributor_id, alias)
-);
-
-CREATE UNIQUE INDEX contributor_alias_sort_key ON contributor_alias (alias_sort);
-
 CREATE TABLE track_credit (
-    track_id       uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,
-    contributor_id uuid        NOT NULL REFERENCES contributor (id) ON DELETE CASCADE,
-    role           credit_role NOT NULL,
-    ordinal        smallint    NOT NULL DEFAULT 0,
-    PRIMARY KEY (track_id, contributor_id, role)
+    track_id    uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,
+    role        credit_role NOT NULL,
+    ordinal     smallint    NOT NULL,
+
+    -- Verbatim, never rewritten. This is what the API displays and what the
+    -- search index sees, so presentation is always faithful to the source.
+    credit_name text        NOT NULL,
+
+    PRIMARY KEY (track_id, role, ordinal)
 );
 
--- The browse path: "all tracks where X is a vocalist".
-CREATE INDEX track_credit_lookup_idx ON track_credit (contributor_id, role, track_id);
+-- String-identity browse: "everything credited to exactly this name".
+CREATE INDEX track_credit_name_idx ON track_credit (lower(credit_name));
 ```
 
 Genre is a vocabulary rather than a credit, so it gets its own pair:
@@ -489,7 +506,7 @@ CREATE TABLE track_tag (
 CREATE INDEX track_tag_tag_id_idx ON track_tag (tag_id);
 ```
 
-### Separating what was scraped from who we think it is
+### Why the identity layer is deferred, not designed away
 
 The obvious objection to normalizing credits is that the source data does not deserve
 it. These strings come off thwiki: inconsistent romanization, several people crammed
@@ -497,71 +514,39 @@ into one field, circle names appearing where a vocalist belongs, `feat.` constru
 typos. Resolving them into foreign keys asserts a confidence nobody has, and a bad merge
 baked into an FK is expensive to unpick.
 
-The fix is to stop treating those as one thing. A credit row records **two** facts with
-very different epistemic status:
+An earlier draft answered that with a nullable `contributor_id` plus match metadata on
+every credit row. The deeper problem is that identity is hard even with clean strings:
+distinct people legitimately share a name (which makes a unique index on `lower(name)`
+unrepresentable-by-design — a mistake that draft contained), aliases are legitimately
+ambiguous, and resolving any of it is a curation project with no curator. So v6 ships
+no `contributor` table at all, and nothing pretends otherwise.
 
-1. **What the source said** — verbatim, ordered, immutable. Raw data.
-2. **Who we currently think that is** — a nullable FK, revisable forever.
+The design is chosen so that adding the layer later is **purely additive**: two new
+tables (`contributor`, `contributor_alias`), one nullable `contributor_id` plus match
+metadata on `track_credit`, and not one existing row rewritten — `credit_name` stays
+the immutable record either way. Lessons already learned, recorded for whoever builds
+it: `contributor` uniqueness must be `(lower(name), disambiguation)` in the MusicBrainz
+style, never bare `lower(name)`; aliases must not be globally unique (the same handle
+can point at two people); and a `merged_into` self-reference makes merges reversible
+without touching credit rows.
 
-```sql
-CREATE TYPE credit_match_method AS ENUM ('unresolved', 'exact', 'alias', 'fuzzy', 'manual');
+What works meanwhile, with nothing resolved and no identity anywhere:
 
-CREATE TABLE track_credit (
-    track_id         uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,
-    role             credit_role NOT NULL,
-    ordinal          smallint    NOT NULL,
+- **Search works in full.** The engine consumes `credit_name` verbatim (§7), so
+  free-text credit search — with Meilisearch's typo tolerance absorbing most of the
+  romanization noise — is independent of identity work that may never happen.
+- **Browse works by string identity.** Clicking a credit is
+  `WHERE lower(credit_name) = lower(:name)` against `track_credit_name_idx` — a real,
+  indexed browse page that is exactly as good as the data. `nomico`, `Nomico` and
+  `ノミコ` stay three separate pages, which is honest rather than wrong.
+- **Ingestion cannot be blocked by bad data.** Every scraped string is written as-is,
+  split per role, ordered by `ordinal`. There is nothing to fail.
 
-    -- Verbatim, never rewritten. This is what the API displays and what the search
-    -- index sees, so presentation is always faithful to the source regardless of
-    -- whether anything below is filled in.
-    credit_name      text        NOT NULL,
+The revisit trigger, written down: build the identity layer when someone wants
+contributor pages badly enough to curate identities — not before.
 
-    -- Our current opinion. NULL until resolved; ingestion never blocks on it.
-    contributor_id   uuid        REFERENCES contributor (id) ON DELETE SET NULL,
-    match_method     credit_match_method NOT NULL DEFAULT 'unresolved',
-    match_confidence real,
-
-    PRIMARY KEY (track_id, role, ordinal)
-);
-
--- Browse: "everything this contributor sang on".
-CREATE INDEX track_credit_contributor_idx
-    ON track_credit (contributor_id, role, track_id) WHERE contributor_id IS NOT NULL;
--- Exact-string fallback while resolution is incomplete.
-CREATE INDEX track_credit_name_idx ON track_credit (lower(credit_name));
--- The resolution worklist.
-CREATE INDEX track_credit_unresolved_idx ON track_credit (role) WHERE contributor_id IS NULL;
-```
-
-`contributor` gains a redirect so merges are reversible without rewriting credit rows:
-
-```sql
-ALTER TABLE contributor ADD COLUMN merged_into uuid REFERENCES contributor (id);
-```
-
-What this buys:
-
-- **Ingestion cannot be blocked by bad data.** Every scraped string is written; the FK
-  is left NULL. A load never fails because a name was ambiguous.
-- **Resolution is a separate, re-runnable pass.** Improve the matcher, re-run it, the
-  FKs move. Nothing was lost, because `credit_name` is still there. This is the property
-  the arrays were supposed to provide in my earlier draft, and it provides it better —
-  ordered, per-role, and joined to the resolution in the same row.
-- **You can be conservative.** Auto-resolve only `exact` and `alias`; leave `fuzzy`
-  matches unresolved or flagged, and promote them to `manual` as you confirm them.
-  `match_confidence` makes "show me everything the matcher guessed at" a query.
-- **Partial resolution degrades gracefully.** An unresolved credit still displays and
-  is still searchable; it just isn't browsable as an entity yet.
-
-This replaces the raw `text[]` columns entirely — `credit_name` is a strictly better raw
-record than the arrays were, so §11's transitional-arrays note no longer applies.
-
-**It also matters that search is external (§7).** Because the search index consumes
-`credit_name` directly, free-text credit search works from day one whether or not a
-single credit is ever resolved. That reduces normalization from a prerequisite to an
-enhancement: it buys faceting, "more from this vocalist", and reliable counts, and if
-the resolution pass is only 60% accurate on the first run, the thing users notice most
-still works correctly.
+This replaces the raw `text[]` columns entirely — `credit_name` is a strictly better
+raw record than the arrays were: ordered, per-role, and indexed.
 
 ---
 
@@ -569,8 +554,8 @@ still works correctly.
 
 `Thumbnail` has five separate FK columns (`OriginalId`, `LargeId`, `MediumId`,
 `SmallId`, `TinyId`), so adding a size is a migration, and every thumbnail read pulls
-five joined `Asset` rows — which is a large part of the cartesian blow-up behind the
-`QuerySplittingBehavior` warning in your logs. `Album` additionally has *both* `Image`
+five joined `Asset` rows — all five are `AutoInclude()`d, feeding the multiple-collection
+cartesian blow-up EF warns about at runtime (nothing configures `AsSplitQuery` today). `Album` additionally has *both* `Image`
 (source) and `Thumbnail` (derived), and the derived set is generated by `UpdateDb` at
 **application startup**, which is why deploys stall.
 
@@ -591,8 +576,8 @@ CREATE TABLE artwork_variant (
 );
 ```
 
-Adding a 700px variant becomes an insert. `release.artwork_asset_id` becomes
-`release.artwork_id`, and variant selection is one indexed lookup.
+Adding a 700px variant becomes an insert. `release.artwork_id` (§4) points here, and
+variant selection is one indexed lookup.
 
 Thumbnail generation moves out of `Program.cs` startup into either the ETL or a hosted
 background service. Same for the ffprobe duration backfill — a deploy should not block
@@ -626,18 +611,26 @@ CREATE INDEX track_updated_at_idx ON track (updated_at);
 Full reindex is a scan; incremental is `WHERE updated_at > :watermark`. Without this,
 every credit correction means a full 164k-document rebuild.
 
+Two things a parent-row watermark does *not* see, stated here so they're designed rather
+than discovered. Edits to child rows (`track_credit`, `track_tag`) don't touch `track`,
+so the triggers — or the writing repository, in the same transaction — must bump the
+parent's `updated_at`, or exactly the corrections this column exists for will be missed.
+And deletions leave no row to watermark: either remove documents from the index at
+delete time in the repository, or accept that removals wait for the next full rebuild.
+
 ### Document shape
 
 One document per track, fully denormalized — the engine should never need a join:
 
 ```
 id, title (all four locales), release title, release date, catalog number,
-circle names, credit_name strings (all roles, unresolved included),
+circle names, credit_name strings (all roles),
 original song + work titles, tag names, duration, has_lyrics
 ```
 
-Note credits enter as the **raw `credit_name` strings** from §5, not as resolved
-contributors. That is what makes credit search work before normalization does.
+Note credits enter as the **raw `credit_name` strings** from §5 — with the identity
+layer deferred there is nothing else they could enter as, and it keeps credit search
+independent of identity work entirely.
 
 ### Settled: Meilisearch
 
@@ -698,7 +691,9 @@ Meilisearch — index a few hundred kanji-only titles and check recall with and 
 `History` is a `PlaylistType`, so append-only event data lives in a structure whose
 invariant is a dense 1..N ordering. That's why the delete path has to renumber every
 surviving row (see `7d2b526`), and `TimesPlayed` on a *playlist item* can't answer "how
-often have I played this track" across playlists anyway.
+often have I played this track" across playlists anyway — not that it answers anything
+today: the only method that increments it is never called, so every stored value is
+zero.
 
 ```sql
 CREATE TYPE play_source AS ENUM ('playlist', 'album', 'shuffle', 'similar', 'search', 'unknown');
@@ -719,13 +714,14 @@ CREATE INDEX play_event_user_track_idx  ON play_event (user_id, track_id);
 ```
 
 History becomes `SELECT ... ORDER BY played_at DESC LIMIT n`, play counts become an
-indexed aggregate, and `PlaylistType` loses `History`. If the aggregate ever gets hot,
+indexed aggregate, and `PlaylistType` loses `History` — and `Queue` too, see below. If
+the aggregate ever gets hot,
 add a `track_play_stat` rollup; at your scale it won't for a long while.
 
 Playlists keep the constraints they're currently missing:
 
 ```sql
-CREATE TYPE playlist_kind       AS ENUM ('normal', 'favorite', 'queue');
+CREATE TYPE playlist_kind       AS ENUM ('normal', 'favorite');
 CREATE TYPE playlist_visibility AS ENUM ('public', 'private', 'unlisted');
 
 CREATE TABLE playlist (
@@ -740,10 +736,10 @@ CREATE TABLE playlist (
     CONSTRAINT playlist_name_length CHECK (char_length(name) BETWEEN 1 AND 200)
 );
 
--- One Favorite and one Queue per user. This is the constraint whose absence lets the
+-- One Favorite per user. This is the constraint whose absence lets the
 -- check-then-insert bootstrap race into duplicates.
-CREATE UNIQUE INDEX playlist_one_special_per_owner
-    ON playlist (owner_id, kind) WHERE kind <> 'normal';
+CREATE UNIQUE INDEX playlist_one_favorite_per_owner
+    ON playlist (owner_id) WHERE kind = 'favorite';
 
 CREATE INDEX playlist_owner_idx ON playlist (owner_id);
 CREATE INDEX playlist_public_idx ON playlist (visibility) WHERE visibility = 'public';
@@ -765,12 +761,48 @@ CREATE TABLE playlist_item (
 CREATE INDEX playlist_item_track_idx ON playlist_item (track_id);
 ```
 
-Two deliberate changes: the PK is `(playlist_id, track_id)` rather than
+Three deliberate changes. The PK is `(playlist_id, track_id)` rather than
 `(track_id, playlist_id)` so the common "items of this playlist, in order" access is a
-prefix scan; and `NumberOfTracks` is gone. It's a denormalized counter with no
-concurrency token that already drifts — a cascade-deleted track removes items without
-touching it. `COUNT(*)` against `playlist_item_position_unique` is cheap. If you want it
-back for display, make it a trigger-maintained column, not application-maintained.
+prefix scan — and it stays a *deduplicating* key on purpose: a playlist holding the same
+track twice is disallowed today (the add path filters, the PK enforces), and that
+remains the product behaviour for real playlists. Duplicates belong to the queue, which
+is no longer a playlist at all — see below. And `NumberOfTracks` is gone. It's a
+denormalized counter with no concurrency token that already drifts — a cascade-deleted
+track removes items without touching it (not that anything reads it: no DTO carries
+it). `COUNT(*)` against `playlist_item_position_unique` is cheap. If you want it back
+for display, make it a trigger-maintained column, not application-maintained.
+
+### The queue is not a playlist
+
+`History` leaving `PlaylistType` for `play_event` was half of a cleanup; `Queue` is the
+other half. A queue's invariants are the opposite of a playlist's on every axis that
+matters: duplicates are natural (the same track queued twice is two entries, not an
+error), there is exactly one per user, it is never public or shared or browsed, it
+churns on every skip and "play next", and it wants a cursor. Keeping it as a
+`playlist_kind` forces either the playlist constraints to be wrong for one kind or the
+queue to be broken — the duplicate-track decision above is exactly that tension.
+
+```sql
+CREATE TABLE queue_item (
+    id          bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id     uuid        NOT NULL REFERENCES user_profile (id) ON DELETE CASCADE,
+    position    integer     NOT NULL,
+    track_id    uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,
+    enqueued_at timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT queue_item_position_unique UNIQUE (user_id, position) DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT queue_item_position_positive CHECK (position >= 1)
+);
+```
+
+Future metadata slots in here without polluting `playlist_item`: an enqueue `source`
+(the `play_source` enum already exists), the originating context (which playlist, album
+or similar-to anchor produced the entry), a played/consumed flag for resume. None of
+those would ever belong on a playlist row.
+
+Where the *cursor* lives — which entry is currently playing — is left open in §16:
+a `user_profile` column if cross-device resume should survive a client wipe, or
+client-side state if the server queue is just a sync target.
 
 ---
 
@@ -781,43 +813,67 @@ store on the filesystem is right. Two additions:
 
 ```sql
 CREATE TABLE track_embedding (
-    track_id      uuid          NOT NULL REFERENCES track (id) ON DELETE CASCADE,
-    -- e.g. 'mert-v1-330m/6s-2s/last4mean'. Cosine distance between different
-    -- model versions is meaningless, so mixing them in one index is a silent
-    -- correctness bug rather than a slow query.
-    model_version text          NOT NULL,
-    embedding_mean     vector(1024) NOT NULL,
-    embedding_meanmax  halfvec(2048) NOT NULL,
-    created_at    timestamptz   NOT NULL DEFAULT now(),
+    track_id           uuid          PRIMARY KEY REFERENCES track (id) ON DELETE CASCADE,
+    embedding_mean     vector(1024)  NOT NULL,   -- 'mean' pooling
+    embedding_meanmax  halfvec(2048) NOT NULL,   -- 'mean+max' pooling
+    created_at         timestamptz   NOT NULL DEFAULT now()
+);
 
-    PRIMARY KEY (track_id, model_version)
+CREATE INDEX track_embedding_mean_idx
+    ON track_embedding USING hnsw (embedding_mean vector_cosine_ops);
+CREATE INDEX track_embedding_meanmax_idx
+    ON track_embedding USING hnsw (embedding_meanmax halfvec_cosine_ops);
+
+-- Single-row provenance stamp, written in the same transaction as any embedding
+-- or similar_track load. Cosine distance between different model versions is
+-- meaningless; what prevents mixing vector spaces is this stamp plus the reload
+-- discipline below -- not per-row version keys.
+CREATE TABLE embedding_config (
+    id          boolean     PRIMARY KEY DEFAULT true CHECK (id),  -- at most one row
+    model       text        NOT NULL,  -- e.g. 'mert-v1-330m/win6s-hop4s/last4'
+    loaded_at   timestamptz NOT NULL,
+    track_count integer     NOT NULL
 );
 ```
 
-**Index caveat worth knowing before you build it:** HNSW doesn't compose with a
-`WHERE model_version = ...` filter — the index scan happens first and the filter
-discards afterwards, so a filtered query silently under-returns exactly the way the
-unraised `ef_search` did. Two workable options: keep only one version live at a time
-(simplest, and re-inference means a rebuild), or create **partial indexes per version**:
+There is deliberately **no per-row `model_version`**. Exactly one model is ever live in
+a given database, the operating mode is a full wipe-and-reload (each TLMC version is a
+fresh catalogue with fresh ids, so embeddings are recomputed regardless), and a version
+string wide enough to mean anything would sit in `similar_track`'s 16.4M-row primary
+key — the same half-gigabyte text-key tax §1 rejects for ids. Dropping it also
+dissolves the HNSW-with-filter problem outright: no version predicate means plain HNSW
+indexes — nothing partial, no `hnsw.iterative_scan` tuning, no raw SQL on the vector
+side of the migration.
 
-```sql
-CREATE INDEX track_embedding_mean_v1_idx ON track_embedding
-    USING hnsw (embedding_mean vector_cosine_ops)
-    WHERE model_version = 'mert-v1-330m/6s-2s/last4mean';
+What per-row versioning was protecting against is handled explicitly instead:
 
-CREATE INDEX track_embedding_meanmax_v1_idx ON track_embedding
-    USING hnsw (embedding_meanmax halfvec_cosine_ops)
-    WHERE model_version = 'mert-v1-330m/6s-2s/last4mean';
-```
+- **Mixed spaces / a half-loaded state.** A reload replaces `track_embedding`,
+  `similar_track` and the `embedding_config` stamp in one transaction (staging tables
+  and a swap, or `TRUNCATE` + `COPY`). A crashed load rolls back to the old state
+  instead of leaving an unmarked mixture.
+- **Rollback.** The previous run's shard CSVs stay on disk; reverting is a re-`COPY`
+  measured in minutes, not a second live version.
+- **"Which basis produced this?"** The API reads `embedding_config.model` and returns
+  it on similarity responses — one canonical string written once by the loader from the
+  run manifest, instead of a naming convention repeated 16.4M times.
 
-The precomputed chamfer neighbours become a real table. Your v5 numbers justify making
-this the primary serving path: same-artist@10 of 26.2% against a 52× random baseline,
-same-album@10 of 6.9% against 345×, and the full 140k-track run in 80 seconds.
+On that canonical string: the pipeline's real parameters are a 6 s window with 2 s
+*overlap* — a **4 s hop** — and the poolings on disk are named `mean` and `mean+max`
+over the `last4` layer mix. An earlier draft's `'…/6s-2s/last4mean'` spelling encoded
+the exact misreading the migration handoff flags as bug V4, and named one pooling when
+the row carries both; the version string identifies model + chunking + layer mix, and
+the columns carry the poolings.
+
+The precomputed chamfer neighbours become a real table. The v5 numbers justify making
+this the primary serving path: same-artist@10 of 26.2% against a 0.5% random baseline
+(52×), same-album@10 of 6.9% against 0.02% (345×), and the chamfer rerank covered the
+140,330-track v5 catalogue in 80 seconds at 1,744 anchors/s, on top of a ~6-minute
+chunk-store build — an evening end to end, so re-running it per TLMC version is routine
+rather than precious.
 
 ```sql
 CREATE TABLE similar_track (
     anchor_track_id   uuid      NOT NULL REFERENCES track (id) ON DELETE CASCADE,
-    model_version     text      NOT NULL,
     rank              smallint  NOT NULL,
     neighbor_track_id uuid      NOT NULL REFERENCES track (id) ON DELETE CASCADE,
     -- Symmetric chamfer similarity. Note the top of this distribution is
@@ -825,7 +881,7 @@ CREATE TABLE similar_track (
     -- near-duplicate rip -- so the UI must rescale rather than show it raw.
     score             real      NOT NULL,
 
-    PRIMARY KEY (anchor_track_id, model_version, rank),
+    PRIMARY KEY (anchor_track_id, rank),
     CONSTRAINT similar_track_no_self CHECK (anchor_track_id <> neighbor_track_id),
     CONSTRAINT similar_track_rank_positive CHECK (rank >= 1)
 );
@@ -836,8 +892,8 @@ CREATE INDEX similar_track_neighbor_idx ON similar_track (neighbor_track_id);
 ### Settled: precomputed neighbours are the primary serving path
 
 `GET /v1/tracks/{id}/similar` is a keyset read against `similar_track`'s primary key —
-`WHERE anchor_track_id = :id AND model_version = :v ORDER BY rank` — which is an index
-scan returning rows already in rank order. The diversity re-ranker then operates over
+`WHERE anchor_track_id = :id ORDER BY rank` — which is an index scan returning rows
+already in rank order. The diversity re-ranker then operates over
 precomputed chamfer neighbours instead of ANN candidates, so over-fetching is just
 reading further down the ranks rather than widening a vector search.
 
@@ -858,16 +914,15 @@ support.
 
 Two further consequences worth designing for:
 
-- **Return `model_version`.** Clients caching neighbour lists need to know when the
-  basis changed, and it makes "why did my recommendations shift" answerable.
-- **Switching versions is atomic.** Because `model_version` is part of the key, a new
-  run loads alongside the old one and the serving version flips in configuration, with
-  the previous rows still present to roll back to. Delete the old version only once the
-  new one has been checked.
+- **Return the model string** — read from `embedding_config`, not per row. Clients
+  caching neighbour lists need to know when the basis changed, and it makes "why did my
+  recommendations shift" answerable.
+- **Switching models is a reload, not a flip.** New run → staging load → one-transaction
+  swap that includes the `embedding_config` stamp. The previous run's shard CSVs on disk
+  are the rollback path.
 
 Coverage is worth exposing internally too — the count of tracks with no `similar_track`
-rows for the serving version is the metric that tells you the precompute has fallen
-behind ingestion.
+rows is the metric that tells you the precompute has fallen behind ingestion.
 
 `CHECK (anchor <> neighbor)` encodes at the schema level the self-exclusion bug fixed
 in `8b97201`.
@@ -932,6 +987,7 @@ desirable queries in this whole domain and is currently unsupported.
 | `Thumbnails` (5 FK columns) | `artwork` + `artwork_variant` |
 | `Albums` (dual-purpose) | `release` + `disc` |
 | `PlaylistItems.TimesPlayed` | `play_event` |
+| `Playlists` rows with `Type = Queue` | `queue_item` (§8) |
 | `Playlists.NumberOfTracks` | `COUNT(*)`, or a trigger |
 | `Tracks.Genre/Staff/Arrangement/Vocalist/Lyricist` | `track_credit.credit_name` (verbatim) + `track_tag` |
 
@@ -939,66 +995,107 @@ desirable queries in this whole domain and is currently unsupported.
 
 ## 12. ETL implications
 
+**One loader, not two.** Today the load path exists twice — tlmc-etl's
+`Finalizer/PushToDb` and the backend's `EtlDataLoader`, which is where the functional
+DASH/HLS path reconciliation actually lives. v6 keeps exactly one (`Finalizer/PushToDb`)
+and the backend's copy retires along with the tables it existed to reconcile.
+
 **`Finalizer/PushToDb`** — the bulk of the work.
-- Mint UUIDv7 (`Guid.CreateVersion7()`).
+- UUIDv7 lands in the Python aggregator (`id_assign_and_merge.py`), where the catalogue
+  ids are actually minted; PushToDb parses what the intermediates hand it.
 - Emit TypeIDs (`trk_…`, `rel_…`) in the JSON intermediates and log lines rather than
   bare uuids. The database still receives uuids; this is purely so a worklist, a
   journal entry or a failure message says what it is referring to. Given how much of
   this pipeline is debugged by reading intermediate files, this is probably where the
   prefixes earn their keep fastest.
 - Write `release` + `disc` instead of the album/disc-0 pair.
-- Stop emitting `HlsPlaylist`/`HlsSegment`; write `media_key` and `hls_bitrates`.
-- Write root-relative `storage_key` + `root` for assets, not absolute paths.
-- Write credits verbatim into `track_credit.credit_name` with `contributor_id` NULL.
-  Resolution is a separate pass (§5), not part of ingestion — a load must never fail
-  because a scraped name was ambiguous.
+- Stop emitting `HlsPlaylist`/`HlsSegment`; write `media_key` and `hls_bitrates` from
+  the finalizer manifest.
+- Write root-relative `storage_key` + `root` for assets, not absolute paths — and
+  populate `mime` and `byte_size` at registration (both exist on the model today and
+  are never set).
+- Write credits verbatim into `track_credit.credit_name`, one row per role with
+  `ordinal` preserving source order. There is nothing to resolve at load time (§5), so
+  a load can never fail because a scraped name was ambiguous.
+- **Media stops being a precondition for a row.** The loader currently skips an entire
+  album when any one track is missing from the HLS manifest; in v6 that track row is
+  written with `media_key` NULL. The v6 tree has 40 upstream-broken files, 105
+  `.getxfer` partials and ~30 CJK-path publish failures — those tracks should exist,
+  browse and search, just not play, and the API needs a defined shape for that state
+  (`media_key: null`, no stream URLs). Same decision for the 101 legitimately
+  zero-track albums: load them; a release with no playable media is still a catalogue
+  fact.
+- **Stop dropping collaboration circles.** The circle loader currently skips any circle
+  with more than one `known_id`, so the 196 recorded collaborations get no row at all.
+  `release_circle` with `ordinal` models multi-attribution fine; the loader just has to
+  write it.
+- Populate `track.duration` — it has never been written, even though the transcode
+  stage already parses segment durations (and the startup ffprobe backfill is gone
+  per §6).
 - Push search documents to the engine after load (§7), and maintain `updated_at` so
   later runs can reindex incrementally instead of rebuilding all 164k documents.
 - Also fix the two loader bugs already identified: clear the EF change tracker between
-  batches (currently quadratic), and assert vector length on load so a truncated `.bin`
-  fails one row rather than a 5,000-row batch mid-run with no resume path.
+  batches (currently quadratic — as is the `Skip(i).Take(n)` batching itself), and
+  assert vector length on load so a truncated `.bin` fails one row rather than a
+  5,000-row batch mid-run with no resume path.
 
-**`Postprocessor/HlsTranscode`** — no functional change, but `hls_finalizer.py` stops
-needing to emit a segment manifest for the DB. The layout convention becomes a contract
-shared with the backend, so it's worth writing it down in one place both sides
-reference.
+**`Postprocessor/HlsTranscode`** — no functional change, but `hls_finalizer.py`'s
+manifest shrinks from per-segment to per-track: source path → track dir (the
+`media_key`), rung list, `has_dash`. It cannot disappear entirely — the 204
+collision-renamed directories (`stem [ext]`) mean the track dir is not derivable from
+metadata alone, and the source-path key is exactly what PushToDb already joins on. The
+layout convention becomes a contract shared with the backend, so it's worth writing it
+down in one place both sides reference.
 
-**`ExternalInfo/ThwikiInfoProvider`** — `original_track_discovery` / `commit_origina_album_and_track`
-now post uuids plus `external_key` rather than composite text ids. This is also where
-contributor alias resolution belongs, since thwiki is where the name variants come from.
-These pushes go through `api/internal`, which now needs the `X-Internal-Api-Key` header
-(one line, per `9fcc38c`).
+**`ExternalInfo/ThwikiInfoProvider`** — `commit_origina_album_and_track.py` now posts
+uuids plus `external_key` rather than composite text ids (the discovery module of the
+similar name only writes a CSV; it posts nothing). Its endpoints are `api/source/album`
+and `api/source/album/{id}/track` — already `[InternalApiKey]`-gated server-side despite
+the public-looking prefix — and the script currently sends **no** auth header, so the
+`X-Internal-Api-Key` line (per `9fcc38c`) is needed here and in the other `PushChange`
+scripts, none of which send it either. One gap on the receiving side:
+`InternalController` throws `NotImplementedException` for track writes carrying
+`Original` links, so the track↔original-song endpoint has to actually be implemented
+before this pipeline can land. (Thwiki is also where the name variants live, if the §5
+identity layer is ever built.)
 
-**New ETL step: embeddings + similarity.** Load `track_embedding` with an explicit
-`model_version`, then populate `similar_track` from `precompute_similar_tracks.py`'s
-shard CSVs. That's a straight `COPY` of the existing `(anchor_id, neighbor_id, rank, score)`
-output plus a version column — the script already emits exactly this shape.
+**Lyrics push** — the stored `Lyrics` jsonb is pass-through (§15), so the payload casing
+*is* the stored casing: the push script's document keys go snake_case with the rest of
+the wire.
+
+**New ETL step: embeddings + similarity.** A *re-run*, not a copy — the v5 shards are
+keyed by v5 track ids and v6 mints fresh ones. MERT inference over the v6 catalogue,
+`build_chunk_store.py`, `precompute_similar_tracks.py`, then `COPY` the new shard CSVs
+(`anchor_id, neighbor_id, rank, score` — already the exact table shape) and stamp
+`embedding_config`, all in one transaction. Two provenance notes: `make_embeddings.py`
+should emit a manifest naming model/chunking/pooling next to the `.bin`s — today the
+directory name is the only carrier, and that manifest is what fills
+`embedding_config.model`. And the embeddings are computed from the HLS AAC rather than
+the source FLAC; that's fine, but if the v6 ladder or encoder settings differ from
+v5's, spot-check the eval numbers instead of assuming them.
 
 ---
 
 ## 13. Rollout order
 
-1. Settle the two remaining decisions in §16.
-2. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
+1. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
    startup — a Job or an explicit `dotnet ef database update`, with its own timeout
-   (per `8b97201`).
-3. Load reference data (`original_work`, `original_song`, `circle`).
-4. Load catalogue (`release`, `disc`, `track`, `asset`, credits as verbatim
-   `credit_name` with `contributor_id` left NULL).
-5. Build indexes **after** the bulk load, not before — index maintenance during a 164k
-   insert is much slower than one build afterwards, and it's why the migration timeout
-   matters.
-6. Artwork variants, then `content_hash`.
-7. Load `track_embedding`, build the HNSW indexes, load `similar_track`.
-8. Run the credit resolution pass, populating `contributor` and setting
-   `track_credit.contributor_id`. Re-runnable, and deliberately last — nothing upstream
-   depends on it.
-9. Build the search index from the catalogue projection.
+   (per `8b97201`). The ordinary b-tree indexes ride in this migration: at 164k rows
+   they cost seconds, and splitting them out isn't worth fighting EF's snapshot over.
+2. Load reference data (`original_work`, `original_song`, `circle` — including the 196
+   collaborations the current loader drops).
+3. Load catalogue (`release`, `disc`, `track`, `asset`, credits as verbatim
+   `credit_name`; tracks without media load with `media_key` NULL).
+4. Artwork variants, then `content_hash`.
+5. Load `track_embedding` and `similar_track` and stamp `embedding_config` in one
+   transaction. The only index builds worth special-casing live here: `similar_track`'s
+   two indexes at 16.4M rows, and HNSW — if `COPY`-into-indexed measures slow, drop and
+   rebuild them around the load; at 164k vectors either order is minutes, so measure
+   once rather than architect around it.
+6. Build the search index from the catalogue projection.
 
-Steps 6 through 9 are independent of each other and of serving; the API is usable after
-5, with search and contributor browse arriving as they complete. If the resolution pass
-in 8 turns out disappointing, it can be re-run after improving the matcher without
-touching anything else — that is the whole point of §5's split.
+Steps 4 through 6 are independent of each other and of serving; the API is usable after
+3, with artwork, similarity and search arriving as they complete.
 
 ---
 
@@ -1092,13 +1189,13 @@ Applied here:
 
 - **Ids are strings on the wire** (§1) — route constraints, model binders and Swagger
   `MapType` all change.
-- **Keyset pagination** (§8 rationale) means the response envelope carries a cursor
+- **Keyset pagination** on list endpoints means the response envelope carries a cursor
   rather than an offset, and `total` stops being free — make it a separate, cacheable
   call rather than computing it per page.
-- **Credits are two fields, not one** (§5). The payload should carry the verbatim
-  `name` always, and a resolved `contributor` object only when `contributor_id` is set.
-  Clients render `name` and link only where the resolved entity exists, so partial
-  resolution degrades visibly but harmlessly.
+- **Credits are verbatim strings** (§5). The payload carries `name` and `role`; there
+  is no `contributor` object until the identity layer exists, and when it does it
+  arrives as a new optional field — clients that render `name` today are already
+  forward-compatible with it.
 - **Similarity scores need rescaling** (§9). Chamfer scores compress into roughly
   0.986–0.994, so `1 - distance` shown raw looks like everything is a 99% match. Rescale
   against the observed distribution before display.
@@ -1107,9 +1204,10 @@ Applied here:
   payload drift from the shape every other endpoint returns; hydrating costs a
   round-trip and keeps one rendering path. Highlights are the exception — they only
   exist in the engine, so they ride along with the ids.
-- **Similarity is a first-class endpoint** (§9), and its response carries `model_version`
-  plus a `source` of `precomputed` or `approximate`, because the fallback's quality is
-  not the same and clients should not present it as though it were.
+- **Similarity is a first-class endpoint** (§9), and its response carries the model
+  string from `embedding_config` plus a `source` of `precomputed` or `approximate`,
+  because the fallback's quality is not the same and clients should not present it as
+  though it were.
 
 ---
 
@@ -1123,13 +1221,18 @@ Settled:
 | Casing | `snake_case` for SQL identifiers, jsonb keys and API JSON alike; C# stays PascalCase (§1, §15) |
 | Ship DASH? | Yes, keep serving — but `DashPlaylists` still collapses to a column (§3) |
 | Search implementation | External engine, not Postgres FTS (§7) |
-| How far to normalize credits | Verbatim `credit_name` + revisable nullable FK (§5) |
+| How far to normalize credits | Verbatim `credit_name` only; the identity layer is deferred and designed to be additive (§5) |
 | Search engine | Meilisearch (§7) |
-| Similarity serving path | Precomputed `similar_track` primary, ANN as required fallback; first-class API (§9) |
+| Similarity serving path | Precomputed `similar_track` primary, ANN as required fallback; single live model, provenance in `embedding_config` (§9) |
+| Queue storage | Its own `queue_item` table; `playlist_kind` loses `queue` and playlists stay deduplicating (§8) |
+| `NumberOfTracks`-style counter | No — derive it; trigger-maintain only if a UI actually needs it (§8) |
+
+(The earlier open question about auto-resolving `fuzzy` credit matches dissolved with
+the identity layer — there is no resolution pass to configure.)
 
 Still open:
 
 | # | Decision | My recommendation |
 | --- | --- | --- |
-| 1 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
-| 2 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
+| 1 | Where does the queue cursor live? (§8) | A `user_profile` column if cross-device resume should survive a client wipe; otherwise client-side, with the server queue as a sync target |
+| 2 | `disc.name` — plain `text`, or `LocalizedField` like every other display name? (§4) | Plain `text`; named discs are rare and rarely translated. Promote it later if that proves wrong |
