@@ -5,6 +5,9 @@ namespace TlmcPlayerBackend.Models.MusicData;
 public enum CreditRole
 {
     Arranger,
+    // Distinct from arranger on purpose: for original doujin compositions the
+    // 作曲 credit is the one that matters, and thwiki records it separately.
+    Composer,
     Vocalist,
     Lyricist,
     Performer,
