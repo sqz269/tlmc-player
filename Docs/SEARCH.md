@@ -66,7 +66,7 @@ run it against any new Meilisearch version before upgrading the pin.
 | Writer | Path | Granularity |
 | --- | --- | --- |
 | ETL, after a catalogue load | `POST /api/internal/search/reindex` (`X-Internal-Api-Key`) | full, or `?since=<load start>` |
-| Backend, on internal single-track writes (lyrics, originals) | inline push | one document, best-effort |
+| Backend, on internal single-track writes (lyrics, originals, credits) | inline push | one document, best-effort |
 | Startup | settings only | — |
 
 Reindex semantics:
@@ -83,11 +83,12 @@ Reindex semantics:
 
 The watermark is honest because every write path that changes document content
 bumps `track.updated_at` in the same transaction — including the child-row cases
-the column cannot see by itself: lyrics and original-links writes bump it in
-`InternalController`/`OriginalRepo`, and original work/song *title* edits bump
-every arranging track (`OriginalRepo.UpsertWork/UpsertSong`). Circle upserts
-deliberately do not: they match on name, and nothing else they change is in the
-document.
+the column cannot see by itself: lyrics, credits and original-links writes bump
+it in `InternalController`/`OriginalRepo`, original work/song *title* edits bump
+every arranging track (`OriginalRepo.UpsertWork/UpsertSong`), and a release
+source-meta write that sets the catalog number bumps the release's tracks.
+Circle upserts deliberately do not: they match on name, and nothing else they
+change is in the document.
 
 Inline pushes are best-effort by design — the mutation has committed and must not
 fail because the engine is down. A missed push is repaired by the next

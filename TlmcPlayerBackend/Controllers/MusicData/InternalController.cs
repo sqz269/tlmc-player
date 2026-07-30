@@ -246,6 +246,9 @@ public class InternalController(
         await _context.SaveChangesAsync();
         await tx.CommitAsync();
 
+        // Credits are in the search document; same best-effort push as lyrics.
+        await _search.TryIndexTracksAsync([trackId], HttpContext.RequestAborted);
+
         return NoContent();
     }
 
@@ -260,9 +263,11 @@ public class InternalController(
             return NotFound($"Release {releaseId} does not exist");
         }
 
+        var catalogChanged = false;
         if (dto.CatalogNumber is { } catalog && string.IsNullOrEmpty(release.CatalogNumber))
         {
             release.CatalogNumber = catalog;
+            catalogChanged = true;
         }
 
         // Reassign rather than mutate: array columns change-detect by reference.
@@ -277,7 +282,27 @@ public class InternalController(
         }
 
         release.UpdatedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+
+        // The catalog number is denormalized into track search documents, and the
+        // incremental reindex watermarks tracks, not releases — bump the release's
+        // tracks in the same transaction or the change is invisible to it
+        // (websites/data sources are not in the document, so they don't bump).
+        if (catalogChanged)
+        {
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            await _context.SaveChangesAsync();
+            await _context.Database.ExecuteSqlAsync($@"
+                UPDATE track SET updated_at = now()
+                WHERE id IN (
+                    SELECT t.id FROM track t
+                    JOIN disc d ON d.id = t.disc_id
+                    WHERE d.release_id = {releaseId.Value})");
+            await tx.CommitAsync();
+        }
+        else
+        {
+            await _context.SaveChangesAsync();
+        }
 
         return NoContent();
     }
