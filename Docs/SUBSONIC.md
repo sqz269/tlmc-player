@@ -28,7 +28,7 @@ gap closes:
 | Auth | `u`/`t`/`s` (md5 of recoverable password) | Keycloak OIDC bearer | OpenSubsonic `apiKeyAuthentication` (§4); legacy params answer 41/42 |
 | IDs | opaque strings | `trk_…`/`rel_…`/`cir_…` TypeIDs | pass through verbatim; the prefix doubles as the type discriminator (§2) |
 | Artist | first-class person/group entity | Circle only; per-person credits are verbatim strings | Artist ≡ Circle (§2); credits do not surface in phase 1 |
-| Streaming | one file per song, byte-range seek | HLS/DASH manifests, no single-file endpoint | `stream` serves the source FLAC / an AAC rung (§5) |
+| Streaming | one file per song, byte-range seek | HLS/DASH manifests, no single-file endpoint | `stream` serves an AAC rung as progressive fMP4; lossless optional, off by default (§5) |
 | Cover art | `getCoverArt?id=&size=` one hop | `artwork_id` → variants → `/api/asset/{id}` | facade resolves variants server-side (§6) |
 | Search | `search3`, empty query = full sync | Meilisearch track index (SEARCH.md) | songs from Meili, artists/albums from Postgres, empty query from Postgres (§7) |
 | Paging | `size`/`offset`, size ≤ 500 | keyset cursors, no totals | facade-only offset queries; `ORDER BY name_sort, id` is stable (§8) |
@@ -111,35 +111,53 @@ credentials at setup time.
 
 ## 5. Streaming and download
 
-`stream?id=trk_…&maxBitRate=&format=` — the endpoint clients seek against, so
-exact `Content-Length`, `Accept-Ranges`, and the sha256 `ETag` matter more than
-codec choice. Serving mechanics are identical to `MediaController.GetAsset`
-(`StorageRootResolver` + `PhysicalFile(..., enableRangeProcessing: true)`).
+A Subsonic client cannot consume the HLS/DASH manifests: `stream` returns
+audio bytes, not a playlist handoff, and no *sonic client implements manifest
+playback for music. Serving "HLS instead of FLAC" is nevertheless possible
+because of how the rungs are stored — each `<media_key>/hls/<rung>/stream.m4s`
+is a single self-contained fMP4 with the init segment at byte 0, i.e. a valid
+progressive `audio/mp4` stream with known length, so byte-range seeking, exact
+`Content-Length` and the usual caching validators all work when the file is
+served as-is. **The facade therefore streams only the pre-transcoded AAC rungs
+and never touches the source FLAC by default.**
 
-Selection logic:
+Selection logic (`stream?id=trk_…&maxBitRate=&format=`):
 
-1. No `maxBitRate` (or `0`), or `format` ∈ {`raw`, `flac`}: serve the source
-   FLAC via `track.source_asset_id` (`Models/MusicData/Track.cs`). This is the
-   default because it is the only rendition with wide plain-file compatibility
-   and it never needs work at request time. `suffix: "flac"`,
-   `contentType: "audio/flac"`.
-2. `maxBitRate` ≥ 128 (or `format` = `aac`): serve the highest AAC rung ≤
-   `maxBitRate` from `track.hls_bitrates` (floor at 128). The rung file
-   (`<media_key>/hls/<rung>/stream.m4s`) is a self-contained fMP4 with the init
-   segment at byte 0, so it is a valid progressive `audio/mp4` stream for
-   ExoPlayer/mpv/browser clients. **Caveat:** some strict demuxers dislike
-   fragmented MP4 over progressive HTTP. If that shows up in practice, the
-   hardening step is a lazy `ffmpeg -c copy` remux to a moov-up-front `.m4a`
-   cached under the `Generated` storage root (FFMpegCore is already a
-   dependency) — an operational change, not an API change.
-3. Unknown `format` values are not errors; the spec treats `format` as a
-   preference. Serve the nearest of the two above.
-4. Tracks with `media_key IS NULL` and no source asset answer 70.
+1. No `maxBitRate` (or `0`): the highest rung in `track.hls_bitrates`
+   (normally 320).
+2. `maxBitRate` set: the highest rung ≤ the value, floored at the lowest rung.
+3. `format` is a preference, not a contract (per spec): every value (`raw`,
+   `aac`, `mp3`, `flac`, …) gets the rung selected above — no request-time
+   transcoding exists, and a rung file served unmodified is `raw` in the sense
+   that matters.
+4. `media_key IS NULL` answers 70.
 
-`download?id=` = case 1 unconditionally, with `Content-Disposition` from the
-track title. `id` may also be `rel_…` (some clients request album downloads);
-phase 1 answers 30 for that and revisits if a client people actually use needs
-it.
+Song DTOs advertise what `stream` will serve: `suffix: "m4a"`,
+`contentType: "audio/mp4"`, `bitRate` = the default rung. Serving mechanics
+are identical to `MediaController.GetAsset` (`StorageRootResolver` +
+`PhysicalFile(..., enableRangeProcessing: true)`).
+
+**Compatibility caveat — now load-bearing:** fragmented MP4 over progressive
+HTTP plays fine in ExoPlayer, mpv and browsers, but with AAC as the *only*
+path a strict demuxer somewhere in the ecosystem has no fallback. The
+hardening step is therefore pre-planned rather than hypothetical: a lazy
+`ffmpeg -c copy` remux to a moov-up-front `.m4a`, cached under the `Generated`
+storage root keyed by track + rung (FFMpegCore is already a dependency; a
+stream copy is I/O-bound and cheap). If the client smoke pass (§12) shows any
+target client failing on fMP4, the remux ships in phase 1 instead of phase 3.
+
+`download?id=trk_…` serves the same highest-rung file with a
+`Content-Disposition` filename from the track title (`.m4a`). Album downloads
+(`id=rel_…`) answer 30 in phase 1.
+
+**Lossless stays first-party-only.** Withholding the source FLAC caps
+per-stream egress at 320 kb/s (vs. roughly 1 Mb/s for FLAC through the
+Cloudflare tunnel), keeps the lossless masters off the third-party surface
+entirely, and makes the facade stream byte-identical content to what the
+first-party HLS/DASH clients play. A deployment that *wants* to hand lossless
+to Subsonic clients can set `Subsonic:ServeLossless` (default `false`), which
+switches case 1 and `format` ∈ {`raw`, `flac`} to the source FLAC via
+`track.source_asset_id`, with `download` following suit.
 
 No `timeOffset` support (ranges make it unnecessary for audio) and no
 `transcodeOffset` extension.
