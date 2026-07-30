@@ -56,11 +56,11 @@ spec:
             # true.
             - name: Keycloak__RequireHttpsMetadata
               value: "__KC_REQUIRE_HTTPS__"
-            # Swagger stays off: this service is published through the Cloudflare
-            # tunnel, and the OpenAPI document describes the api/internal write
-            # surface. Flip to "true" for LAN debugging only.
+            # Deliberately on while the v6 API is being exercised: the document
+            # does describe the api/internal write surface, but those routes 404
+            # without the key. Turn back off once a real client exists.
             - name: Swagger__Enabled
-              value: "false"
+              value: "true"
             # v6: rows hold storage keys, and these roots are what they resolve
             # against (StorageRootResolver). media_key and asset keys live in the
             # library root; generated thumbnails will land in the thumbnail root.
