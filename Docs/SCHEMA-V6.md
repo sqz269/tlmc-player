@@ -5,8 +5,8 @@ here is a data migration — v6 starts empty, so this is "what should the initia
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Judgement calls are collected in §16 — four are now settled (identifiers, DASH, search
-implementation, credit normalization) and five remain open. Everything not listed there
+Judgement calls are collected in §16 — five are now settled (identifiers, casing, DASH,
+search implementation, credit normalization) and four remain open. Everything not listed there
 I'd treat as settled unless you disagree.
 
 The DDL below is the target shape. The backend is EF-first (migrations are generated
@@ -214,16 +214,35 @@ So decide this **before** the generated columns exist, and note that it moves
 independently of the other two surfaces: switching the naming convention does *not*
 change jsonb keys.
 
-**Recommendation:** snake_case for Postgres identifiers, and lowercase keys inside jsonb
-(`default`, `en`, `zh`, `jp`) so there's one rule rather than a boundary to keep straight.
-One deliberate exception: jsonb that the API returns verbatim rather than mapping is
-governed by the API's casing, not the database's — see §15.
-`default` is a reserved word in SQL but is only ever a string key here, so
-`name->>'default'` is fine. C# stays PascalCase throughout.
+### Settled: snake_case everywhere except C#
 
-Declining the package and keeping EF's PascalCase everywhere is perfectly defensible. The
-thing to avoid is the split where SQL is snake_case and jsonb stays PascalCase — the worst
-of both, and roughly where this draft's DDL currently sits.
+Since every identifier is being rewritten anyway, one convention applies to all of them.
+That includes the JSON on the wire — see §15, which counts a fourth surface.
+
+| Surface | Convention | Configured by |
+| --- | --- | --- |
+| C# properties | PascalCase | unchanged; it is the language's convention |
+| Postgres identifiers | `snake_case` | `UseSnakeCaseNamingConvention()` (`EFCore.NamingConventions`) |
+| jsonb document keys | `snake_case` | `JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower`, handed to Npgsql's dynamic JSON |
+| API JSON (§15) | `snake_case` | Newtonsoft `SnakeCaseNamingStrategy`, on the contract resolver **and** on `StringEnumConverter` |
+
+One convention, one boundary — C# to everything else — and three places to configure it.
+
+Extending it to the wire is what makes the whole thing hold together, because it
+dissolves an exception that would otherwise be permanent. §15 explains that jsonb
+returned to the client verbatim has its stored keys become the API contract; with a
+camelCase API that forced `Lyrics` to be spelled differently from every other table in
+the database. With a snake_case API the pass-through document is already correct, and
+nobody has to remember a one-table carve-out that no API file mentions.
+
+`default` is a reserved word in SQL but only ever appears as a string key here, so
+`name->>'default'` is fine.
+
+The Npgsql side is worth a note: jsonb key casing is controlled by the serializer
+options passed to dynamic JSON, not by the EF naming convention. That also argues for
+moving off `NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson()` — the deprecated
+global-mapper API this project still calls — to `NpgsqlDataSourceBuilder`, which is
+where those options are supplied.
 
 ---
 
@@ -927,7 +946,7 @@ output plus a version column — the script already emits exactly this shape.
 
 ## 13. Rollout order
 
-1. Settle the five remaining decisions in §16.
+1. Settle the four remaining decisions in §16.
 2. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
    startup — a Job or an explicit `dotnet ef database update`, with its own timeout
    (per `8b97201`).
@@ -969,20 +988,41 @@ where a schema decision above dictates something on the wire.
 ### The fourth casing surface
 
 §1 counted three naming surfaces. There is a fourth: the JSON the API emits. Today it is
-camelCase for properties and **PascalCase for enum values**, which is inconsistent:
+camelCase for properties and **PascalCase for enum values**, which is not even internally
+consistent:
 
 ```json
 { "displayName": "…", "lastModified": "…", "visibility": "Private", "type": "Queue" }
 ```
 
-`AddNewtonsoftJson()` applies a camelCase resolver by default, but the registered
-`new StringEnumConverter()` has no naming strategy, so enum members serialize as
-declared. Fix while v6 is fresh and nothing depends on the current spelling:
+`AddNewtonsoftJson()` applies a camelCase resolver by default, while the registered
+`new StringEnumConverter()` has no naming strategy at all, so enum members serialize as
+declared in C#.
+
+Per §1 the wire goes snake_case with everything else:
 
 ```csharp
+opt.SerializerSettings.ContractResolver = new DefaultContractResolver
+{
+    NamingStrategy = new SnakeCaseNamingStrategy()
+};
 opt.SerializerSettings.Converters.Add(
-    new StringEnumConverter(new CamelCaseNamingStrategy()));
+    new StringEnumConverter(new SnakeCaseNamingStrategy()));
 ```
+
+giving `{"display_name": …, "visibility": "private", "type": "queue"}`. Note the enum
+converter needs the strategy passed explicitly — the contract resolver does not reach
+enum *values*, which is exactly how the current inconsistency arose.
+
+snake_case JSON is well-precedented (Stripe, GitHub, Slack all do it), though camelCase
+is more idiomatic for a TypeScript client, which will either access `track.release_date`
+directly or map at its own boundary.
+
+> **This is a breaking wire change.** v6 being a fresh deployment is what makes it
+> affordable, but confirm nothing is pinned to the current camelCase spelling before
+> committing — a frontend, a saved API client, anything generated from the existing
+> OpenAPI document. This is the one decision in this proposal whose blast radius is
+> outside these two repositories.
 
 ### Does the database's jsonb casing leak into the API?
 
@@ -1010,10 +1050,11 @@ Applied here:
   document that the backend never inspects; it only relays it. Rebuilding four levels of
   POCO and re-serializing them on every request is pure overhead.
 
-  The consequence must be written down or someone will later "fix" it: if `Lyrics` is
-  passed through, **its jsonb keys are camelCase**, deliberately unlike every other
-  identifier in the database. Anyone applying §1's rule uniformly would break the API
-  contract without touching an API file.
+  With §1's decision this costs nothing extra: the stored keys are snake_case and so is
+  the wire, so a document relayed verbatim is already in the right shape. Had the API
+  stayed camelCase, `Lyrics` would have needed its jsonb spelled differently from every
+  other table — a carve-out no API file mentions and someone would eventually "correct"
+  into a contract break.
 
 ### Other consequences already implied above
 
@@ -1043,6 +1084,7 @@ Settled:
 | Decision | Outcome |
 | --- | --- |
 | Identifier scheme | TypeID over UUIDv7, stored as `uuid` (§1) |
+| Casing | `snake_case` for SQL identifiers, jsonb keys and API JSON alike; C# stays PascalCase (§1, §15) |
 | Ship DASH? | Yes, keep serving — but `DashPlaylists` still collapses to a column (§3) |
 | Search implementation | External engine, not Postgres FTS (§7) |
 | How far to normalize credits | Verbatim `credit_name` + revisable nullable FK (§5) |
@@ -1051,8 +1093,7 @@ Still open:
 
 | # | Decision | My recommendation |
 | --- | --- | --- |
-| 1 | Casing: Postgres identifiers, **and** jsonb keys (§1) | snake_case identifiers via `EFCore.NamingConventions`, lowercase jsonb keys. Must be settled before the generated sort columns exist |
-| 2 | Meilisearch or Elasticsearch (§7) | Meilisearch — 164k docs is small, typo tolerance suits romanized titles, and one binary beats a JVM on this node |
-| 3 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
-| 4 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
-| 5 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
+| 1 | Meilisearch or Elasticsearch (§7) | Meilisearch — 164k docs is small, typo tolerance suits romanized titles, and one binary beats a JVM on this node |
+| 2 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
+| 3 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
+| 4 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
