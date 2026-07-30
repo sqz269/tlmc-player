@@ -115,6 +115,8 @@ builder.Services.AddSwaggerGen(c =>
     {
         c.ConfigureOidcSecurityDefinition();
         c.MapEntityIds();
+        // Second document for the /rest facade; v1 stays generation-clean.
+        c.AddSubsonicDoc();
     })
     .AddSwaggerGenNewtonsoftSupport();
 
@@ -129,7 +131,11 @@ app.UseCors();
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(ui =>
+    {
+        ui.SwaggerEndpoint("/swagger/v1/swagger.json", "TlmcPlayerBackend v1");
+        ui.SwaggerEndpoint("/swagger/subsonic/swagger.json", "Subsonic facade");
+    });
 }
 
 if (app.Environment.IsProduction())

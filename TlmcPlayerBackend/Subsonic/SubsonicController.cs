@@ -15,12 +15,13 @@ namespace TlmcPlayerBackend.Subsonic;
 /// errors here are protocol-level (HTTP 200, status="failed"), so model binding
 /// must not answer 400 on its own. Every method maps twice — pre-1.14 clients
 /// append ".view" — and accepts POST for the formPost extension.
-/// Excluded from the OpenAPI document: the contract is the Subsonic spec, and
-/// generated native clients must not bind to it.
+/// Kept out of the v1 OpenAPI document — the contract is the Subsonic spec,
+/// and generated native clients must not bind to it — but published as its own
+/// browsing-aid document (SubsonicSwagger).
 /// </summary>
 [Route("rest")]
 [ServiceFilter(typeof(SubsonicAuthFilter))]
-[ApiExplorerSettings(IgnoreApi = true)]
+[ApiExplorerSettings(GroupName = SubsonicSwagger.DocName)]
 public class SubsonicController(
     AppDbContext context,
     SubsonicQueries queries,
@@ -418,6 +419,7 @@ public class SubsonicController(
     /// HTML 404 — clients show the message instead of choking on the body.
     /// </summary>
     [AcceptVerbs("GET", "POST", Route = "{**method}")]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public IActionResult NotImplemented(string method)
         => SubsonicResult.Error(SubsonicErrorCodes.NotImplemented,
             $"'{method}' is not implemented by this server");

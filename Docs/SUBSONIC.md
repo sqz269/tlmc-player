@@ -294,8 +294,11 @@ Controllers/UserProfile/ApiKeyController.cs   native key management (§4)
   pattern as `Search:Enabled` — the facade is a feature, not a default.
 - Ingress: route `/rest` to the backend service (`K8s/ingress.yaml`), plus the
   Cloudflare tunnel config. CORS is already permissive globally.
-- Swagger: exclude `/rest` from the OpenAPI doc (`DocInclusionPredicate`) — the
-  contract is the Subsonic spec, and generated clients must not bind to it.
+- Swagger: `/rest` is excluded from the v1 OpenAPI document — the contract is
+  the Subsonic spec, and generated clients must not bind to it — and published
+  instead as a separate browsing-aid document at `/swagger/subsonic/swagger.json`
+  (`SubsonicSwagger.cs`: one GET operation per method, no `.view` aliases, no
+  Bearer requirement, deliberately schemaless responses).
 
 ## 13. Phasing and estimate
 
