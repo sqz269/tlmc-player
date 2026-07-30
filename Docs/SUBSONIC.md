@@ -97,15 +97,20 @@ extension:
   - `DELETE /api/user/api-keys/{id}`
 - `/rest/*` resolves `?apiKey=` → constant-time hash compare → `UserId`
   (same pattern as `Utils/Extensions/InternalApiKey.cs`). Requests carrying
-  `t`/`s` or `p` answer error 42 (“auth mechanism not supported”); a bad key
-  answers 44; both `apiKey` and legacy params together answer 43.
+  `t`/`s` or `p` answer error 42 (“auth mechanism not supported”) — except on
+  an anonymous instance, below; a bad key answers 44; both `apiKey` and legacy
+  params together answer 43.
 - Config `Subsonic:AllowAnonymous` (default `false`): when set, requests with
   no credentials get the read-only surface (browse, stream, cover art, search
   — all of which are anonymous on the native API anyway), and user-scoped
   endpoints answer 50. This matches the native API's authenticated-vs-anonymous
   posture and lets a public instance serve *sonic clients without accounts.
-  Note: many clients refuse to proceed without credentials, so this is a
-  bonus, not the primary mode.
+  Because practically every client — including all hosted web clients — can
+  only log in with `u`/`t`/`s`, an anonymous instance also *accepts* legacy
+  credentials (any username, any password) and grants them exactly the
+  anonymous surface: there is no identity behind them, so user-scoped
+  endpoints still answer 50. A keyed (non-anonymous) instance refuses legacy
+  credentials with 42 as above.
 
 `ping` authenticates like everything else — clients use it to validate
 credentials at setup time.

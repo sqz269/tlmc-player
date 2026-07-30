@@ -32,6 +32,57 @@ public class SubsonicEnvelope
     [XmlElement("searchResult3")] public SearchResult3Dto? SearchResult3 { get; set; }
     [XmlElement("searchResult2")] public SearchResult2Dto? SearchResult2 { get; set; }
     [XmlElement("openSubsonicExtensions")] public List<OpenSubsonicExtensionDto>? OpenSubsonicExtensions { get; set; }
+    [XmlElement("playlists")] public PlaylistsDto? Playlists { get; set; }
+    [XmlElement("starred2")] public Starred2Dto? Starred2 { get; set; }
+    [XmlElement("genres")] public GenresDto? Genres { get; set; }
+    [XmlElement("internetRadioStations")] public InternetRadioStationsDto? InternetRadioStations { get; set; }
+}
+
+// Phase-2 surfaces, stubbed empty so clients that query them on startup render
+// an empty section instead of an error toast (Docs/SUBSONIC.md section 9).
+
+public class PlaylistsDto
+{
+    [XmlElement("playlist")] public List<PlaylistDto> Playlist { get; set; } = [];
+}
+
+public class PlaylistDto
+{
+    [XmlAttribute("id")] public string Id { get; set; } = "";
+    [XmlAttribute("name")] public string Name { get; set; } = "";
+    [XmlAttribute("songCount")] public int SongCount { get; set; }
+    [XmlAttribute("duration")] public int Duration { get; set; }
+}
+
+public class Starred2Dto
+{
+    [XmlElement("artist")] public List<ArtistID3Dto> Artist { get; set; } = [];
+    [XmlElement("album")] public List<AlbumID3Dto> Album { get; set; } = [];
+    [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
+}
+
+public class GenresDto
+{
+    [XmlElement("genre")] public List<GenreDto> Genre { get; set; } = [];
+}
+
+public class GenreDto
+{
+    [XmlText] public string Value { get; set; } = "";
+    [XmlAttribute("songCount")] public int SongCount { get; set; }
+    [XmlAttribute("albumCount")] public int AlbumCount { get; set; }
+}
+
+public class InternetRadioStationsDto
+{
+    [XmlElement("internetRadioStation")] public List<InternetRadioStationDto> InternetRadioStation { get; set; } = [];
+}
+
+public class InternetRadioStationDto
+{
+    [XmlAttribute("id")] public string Id { get; set; } = "";
+    [XmlAttribute("name")] public string Name { get; set; } = "";
+    [XmlAttribute("streamUrl")] public string StreamUrl { get; set; } = "";
 }
 
 public class SubsonicErrorDto

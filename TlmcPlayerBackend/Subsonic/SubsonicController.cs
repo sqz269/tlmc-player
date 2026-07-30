@@ -412,6 +412,27 @@ public class SubsonicController(
             : PhysicalFile(path, "audio/mp4", enableRangeProcessing: true);
     }
 
+    // -- Phase-2 surfaces, stubbed empty ---------------------------------------
+    // Clients query these on startup; an empty section renders, an error 30
+    // toasts. Real implementations arrive with phase 2 (Docs/SUBSONIC.md §9).
+
+    [AcceptVerbs("GET", "POST", Route = "getPlaylists")]
+    [AcceptVerbs("GET", "POST", Route = "getPlaylists.view")]
+    public IActionResult GetPlaylists() => SubsonicResult.Ok(e => e.Playlists = new PlaylistsDto());
+
+    [AcceptVerbs("GET", "POST", Route = "getStarred2")]
+    [AcceptVerbs("GET", "POST", Route = "getStarred2.view")]
+    public IActionResult GetStarred2() => SubsonicResult.Ok(e => e.Starred2 = new Starred2Dto());
+
+    [AcceptVerbs("GET", "POST", Route = "getGenres")]
+    [AcceptVerbs("GET", "POST", Route = "getGenres.view")]
+    public IActionResult GetGenres() => SubsonicResult.Ok(e => e.Genres = new GenresDto());
+
+    [AcceptVerbs("GET", "POST", Route = "getInternetRadioStations")]
+    [AcceptVerbs("GET", "POST", Route = "getInternetRadioStations.view")]
+    public IActionResult GetInternetRadioStations()
+        => SubsonicResult.Ok(e => e.InternetRadioStations = new InternetRadioStationsDto());
+
     // -- Everything else -------------------------------------------------------
 
     /// <summary>

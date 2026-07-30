@@ -70,6 +70,18 @@ public class SubsonicAuthFilter(AppDbContext context, IOptions<SubsonicOptions> 
 
         if (hasLegacy)
         {
+            // Practically every client (and all hosted web clients) can only log
+            // in with u/t/s. On an anonymous instance those credentials are
+            // accepted — any username, any password — and grant exactly the
+            // anonymous surface: there is no identity behind them, so user-scoped
+            // endpoints still answer 50. A keyed instance refuses them outright.
+            if (_options.AllowAnonymous)
+            {
+                context.HttpContext.Items[UserItem] = null;
+                await next();
+                return;
+            }
+
             context.Result = SubsonicResult.Error(SubsonicErrorCodes.AuthMechanismNotSupported,
                 "This server only supports API key authentication (apiKey parameter)");
             return;
