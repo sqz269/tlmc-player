@@ -470,7 +470,7 @@ a `contributor` table, aliases, match metadata) is deferred outright; see below 
 and for what its eventual shape has to look like.
 
 ```sql
-CREATE TYPE credit_role AS ENUM ('arranger', 'vocalist', 'lyricist', 'performer', 'staff');
+CREATE TYPE credit_role AS ENUM ('arranger', 'composer', 'vocalist', 'lyricist', 'performer', 'staff');
 
 CREATE TABLE track_credit (
     track_id    uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,

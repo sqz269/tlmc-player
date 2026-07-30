@@ -190,4 +190,95 @@ public class InternalController(
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     }
+
+    /// <summary>
+    /// Replaces a track's credit rows for the roles present in the payload.
+    /// The loader's verbatim staff rows survive because they use a role the
+    /// thwiki pass never sends.
+    /// </summary>
+    [HttpPut("track/{trackId}/credits")]
+    [InternalApiKey]
+    public async Task<IActionResult> PutTrackCredits(TrackId trackId, [FromBody] TrackCreditsWriteDto dto)
+    {
+        var track = await _context.Tracks.FirstOrDefaultAsync(t => t.Id == trackId);
+        if (track == null)
+        {
+            return NotFound($"Track {trackId} does not exist");
+        }
+
+        // Duplicate role groups merge in payload order; blanks drop; repeats collapse.
+        var byRole = dto.Credits
+            .GroupBy(g => g.Role)
+            .ToDictionary(
+                g => g.Key,
+                g => g.SelectMany(x => x.Names)
+                    .Select(n => n?.Trim())
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .Distinct()
+                    .ToList());
+
+        var roles = byRole.Keys.ToList();
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
+        // ExecuteDelete keeps the change tracker out of it: the fresh rows may
+        // reuse the same (track_id, role, ordinal) keys the old ones held.
+        await _context.TrackCredits
+            .Where(tc => tc.TrackId == trackId && roles.Contains(tc.Role))
+            .ExecuteDeleteAsync();
+
+        foreach (var (role, names) in byRole)
+        {
+            short ordinal = 0;
+            foreach (var name in names)
+            {
+                _context.TrackCredits.Add(new TrackCredit
+                {
+                    TrackId = trackId,
+                    Role = role,
+                    Ordinal = ordinal++,
+                    CreditName = name!,
+                });
+            }
+        }
+
+        track.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return NoContent();
+    }
+
+    /// <summary>Enriches a release from an external source (the thwiki pass).</summary>
+    [HttpPut("release/{releaseId}/source-meta")]
+    [InternalApiKey]
+    public async Task<IActionResult> PutReleaseSourceMeta(ReleaseId releaseId, [FromBody] ReleaseSourceMetaWriteDto dto)
+    {
+        var release = await _context.Releases.FirstOrDefaultAsync(r => r.Id == releaseId);
+        if (release == null)
+        {
+            return NotFound($"Release {releaseId} does not exist");
+        }
+
+        if (dto.CatalogNumber is { } catalog && string.IsNullOrEmpty(release.CatalogNumber))
+        {
+            release.CatalogNumber = catalog;
+        }
+
+        // Reassign rather than mutate: array columns change-detect by reference.
+        if (dto.Website is { } site && !release.Websites.Contains(site))
+        {
+            release.Websites = [.. release.Websites, site];
+        }
+
+        if (dto.DataSource is { } source && !release.DataSources.Contains(source))
+        {
+            release.DataSources = [.. release.DataSources, source];
+        }
+
+        release.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
