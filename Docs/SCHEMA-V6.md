@@ -5,20 +5,21 @@ here is a data migration — v6 starts empty, so this is "what should the initia
 migration create", and the cost of each change is measured in ETL edits rather than
 `UPDATE` statements.
 
-Five items are marked **DECISION** because they are judgement calls I should not make
-unilaterally. Everything else I'd treat as settled unless you disagree. (§1's
-identifier scheme was one of them and is now settled: TypeID over UUIDv7.)
+Judgement calls are collected in §15 — four are now settled (identifiers, DASH, search
+implementation, credit normalization) and five remain open. Everything not listed there
+I'd treat as settled unless you disagree.
 
 The DDL below is the target shape. The backend is EF-first (migrations are generated
 from `Models/`), so the real work is model changes plus one generated migration; the
 SQL is here to be precise about constraints and indexes that are easy to lose in
 translation.
 
-The four constructs this proposal leans on that aren't obviously portable were executed
+The constructs this proposal leans on that aren't obviously portable were executed
 against the running pgvector 0.8.6 / PG15 instance before writing them down: generated
 sort columns over `jsonb`, `DEFERRABLE INITIALLY DEFERRED` unique constraints (including
-an in-transaction renumber that transiently collides), partial HNSW indexes on both
-`vector` and `halfvec`, and `pg_trgm` GIN. All four work.
+an in-transaction renumber that transiently collides), and partial HNSW indexes on both
+`vector` and `halfvec`. All three work. (`pg_trgm` GIN was verified too, but is no
+longer needed now that search leaves Postgres — see §7.)
 
 > **EF caveat:** EF Core cannot express `DEFERRABLE` constraints or partial HNSW indexes
 > through the fluent API. Those two need `migrationBuilder.Sql(...)` in the generated
@@ -55,7 +56,7 @@ EF Core 9 already mints v7 for `Guid` keys it generates; the ETL mints v4
 currently v4 and the playlists are v7 by accident. v7's timestamp prefix gives B-tree
 locality on bulk insert — inserts land near the right edge of the index instead of
 scattering across it — which matters when one ETL run appends 164k tracks plus their
-credits, search rows and 16.4M similarity rows.
+credits and 16.4M similarity rows.
 
 - .NET: `Guid.CreateVersion7()` (.NET 9) in place of `Guid.NewGuid()`.
 - Python: the `uuid6` package's `uuid7()`.
@@ -244,9 +245,23 @@ was recording facts a convention already fixes disappears with them.
 Keep a real table only if rungs will vary per track, or you want per-segment byte-range
 metadata in the database. Neither is true today.
 
-**DECISION — DASH.** `DashMusicAssetController` is live but I expect `DashPlaylists` is
-empty and DASH was never produced. If you're not shipping DASH, drop the table and the
-controller; if you are, it gets the same treatment as HLS (a key plus a convention).
+**DASH stays** (correcting an earlier assumption of mine that it was vestigial — there
+is a real `Postprocessor/DashRepackage` stage and a `MpegDashPlaylistProcessor` in
+PushToDb).
+
+It gets the same treatment as HLS rather than an exemption, because it has the same
+property: `dash-repackage.py` writes `BaseURL` entries relative to the manifest's own
+directory, so the `.mpd` is self-contained and its location is conventional. That means
+one more column and no table:
+
+```sql
+-- on track, alongside media_key / hls_bitrates:
+    has_dash boolean NOT NULL DEFAULT false,
+```
+
+So `DashPlaylists` still goes away while DASH serving stays — the table was recording a
+path the convention already fixes, exactly as with HLS. `DashMusicAssetController`
+composes the manifest URL from `media_key` instead of reading a row.
 
 ---
 
@@ -398,20 +413,79 @@ CREATE TABLE track_tag (
 CREATE INDEX track_tag_tag_id_idx ON track_tag (tag_id);
 ```
 
-**DECISION — how far to normalize.** Three options, in increasing cost:
+### Separating what was scraped from who we think it is
 
-1. **Full normalization** (above). Unlocks browse-by-contributor properly. Cost: the
-   ETL must resolve names to contributor ids, which means an alias/merge table and
-   accepting that the first pass will create near-duplicates you clean up over time.
-2. **Keep the arrays, add GIN indexes.** `CREATE INDEX ... USING gin (vocalist)` makes
-   `vocalist @> ARRAY['nomico']` fast. Cheap, no ETL change, but exact-string only and
-   no way to merge variants or count reliably.
-3. **Both, temporarily.** Normalize *and* keep the arrays as the ETL's raw record, so
-   you can re-derive contributors after improving the matching without re-reading
-   thwiki. My recommendation — the arrays are small and it makes the normalization
-   reversible.
+The obvious objection to normalizing credits is that the source data does not deserve
+it. These strings come off thwiki: inconsistent romanization, several people crammed
+into one field, circle names appearing where a vocalist belongs, `feat.` constructions,
+typos. Resolving them into foreign keys asserts a confidence nobody has, and a bad merge
+baked into an FK is expensive to unpick.
 
-I'd take (3), then drop the arrays once the contributor table looks right.
+The fix is to stop treating those as one thing. A credit row records **two** facts with
+very different epistemic status:
+
+1. **What the source said** — verbatim, ordered, immutable. Raw data.
+2. **Who we currently think that is** — a nullable FK, revisable forever.
+
+```sql
+CREATE TYPE credit_match_method AS ENUM ('unresolved', 'exact', 'alias', 'fuzzy', 'manual');
+
+CREATE TABLE track_credit (
+    track_id         uuid        NOT NULL REFERENCES track (id) ON DELETE CASCADE,
+    role             credit_role NOT NULL,
+    ordinal          smallint    NOT NULL,
+
+    -- Verbatim, never rewritten. This is what the API displays and what the search
+    -- index sees, so presentation is always faithful to the source regardless of
+    -- whether anything below is filled in.
+    credit_name      text        NOT NULL,
+
+    -- Our current opinion. NULL until resolved; ingestion never blocks on it.
+    contributor_id   uuid        REFERENCES contributor (id) ON DELETE SET NULL,
+    match_method     credit_match_method NOT NULL DEFAULT 'unresolved',
+    match_confidence real,
+
+    PRIMARY KEY (track_id, role, ordinal)
+);
+
+-- Browse: "everything this contributor sang on".
+CREATE INDEX track_credit_contributor_idx
+    ON track_credit (contributor_id, role, track_id) WHERE contributor_id IS NOT NULL;
+-- Exact-string fallback while resolution is incomplete.
+CREATE INDEX track_credit_name_idx ON track_credit (lower(credit_name));
+-- The resolution worklist.
+CREATE INDEX track_credit_unresolved_idx ON track_credit (role) WHERE contributor_id IS NULL;
+```
+
+`contributor` gains a redirect so merges are reversible without rewriting credit rows:
+
+```sql
+ALTER TABLE contributor ADD COLUMN merged_into uuid REFERENCES contributor (id);
+```
+
+What this buys:
+
+- **Ingestion cannot be blocked by bad data.** Every scraped string is written; the FK
+  is left NULL. A load never fails because a name was ambiguous.
+- **Resolution is a separate, re-runnable pass.** Improve the matcher, re-run it, the
+  FKs move. Nothing was lost, because `credit_name` is still there. This is the property
+  the arrays were supposed to provide in my earlier draft, and it provides it better —
+  ordered, per-role, and joined to the resolution in the same row.
+- **You can be conservative.** Auto-resolve only `exact` and `alias`; leave `fuzzy`
+  matches unresolved or flagged, and promote them to `manual` as you confirm them.
+  `match_confidence` makes "show me everything the matcher guessed at" a query.
+- **Partial resolution degrades gracefully.** An unresolved credit still displays and
+  is still searchable; it just isn't browsable as an entity yet.
+
+This replaces the raw `text[]` columns entirely — `credit_name` is a strictly better raw
+record than the arrays were, so §11's transitional-arrays note no longer applies.
+
+**It also matters that search is external (§7).** Because the search index consumes
+`credit_name` directly, free-text credit search works from day one whether or not a
+single credit is ever resolved. That reduces normalization from a prerequisite to an
+enhancement: it buys faceting, "more from this vocalist", and reliable counts, and if
+the resolution pass is only 60% accurate on the first run, the thing users notice most
+still works correctly.
 
 ---
 
@@ -457,34 +531,84 @@ at nothing. What exists is `Regex.IsMatch(a.Name.Default, filter.Title)`, which 
 runs as `~*` over `"Name"->>'Default'`: a sequential scan on every call, unindexable,
 and a `PostgresException` if a user types `(`.
 
-Search spans tables (title + release + credits + original works), so a generated column
-can't express it. Since the catalogue is written once per TLMC release, an
-ETL-maintained document table is the honest design:
+**Decided: search moves to a dedicated engine, not Postgres.** So there is no
+`track_search` table, no `tsvector`, and no `pg_trgm` dependency. Postgres keeps
+`name_sort` — that is for `ORDER BY` on list endpoints, which is a different job.
+
+That makes the schema's obligation a different one: the database stays the source of
+truth and must be able to **rebuild the index from scratch at any time**, and to do so
+incrementally. Which means every indexed entity needs `updated_at`:
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+ALTER TABLE track   ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+ALTER TABLE release ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+-- ...and a trigger, or set it in the repository layer.
 
-CREATE TABLE track_search (
-    track_id  uuid     PRIMARY KEY REFERENCES track (id) ON DELETE CASCADE,
-    -- Weighted: A title, B release, C credits, D originals.
-    document  tsvector NOT NULL,
-    -- Flattened plain text for trigram/fuzzy matching on romanisations.
-    haystack  text     NOT NULL
-);
-
-CREATE INDEX track_search_document_idx ON track_search USING gin (document);
-CREATE INDEX track_search_haystack_idx ON track_search USING gin (haystack gin_trgm_ops);
+CREATE INDEX track_updated_at_idx ON track (updated_at);
 ```
 
-**DECISION — locale handling.** `LocalizedField` carries `Default`/`En`/`Zh`/`Jp`. I'd
-flatten all four into one `document` with the same weight class, because users search
-in whichever script they happen to know and a Japanese title should be findable by its
-romanization. The alternative is per-locale documents and an explicit language
-parameter. Flattening is simpler and I think better here, but it's your call.
+Full reindex is a scan; incremental is `WHERE updated_at > :watermark`. Without this,
+every credit correction means a full 164k-document rebuild.
 
-Note the config choice matters: `simple` avoids English stemming mangling romanized
-Japanese. CJK won't segment properly with any built-in config — the trigram index is
-what carries CJK substring search, which is why both indexes exist.
+### Document shape
+
+One document per track, fully denormalized — the engine should never need a join:
+
+```
+id, title (all four locales), release title, release date, catalog number,
+circle names, credit_name strings (all roles, unresolved included),
+original song + work titles, tag names, duration, has_lyrics
+```
+
+Note credits enter as the **raw `credit_name` strings** from §5, not as resolved
+contributors. That is what makes credit search work before normalization does.
+
+### Meilisearch or Elasticsearch
+
+I'd take **Meilisearch** here. 164k documents is small; typo tolerance out of the box
+matters a lot for romanized Japanese, where users approximate spellings constantly; and
+it is one binary against Elasticsearch's JVM and cluster assumptions. That last point is
+concrete — this node already runs Keycloak, two Postgres instances and the API, and
+Elastic wants a couple of GB of heap before it does anything useful.
+
+Take Elasticsearch instead if you expect to need real aggregation/analytics later, or
+you want kuromoji-grade Japanese analysis with hand-tuned dictionaries. Neither looks
+likely for a music catalogue browse UI.
+
+### The CJK trap — configure this explicitly or it will be subtly wrong
+
+Meilisearch tokenizes through [charabia](https://github.com/meilisearch/charabia), which
+has proper Japanese (lindera) and Chinese (jieba) segmenters. But which one it picks is
+decided by `whatlang` language detection, and
+[whatlang classifies text as Mandarin unless at least ~5% of characters are hiragana or
+katakana](https://github.com/meilisearch/product/discussions/532).
+
+A large share of Touhou titles are pure kanji. Those get **Chinese segmentation applied
+to Japanese text** — silently, with no error, producing quietly poor recall on exactly
+the titles most likely to be searched in their original script.
+
+The fix exists but must be turned on: Meilisearch 1.10 added
+[`localizedAttributes`](https://www.meilisearch.com/docs/reference/api/settings) as an
+index setting and `locales` as a search parameter, and `locales` takes precedence over
+detection. So declare the locale per attribute (`jpn` for the Japanese title field,
+`eng` for romanized) rather than letting detection guess, and pass `locales` on queries
+where the UI knows the script. Verify against whatever version you deploy; this is a
+1.10+ feature.
+
+This is the single thing I would test first with real data before committing to
+Meilisearch — index a few hundred kanji-only titles and check recall with and without
+`localizedAttributes` set.
+
+### Operational notes
+
+- **Reindex ownership.** The ETL pushes after a catalogue load; the backend pushes on
+  mutation. Both go through one projection function so the document shape cannot drift
+  between them.
+- **The engine is not the source of truth.** Losing it entirely should cost a reindex,
+  never data.
+- **Failure mode.** If the engine is down, search should 503 cleanly — but browse,
+  playback and playlists must not depend on it. Keep list endpoints served from
+  Postgres so an engine outage degrades one feature rather than the site.
 
 ---
 
@@ -695,12 +819,12 @@ desirable queries in this whole domain and is currently unsupported.
 | Dropped | Replaced by |
 | --- | --- |
 | `HlsPlaylist`, `HlsSegment` | `track.media_key` + `track.hls_bitrates` |
-| `DashPlaylists` | same, if DASH ships at all (**DECISION**) |
+| `DashPlaylists` | `track.media_key` + `track.has_dash` (DASH serving stays) |
 | `Thumbnails` (5 FK columns) | `artwork` + `artwork_variant` |
 | `Albums` (dual-purpose) | `release` + `disc` |
 | `PlaylistItems.TimesPlayed` | `play_event` |
 | `Playlists.NumberOfTracks` | `COUNT(*)`, or a trigger |
-| `Tracks.Genre/Staff/Arrangement/Vocalist/Lyricist` | `track_credit`, `track_tag` (kept transitionally — see §5) |
+| `Tracks.Genre/Staff/Arrangement/Vocalist/Lyricist` | `track_credit.credit_name` (verbatim) + `track_tag` |
 
 ---
 
@@ -716,8 +840,11 @@ desirable queries in this whole domain and is currently unsupported.
 - Write `release` + `disc` instead of the album/disc-0 pair.
 - Stop emitting `HlsPlaylist`/`HlsSegment`; write `media_key` and `hls_bitrates`.
 - Write root-relative `storage_key` + `root` for assets, not absolute paths.
-- Resolve credit strings to `contributor` rows, and populate `track_credit`/`track_tag`.
-- Populate `track_search`.
+- Write credits verbatim into `track_credit.credit_name` with `contributor_id` NULL.
+  Resolution is a separate pass (§5), not part of ingestion — a load must never fail
+  because a scraped name was ambiguous.
+- Push search documents to the engine after load (§7), and maintain `updated_at` so
+  later runs can reindex incrementally instead of rebuilding all 164k documents.
 - Also fix the two loader bugs already identified: clear the EF change tracker between
   batches (currently quadratic), and assert vector length on load so a truncated `.bin`
   fails one row rather than a 5,000-row batch mid-run with no resume path.
@@ -742,19 +869,27 @@ output plus a version column — the script already emits exactly this shape.
 
 ## 13. Rollout order
 
-1. Settle the six **DECISION** points.
+1. Settle the five remaining decisions in §15.
 2. Rewrite `Models/` and generate one initial migration. Keep migrations out of app
    startup — a Job or an explicit `dotnet ef database update`, with its own timeout
    (per `8b97201`).
 3. Load reference data (`original_work`, `original_song`, `circle`).
-4. Load catalogue (`release`, `disc`, `track`, `asset`, `contributor`, credits).
+4. Load catalogue (`release`, `disc`, `track`, `asset`, credits as verbatim
+   `credit_name` with `contributor_id` left NULL).
 5. Build indexes **after** the bulk load, not before — index maintenance during a 164k
    insert is much slower than one build afterwards, and it's why the migration timeout
    matters.
-6. Backfill `track_search`, then artwork variants, then `content_hash`.
+6. Artwork variants, then `content_hash`.
 7. Load `track_embedding`, build the HNSW indexes, load `similar_track`.
+8. Run the credit resolution pass, populating `contributor` and setting
+   `track_credit.contributor_id`. Re-runnable, and deliberately last — nothing upstream
+   depends on it.
+9. Build the search index from the catalogue projection.
 
-Steps 6 and 7 are independent of each other and of serving; the API is usable after 5.
+Steps 6 through 9 are independent of each other and of serving; the API is usable after
+5, with search and contributor browse arriving as they complete. If the resolution pass
+in 8 turns out disappointing, it can be re-run after improving the matcher without
+touching anything else — that is the whole point of §5's split.
 
 ---
 
@@ -769,12 +904,21 @@ its `CircleWebsite` child. The two-tier retrieval design. EF as the access layer
 
 ## 15. Open decisions
 
+Settled:
+
+| Decision | Outcome |
+| --- | --- |
+| Identifier scheme | TypeID over UUIDv7, stored as `uuid` (§1) |
+| Ship DASH? | Yes, keep serving — but `DashPlaylists` still collapses to a column (§3) |
+| Search implementation | External engine, not Postgres FTS (§7) |
+| How far to normalize credits | Verbatim `credit_name` + revisable nullable FK (§5) |
+
+Still open:
+
 | # | Decision | My recommendation |
 | --- | --- | --- |
-| 0 | ~~Identifier scheme~~ | **Settled: TypeID over UUIDv7, stored as `uuid` (§1)** |
 | 1 | Identifier casing (snake_case vs EF PascalCase) | snake_case, since v6 is fresh and you write raw SQL |
-| 2 | Ship DASH at all? | Drop it unless a client needs it |
-| 3 | How far to normalize credits (§5) | Option 3: normalize *and* keep raw arrays transitionally |
-| 4 | Search: flatten locales vs per-locale documents | Flatten, weight by field not language |
-| 5 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
-| 6 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
+| 2 | Meilisearch or Elasticsearch (§7) | Meilisearch — 164k docs is small, typo tolerance suits romanized titles, and one binary beats a JVM on this node |
+| 3 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
+| 4 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
+| 5 | Keep a `NumberOfTracks`-style counter? | No; derive it, or use a trigger if the UI needs it |
