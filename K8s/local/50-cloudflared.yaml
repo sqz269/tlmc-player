@@ -1,0 +1,82 @@
+---
+# Publishes the stack through the Cloudflare tunnel `tlmc` (7620f6c1...).
+#
+# IMPORTANT: this tunnel also has a NixOS-declared connector on the host
+# (cloudflared-tunnel-7620f6c1....service) whose ingress currently only routes
+# sso.marisad.me. Cloudflare round-robins requests across ALL connectors of a
+# tunnel, so every connector must carry the SAME ingress rules or a fraction
+# of requests answer 404. Keep this file and the NixOS
+# services.cloudflared.tunnels ingress in lockstep — or run only one of them.
+#
+# The credentials secret is created out-of-band:
+#   kubectl -n tlmc-player create secret generic cloudflared-tlmc-credentials \
+#     --from-file=creds.json=~/.cloudflared/<tunnel-id>.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-tlmc-config
+  namespace: tlmc-player
+data:
+  config.yml: |
+    tunnel: 7620f6c1-d7d7-4bff-885a-bb3a7c023111
+    credentials-file: /etc/cloudflared/creds/creds.json
+    ingress:
+      - hostname: tlmc.marisad.me
+        service: http://backend-api-clusterip.tlmc-player.svc.cluster.local
+      - hostname: sso.marisad.me
+        service: http://keycloak-server-clusterip.tlmc-player.svc.cluster.local:8080
+      - service: http_status:404
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared-tlmc
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudflared-tlmc
+  template:
+    metadata:
+      labels:
+        app: cloudflared-tlmc
+    spec:
+      containers:
+        - name: cloudflared
+          image: cloudflare/cloudflared:latest
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --metrics
+            - 0.0.0.0:2000
+            - --config
+            - /etc/cloudflared/config.yml
+            - run
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cloudflared
+              readOnly: true
+            - name: credentials
+              mountPath: /etc/cloudflared/creds
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: cloudflared-tlmc-config
+        - name: credentials
+          secret:
+            secretName: cloudflared-tlmc-credentials

@@ -40,9 +40,9 @@ spec:
               containerPort: 5432
           env:
             - name: POSTGRES_DB
-              value: tlmcplayer
+              value: tlmcplayer_v6
             - name: POSTGRES_USER
-              value: tlmcplayer
+              value: tlmcplayer_v6
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

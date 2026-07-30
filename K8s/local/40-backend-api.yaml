@@ -43,10 +43,6 @@ spec:
             # link generation on a plain-HTTP cluster.
             - name: ASPNETCORE_ENVIRONMENT
               value: Staging
-            - name: FFMpegDirectory
-              value: /usr/bin
-            - name: ThumbnailRoot
-              value: /thumbdata/
             - name: ConnectionStrings__PostgreSql
               valueFrom:
                 secretKeyRef:
@@ -60,17 +56,18 @@ spec:
             # true.
             - name: Keycloak__RequireHttpsMetadata
               value: "__KC_REQUIRE_HTTPS__"
-            # Swagger is no longer served unconditionally; ASPNETCORE_ENVIRONMENT is
-            # Staging here, so it has to be asked for explicitly.
+            # Swagger stays off: this service is published through the Cloudflare
+            # tunnel, and the OpenAPI document describes the api/internal write
+            # surface. Flip to "true" for LAN debugging only.
             - name: Swagger__Enabled
-              value: "true"
-            # Constrains which filesystem paths stored assets may be served from.
-            # Asset rows hold absolute paths written by the ETL and the API opens them
-            # directly, so this is the containment boundary for that.
-            - name: Assets__Roots__0
-              value: /mnt/tlmc/TLMC v6/
-            - name: Assets__Roots__1
-              value: /thumbdata/
+              value: "false"
+            # v6: rows hold storage keys, and these roots are what they resolve
+            # against (StorageRootResolver). media_key and asset keys live in the
+            # library root; generated thumbnails will land in the thumbnail root.
+            - name: Storage__Roots__Library
+              value: /mnt/tlmc/TLMC v6
+            - name: Storage__Roots__Thumbnail
+              value: /thumbdata
             # Shared secret for the api/internal write surface. Absent, those routes
             # 404 rather than being reachable unauthenticated.
             - name: Internal__ApiKey
@@ -87,9 +84,9 @@ spec:
               readOnly: true
             - name: thumbdata
               mountPath: /thumbdata/
-          # Startup runs migrations plus the ffprobe/thumbnail backfill before
-          # Kestrel listens, so the startup budget is deliberately generous
-          # (5 min) while liveness stays tight afterwards.
+          # v6 startup neither migrates nor backfills (schema comes from an
+          # explicit `dotnet ef database update`), so this budget is slack; kept
+          # generous because a cold image pull rides on it too.
           startupProbe:
             httpGet:
               path: /healthz
