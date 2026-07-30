@@ -1,25 +1,24 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Models.MusicData;
 
 namespace TlmcPlayerBackend.Models.Playlist;
 
-[PrimaryKey(nameof(TrackId), nameof(PlaylistId))]
+/// <summary>
+/// PK (playlist_id, track_id) is a deduplicating key on purpose: a playlist holding
+/// the same track twice stays disallowed. Duplicates belong to the queue (QueueItem).
+/// The position unique constraint is DEFERRABLE (added via raw SQL in the initial
+/// migration) so renumbering can shuffle positions inside one transaction.
+/// </summary>
 public class PlaylistItem
 {
-    [Required]
-    public Guid TrackId { get; set; }
-    
-    [ForeignKey("TrackId")]
-    public Track Track { get; set; }
+    public PlaylistId PlaylistId { get; set; }
+    public Playlist Playlist { get; set; } = null!;
 
-    public int Index { get; set; }
-    public int TimesPlayed { get; set; }
-    public DateTime DateAdded { get; set; }
+    public TrackId TrackId { get; set; }
+    public Track Track { get; set; } = null!;
 
-    [Required]
-    [ForeignKey("Playlist")]
-    public Guid PlaylistId { get; set; }
-    public Playlist Playlist { get; set; }
+    /// <summary>1-based, dense per playlist.</summary>
+    public int Position { get; set; }
+
+    public DateTime AddedAt { get; set; }
 }

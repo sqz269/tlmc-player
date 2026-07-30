@@ -1,6 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Newtonsoft.Json;
+using TlmcPlayerBackend.Ids;
 
 namespace TlmcPlayerBackend.Models.MusicData;
 
@@ -39,9 +38,11 @@ public class LyricsVariant
 
 public class Lyrics
 {
-    [Key]
-    public required Guid Id { get; set; }
+    public LyricsId Id { get; set; }
 
+    // The stored document is relayed to clients verbatim (pass-through, see
+    // SCHEMA-V6.md section 15), so its keys are the API contract: snake_case,
+    // same as the wire.
     [Column(TypeName = "jsonb")]
     public required List<LyricsVariant> Variants { get; set; }
 

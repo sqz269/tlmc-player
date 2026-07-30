@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using KeycloakAuthProvider.Identity;
+using TlmcPlayerBackend.Ids;
 
 namespace TlmcPlayerBackend.Models.Playlist;
 
@@ -13,52 +11,50 @@ public enum PlaylistVisibility
     Unlisted
 }
 
-public enum PlaylistType
+/// <summary>
+/// History and Queue are gone from this enum on purpose: history is play_event data,
+/// and the queue is its own table (QueueItem) with different invariants.
+/// </summary>
+public enum PlaylistKind
 {
     Normal,
-
     Favorite,
-    History,
-    Queue,
 }
 
 public class Playlist
 {
-    [Key]
-    public Guid Id { get; set; }
+    public PlaylistId Id { get; set; }
 
-    public string Name { get; set; }
+    public string Name { get; set; } = null!;
 
-    public Guid OwnerId { get; set; }
-    
-    [ForeignKey("OwnerId")]
-    public UserProfile Owner { get; set; }
+    public UserId OwnerId { get; set; }
+    public UserProfile Owner { get; set; } = null!;
+
+    public PlaylistKind Kind { get; set; }
 
     public PlaylistVisibility Visibility { get; set; }
 
-    public PlaylistType Type { get; set; }
-
-    public int NumberOfTracks { get; set; }
+    public DateTime CreatedAt { get; set; }
 
     public DateTime LastModified { get; set; }
 
-    public List<PlaylistItem>? Tracks { get; set; } = new();
+    public List<PlaylistItem> Items { get; set; } = [];
 
     public static Playlist Create(string name, PlaylistVisibility visibility,
-        UserClaim user, 
-        PlaylistType type=PlaylistType.Normal)
+        UserId owner,
+        PlaylistKind kind = PlaylistKind.Normal)
     {
         return new Playlist
         {
-            Id = new Guid(),
-            
-            OwnerId = user.UserId,
-            
+            Id = PlaylistId.New(),
+
+            OwnerId = owner,
+
             Name = name,
             Visibility = visibility,
-            Type = type,
+            Kind = kind,
             LastModified = DateTime.UtcNow,
-            Tracks = new List<PlaylistItem>()
+            Items = [],
         };
     }
 }

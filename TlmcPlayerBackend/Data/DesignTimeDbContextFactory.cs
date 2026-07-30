@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Pgvector.EntityFrameworkCore;
 
 namespace TlmcPlayerBackend.Data;
 
@@ -17,10 +16,9 @@ public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
             Environment.GetEnvironmentVariable("ConnectionStrings__PostgreSql")
             ?? "Host=localhost;Port=5432;Database=tlmcplayer;Username=tlmcplayer;Password=tlmcplayer";
 
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString, o => o.UseVector())
-            .Options;
+        var options = new DbContextOptionsBuilder<AppDbContext>();
+        AppDbOptions.Configure(options, AppDbOptions.BuildDataSource(connectionString));
 
-        return new AppDbContext(options);
+        return new AppDbContext(options.Options);
     }
 }
