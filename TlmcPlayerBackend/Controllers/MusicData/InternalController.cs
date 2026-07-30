@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TlmcPlayerBackend.Data;
@@ -6,6 +7,7 @@ using TlmcPlayerBackend.Dtos.Internal;
 using TlmcPlayerBackend.Dtos.MusicData;
 using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Models.MusicData;
+using TlmcPlayerBackend.Search;
 using TlmcPlayerBackend.Utils.Extensions;
 
 namespace TlmcPlayerBackend.Controllers.MusicData;
@@ -15,10 +17,14 @@ namespace TlmcPlayerBackend.Controllers.MusicData;
 /// </summary>
 [ApiController]
 [Route("api/internal")]
-public class InternalController(AppDbContext context, IOriginalRepo originalRepo) : ControllerBase
+public class InternalController(
+    AppDbContext context,
+    IOriginalRepo originalRepo,
+    ISearchIndexService search) : ControllerBase
 {
     private readonly AppDbContext _context = context;
     private readonly IOriginalRepo _originalRepo = originalRepo;
+    private readonly ISearchIndexService _search = search;
 
     /// <summary>Upserts extended circle metadata by exact circle name (the thwiki pass).</summary>
     [HttpPut("circle")]
@@ -109,6 +115,10 @@ public class InternalController(AppDbContext context, IOriginalRepo originalRepo
         track.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
+        // Best-effort: the write is committed either way, and the bumped
+        // updated_at watermark repairs a missed push on the next reindex.
+        await _search.TryIndexTracksAsync([trackId], HttpContext.RequestAborted);
+
         return new LyricsReadDto
         {
             Id = track.Lyrics.Id,
@@ -131,8 +141,53 @@ public class InternalController(AppDbContext context, IOriginalRepo originalRepo
             return NotFound($"Track {trackId} does not exist");
         }
 
-        return unknown.Count > 0
-            ? BadRequest(new { unknown_song_external_keys = unknown })
-            : NoContent();
+        if (unknown.Count > 0)
+        {
+            return BadRequest(new { unknown_song_external_keys = unknown });
+        }
+
+        await _search.TryIndexTracksAsync([trackId], HttpContext.RequestAborted);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Rebuilds the search index from Postgres — the database is the source of
+    /// truth and the index is a projection that must be reconstructible at any
+    /// time (SCHEMA-V6.md section 7). Without `since`: a full rebuild into a
+    /// staging index swapped in atomically. With `since`: an incremental upsert
+    /// of tracks whose updated_at passed the watermark — the ETL calls this
+    /// after a load with `since` set to the moment the load started.
+    ///
+    /// Synchronous by design: the caller is the ETL, and it wants to know the
+    /// index is consistent before declaring the load done. Use a generous client
+    /// timeout for full rebuilds.
+    /// </summary>
+    [HttpPost("search/reindex")]
+    [InternalApiKey]
+    public async Task<ActionResult<object>> ReindexSearch(
+        [FromQuery] DateTimeOffset? since, CancellationToken ct)
+    {
+        if (!_search.Enabled)
+        {
+            return Problem(
+                title: "Search is not available",
+                detail: "No search engine is configured for this deployment.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+            await _search.EnsureIndexAsync(ct);
+            var indexed = await _search.ReindexAsync(since?.UtcDateTime, ct);
+            return new { indexed, since, elapsed_ms = stopwatch.ElapsedMilliseconds };
+        }
+        catch (MeiliUnavailableException e)
+        {
+            return Problem(
+                title: "Search engine unreachable",
+                detail: e.Message,
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
     }
 }

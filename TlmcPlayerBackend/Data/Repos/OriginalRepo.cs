@@ -92,6 +92,7 @@ public class OriginalRepo(AppDbContext context) : IOriginalRepo
             .Include(w => w.Songs)
             .FirstOrDefaultAsync(w => w.ExternalKey == dto.ExternalKey);
 
+        var isNew = work == null;
         if (work == null)
         {
             work = new OriginalWork
@@ -107,7 +108,27 @@ public class OriginalRepo(AppDbContext context) : IOriginalRepo
         work.ShortName = dto.ShortName;
         work.ExternalRef = dto.ExternalRef;
 
+        // Work titles are denormalized into track search documents, but editing
+        // this row does not touch any track — exactly the child-row blind spot
+        // the updated_at watermark has (SCHEMA-V6.md section 7). Bump the
+        // arranging tracks in the same transaction so the next incremental
+        // reindex sees them. A new work has no arrangements to bump.
+        var changed = !isNew && _context.Entry(work).Properties.Any(p => p.IsModified);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.SaveChangesAsync();
+        if (changed)
+        {
+            await _context.Database.ExecuteSqlAsync($@"
+                UPDATE track SET updated_at = now()
+                WHERE id IN (
+                    SELECT tos.track_id
+                    FROM track_original_song tos
+                    JOIN original_song os ON os.id = tos.original_song_id
+                    WHERE os.original_work_id = {work.Id.Value})");
+        }
+
+        await transaction.CommitAsync();
         return ProjectWork(work);
     }
 
@@ -122,6 +143,7 @@ public class OriginalRepo(AppDbContext context) : IOriginalRepo
         var song = await _context.OriginalSongs
             .FirstOrDefaultAsync(s => s.ExternalKey == dto.ExternalKey);
 
+        var isNew = song == null;
         if (song == null)
         {
             song = new OriginalSong
@@ -141,7 +163,22 @@ public class OriginalRepo(AppDbContext context) : IOriginalRepo
         song.TrackIndex = dto.TrackIndex;
         song.ExternalRef = dto.ExternalRef;
 
+        // Same watermark bump as UpsertWork: song titles live inside track
+        // search documents, and this row is not the track.
+        var changed = !isNew && _context.Entry(song).Properties.Any(p => p.IsModified);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
         await _context.SaveChangesAsync();
+        if (changed)
+        {
+            await _context.Database.ExecuteSqlAsync($@"
+                UPDATE track SET updated_at = now()
+                WHERE id IN (
+                    SELECT track_id FROM track_original_song
+                    WHERE original_song_id = {song.Id.Value})");
+        }
+
+        await transaction.CommitAsync();
         return ProjectSong(song);
     }
 

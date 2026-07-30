@@ -23,6 +23,10 @@ public interface ITrackRepo
     Task<CursorPage<TrackWithContext>> Filter(TrackFilter filter, string? cursor, int limit);
     Task<List<TrackWithContext>> GetRandom(int count, string? seed);
     Task<CursorPage<TrackWithContext>> GetTracksByCredit(string name, CreditRole? role, string? cursor, int limit);
+
+    /// <summary>Hydrates tracks in the given order; ids that no longer exist are
+    /// simply absent (a search index is allowed to be briefly stale).</summary>
+    Task<List<TrackWithContext>> GetWithContext(IReadOnlyList<TrackId> ids);
 }
 
 public class TrackRepo(AppDbContext context) : ITrackRepo
@@ -165,6 +169,22 @@ public class TrackRepo(AppDbContext context) : ITrackRepo
             .ToListAsync();
 
         return await HydratePage(rows, limit);
+    }
+
+    public async Task<List<TrackWithContext>> GetWithContext(IReadOnlyList<TrackId> ids)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await _context.Tracks
+            .AsNoTracking()
+            .Where(t => ids.Contains(t.Id))
+            .ToTrackWithContext()
+            .ToListAsync();
+
+        return rows.InIdOrder(ids.Select(i => i.Value).ToList(), r => r.Track.Id.Value);
     }
 
     private static (string? Sort, Guid Id) DecodeAfter(string? cursor)

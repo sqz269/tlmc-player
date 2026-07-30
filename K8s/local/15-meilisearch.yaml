@@ -1,0 +1,119 @@
+---
+# Meilisearch (SCHEMA-V6.md section 7). The index is a projection of Postgres,
+# never a source of truth: the PVC is sized for the index, not for durability,
+# and is deliberately NOT backed up — losing it costs one
+# POST /api/internal/search/reindex, never data.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meilisearch-data
+  namespace: tlmc-player
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meilisearch
+  namespace: tlmc-player
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: meilisearch
+  template:
+    metadata:
+      labels:
+        app: meilisearch
+    spec:
+      containers:
+        - name: meilisearch
+          # Pinned: localizedAttributes (the CJK segmentation fix the backend's
+          # index settings depend on) needs >= 1.10, and the index format is not
+          # forward-compatible across minors — a floating tag would quietly
+          # require a dump/import on every image pull.
+          image: getmeili/meilisearch:v1.51
+          env:
+            # production mode: master key required, dev dashboard off.
+            - name: MEILI_ENV
+              value: production
+            - name: MEILI_NO_ANALYTICS
+              value: "true"
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: meilisearch-credentials
+                  key: MEILI_MASTER_KEY
+          ports:
+            - name: http
+              containerPort: 7700
+          volumeMounts:
+            - name: data
+              mountPath: /meili_data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 7700
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 7700
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: meilisearch-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: meilisearch-clusterip
+  namespace: tlmc-player
+spec:
+  type: ClusterIP
+  selector:
+    app: meilisearch
+  ports:
+    - name: http-meilisearch
+      protocol: TCP
+      port: 7700
+      targetPort: 7700
+      appProtocol: HTTP
+---
+# Exposed so the CJK locale probe (Tools/meili-cjk-probe) and ad-hoc index
+# inspection can reach the engine from the host. The master key still gates
+# every request; drop this Service if that stops being acceptable.
+apiVersion: v1
+kind: Service
+metadata:
+  name: meilisearch-nodeport
+  namespace: tlmc-player
+spec:
+  type: NodePort
+  selector:
+    app: meilisearch
+  ports:
+    - name: http-meilisearch
+      protocol: TCP
+      port: 7700
+      targetPort: 7700
+      nodePort: 30700

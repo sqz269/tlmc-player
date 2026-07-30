@@ -75,6 +75,16 @@ spec:
                 secretKeyRef:
                   name: backend-api-config
                   key: Internal__ApiKey
+            # Search engine (15-meilisearch.yaml). Unset Url = search answers 503
+            # while everything else runs; the master key doubles as the API key
+            # because this backend is the engine's only client.
+            - name: Meilisearch__Url
+              value: http://meilisearch-clusterip.tlmc-player.svc.cluster.local:7700
+            - name: Meilisearch__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: meilisearch-credentials
+                  key: MEILI_MASTER_KEY
           ports:
             - name: http
               containerPort: 8080

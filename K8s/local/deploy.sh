@@ -27,6 +27,7 @@ REGISTRY_PORT="${REGISTRY_PORT:-5000}"
 KC_NODEPORT="${KC_NODEPORT:-30880}"
 API_NODEPORT="${API_NODEPORT:-30081}"
 PG_NODEPORT="${PG_NODEPORT:-30432}"
+MEILI_NODEPORT="${MEILI_NODEPORT:-30700}"
 
 # Set KC_PUBLIC_URL to publish Keycloak through the Cloudflare tunnel, e.g.
 #   KC_PUBLIC_URL=https://sso.marisad.me ./deploy.sh
@@ -105,6 +106,15 @@ ensure_secret_key() {
 }
 ensure_secret_key backend-api-config Internal__ApiKey "$(gen_pw)"
 
+# Its own secret (not a key on backend-api-config): the Meilisearch container
+# consumes it too, and unlike the Postgres password it is safe to exist late --
+# a cluster deployed by an older script revision just gains it on re-run.
+if ! kubectl -n "$NS" get secret meilisearch-credentials >/dev/null 2>&1; then
+  echo "==> generating meilisearch master key"
+  kubectl -n "$NS" create secret generic meilisearch-credentials \
+    --from-literal=MEILI_MASTER_KEY="$(gen_pw)" >/dev/null
+fi
+
 TEST_USER_PW="$(secret_val keycloak-admin-credentials TEST_USER_PASSWORD)"
 
 ( umask 077
@@ -125,6 +135,9 @@ TEST_USER_PASSWORD=$TEST_USER_PW
 # Send as the X-Internal-Api-Key header to use the api/internal write surface.
 INTERNAL_API_KEY=$(secret_val backend-api-config Internal__ApiKey)
 API_URL=http://$NODE_IP:$API_NODEPORT
+# Bearer token for direct Meilisearch access (the CJK probe, index inspection).
+MEILI_MASTER_KEY=$(secret_val meilisearch-credentials MEILI_MASTER_KEY)
+MEILI_URL=http://$NODE_IP:$MEILI_NODEPORT
 EOF
 )
 echo "    credentials: $CREDS"
@@ -149,8 +162,10 @@ apply() {
 
 echo "==> databases"
 apply "$HERE/10-backend-pgsql.yaml"
+apply "$HERE/15-meilisearch.yaml"
 apply "$HERE/20-keycloak-pgsql.yaml"
 kubectl -n "$NS" rollout status deploy/backend-pgsql --timeout=300s
+kubectl -n "$NS" rollout status deploy/meilisearch --timeout=300s
 kubectl -n "$NS" rollout status deploy/keycloak-pgsql --timeout=300s
 
 echo "==> keycloak"
@@ -168,9 +183,10 @@ echo "==> up"
 kubectl -n "$NS" get pods -o wide
 cat <<EOF
 
-  API        http://$NODE_IP:$API_NODEPORT   (health: /healthz, docs: /swagger)
-  Keycloak   $KC_ISSUER_BASE   (admin console: /admin)
-  Postgres   $NODE_IP:$PG_NODEPORT        (db/user: tlmcplayer)
+  API          http://$NODE_IP:$API_NODEPORT   (health: /healthz, docs: /swagger)
+  Keycloak     $KC_ISSUER_BASE   (admin console: /admin)
+  Postgres     $NODE_IP:$PG_NODEPORT        (db/user: tlmcplayer)
+  Meilisearch  http://$NODE_IP:$MEILI_NODEPORT   (auth: MEILI_MASTER_KEY as bearer)
 
   Credentials: $CREDS
 EOF

@@ -12,6 +12,15 @@ services:
       POSTGRES_DB: tlmcplayer
     ports:
       - "5432:5432"
+  meilisearch:
+    # Same pin as K8s/local/15-meilisearch.yaml: localizedAttributes needs >= 1.10
+    # and the index format is not forward-compatible across minors.
+    # Development mode: no master key required, dev dashboard on :7700.
+    image: getmeili/meilisearch:v1.51
+    environment:
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
   tlmcplayerbackend:
     image: ${DOCKER_REGISTRY-}tlmcplayerbackend
     build:
@@ -21,4 +30,5 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__PostgreSql: "Host=postgres;Port=5432;Database=tlmcplayer;Username=tlmcplayer;Password=tlmcplayer"
       Keycloak__RealmUrl: "https://sso.marisad.me/realms/MusicPlayer"
+      Meilisearch__Url: "http://meilisearch:7700"
       FFMpegDirectory: "/usr/bin"

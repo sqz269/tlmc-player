@@ -1,11 +1,13 @@
 using KeycloakAuthProvider.Authentication;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using TlmcPlayerBackend.Data;
 using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Ids;
+using TlmcPlayerBackend.Search;
 using TlmcPlayerBackend.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +39,28 @@ builder.Services.AddScoped<IPlayEventRepo, PlayEventRepo>();
 
 // Rows hold storage keys; the roots they resolve against are configuration.
 builder.Services.AddSingleton<StorageRootResolver>();
+
+// Meilisearch (SCHEMA-V6.md section 7). The index is a projection, never a source
+// of truth: with no engine configured (or the engine down) search answers 503 and
+// nothing else notices. SearchIndexBootstrap applies the index settings — the CJK
+// localizedAttributes in particular — at startup, because their absence is silent.
+builder.Services.Configure<SearchOptions>(builder.Configuration.GetSection(SearchOptions.Section));
+builder.Services.AddHttpClient<MeiliClient>((sp, http) =>
+{
+    var search = sp.GetRequiredService<IOptions<SearchOptions>>().Value;
+    if (search.Enabled)
+    {
+        http.BaseAddress = new Uri(search.Url!.TrimEnd('/') + "/");
+        if (!string.IsNullOrEmpty(search.ApiKey))
+        {
+            http.DefaultRequestHeaders.Authorization = new("Bearer", search.ApiKey);
+        }
+    }
+
+    http.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<ISearchIndexService, SearchIndexService>();
+builder.Services.AddHostedService<SearchIndexBootstrap>();
 
 // Configure Jwt Authentication
 builder.Services.ConfigureJwt(builder.Configuration);
