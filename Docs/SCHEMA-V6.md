@@ -161,11 +161,67 @@ Three wiring details that are easy to miss:
 - **Swagger needs `MapType<TrackId>`** returning a string schema, otherwise the OpenAPI
   document describes ids as objects and generated clients break.
 
-**DECISION — identifier casing.** Current tables are EF-default PascalCase, so all raw
-SQL needs `"Quoted"` identifiers. Since v6 is fresh and `TrackRepo` writes real SQL, I
-lean toward `UseSnakeCaseNamingConvention()`. Purely cosmetic; it does mean rewriting
-the raw-SQL filter builder's identifiers. The DDL below is written snake_case; say the
-word and I'll flip it.
+### Casing
+
+There are **three** independent naming surfaces here, and they are easily conflated:
+
+| Surface | Today | Controlled by |
+| --- | --- | --- |
+| C# properties | `Track.Name` | the language; not changing |
+| Postgres identifiers | `"Tracks"."Name"` | EF's naming convention |
+| jsonb document keys | `{"Default": "…"}` | the serializer, independently |
+
+**Postgres identifiers.** EF maps property names straight through, so tables and columns
+are PascalCase. Unquoted identifiers fold to lowercase in Postgres, so every raw query
+has to double-quote everything. That isn't hypothetical here —
+`CreateTrackFilterWhereStatement` writes `"ReleaseDate"`, `"CircleIds"`,
+`"OriginalAlbumIds"`, `"OriginalTrackIds"`; `SampleRandomTrack`'s CTE quotes `"TrackId"`
+and `"AlbumId"`; and every psql session against this database needs
+`select … from "Tracks"` rather than `from tracks`.
+
+`UseSnakeCaseNamingConvention()` from the `EFCore.NamingConventions` package produces
+`tracks.name` and the quoting disappears. Worth knowing for the dependency call: that
+package is maintained by Shay Rojansky, who also maintains Npgsql and the EF Core
+Postgres provider — not a random third party.
+
+The cost is rewriting identifiers in the raw-SQL builders, which are being rewritten
+anyway for the release/disc split and the credit tables, plus different EF-generated
+index and constraint names, which is irrelevant on a fresh database.
+
+The honest counter-argument: EF gives PascalCase for free, and this adds a package for a
+benefit that is mostly ergonomic. I still lean snake_case — it's the Postgres
+convention, every tool and answer you search for assumes it, and you work in psql and
+hand-written SQL often enough for the quoting to be a standing tax.
+
+**jsonb keys — the part I previously mislabelled cosmetic.** The documents inside
+`LocalizedField` and `Lyrics` currently carry PascalCase keys (`{"Default": …, "En": …}`),
+because Npgsql maps the POCO property names through as-is. You can see it in the existing
+translation of `a.Name.Default`, which becomes `"Name"->>'Default'`.
+
+This one is *not* cosmetic, because the proposed sort columns bake the key into the table
+definition:
+
+```sql
+name_sort text GENERATED ALWAYS AS (lower(name->>'Default')) STORED
+```
+
+Change jsonb key casing afterwards and that expression is silently wrong. A generated
+column expression can't be altered in place — it's `DROP COLUMN`, re-add, and rebuild
+every index over it. It also reaches the search projection and anything consuming the raw
+jsonb shape through a DTO.
+
+So decide this **before** the generated columns exist, and note that it moves
+independently of the other two surfaces: switching the naming convention does *not*
+change jsonb keys.
+
+**Recommendation:** snake_case for Postgres identifiers, and lowercase keys inside jsonb
+(`default`, `en`, `zh`, `jp`) so there's one rule rather than a boundary to keep straight.
+`default` is a reserved word in SQL but is only ever a string key here, so
+`name->>'default'` is fine. C# stays PascalCase throughout.
+
+Declining the package and keeping EF's PascalCase everywhere is perfectly defensible. The
+thing to avoid is the split where SQL is snake_case and jsonb stays PascalCase — the worst
+of both, and roughly where this draft's DDL currently sits.
 
 ---
 
@@ -278,7 +334,7 @@ CREATE TABLE release (
     id                  uuid        PRIMARY KEY,
     name                jsonb       NOT NULL,   -- LocalizedField
     -- Generated sort/search key: jsonb is the wrong thing to ORDER BY.
-    name_sort           text        GENERATED ALWAYS AS (lower(name->>'Default')) STORED,
+    name_sort           text        GENERATED ALWAYS AS (lower(name->>'default')) STORED,
     release_date        date,
     release_convention  text,
     catalog_number      text,
@@ -309,7 +365,7 @@ CREATE TABLE track (
     disc_id       uuid        NOT NULL REFERENCES disc (id) ON DELETE CASCADE,
     track_number  smallint    NOT NULL,
     name          jsonb       NOT NULL,
-    name_sort     text        GENERATED ALWAYS AS (lower(name->>'Default')) STORED,
+    name_sort     text        GENERATED ALWAYS AS (lower(name->>'default')) STORED,
     duration      interval,
     original_non_touhou boolean,
 
@@ -917,7 +973,7 @@ Still open:
 
 | # | Decision | My recommendation |
 | --- | --- | --- |
-| 1 | Identifier casing (snake_case vs EF PascalCase) | snake_case, since v6 is fresh and you write raw SQL |
+| 1 | Casing: Postgres identifiers, **and** jsonb keys (§1) | snake_case identifiers via `EFCore.NamingConventions`, lowercase jsonb keys. Must be settled before the generated sort columns exist |
 | 2 | Meilisearch or Elasticsearch (§7) | Meilisearch — 164k docs is small, typo tolerance suits romanized titles, and one binary beats a JVM on this node |
 | 3 | Auto-resolve `fuzzy` credit matches, or leave them for manual review? (§5) | Leave unresolved; promote to `manual` as confirmed. Wrong merges are worse than missing ones |
 | 4 | `similar_track` as primary serving path | Yes; ANN becomes the fallback |
