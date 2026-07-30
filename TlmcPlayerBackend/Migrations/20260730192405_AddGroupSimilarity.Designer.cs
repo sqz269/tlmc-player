@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -15,9 +16,11 @@ using TlmcPlayerBackend.Models.Playlist;
 namespace TlmcPlayerBackend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260730192405_AddGroupSimilarity")]
+    partial class AddGroupSimilarity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1032,57 +1035,6 @@ namespace TlmcPlayerBackend.Migrations
                         });
                 });
 
-            modelBuilder.Entity("TlmcPlayerBackend.Models.UserProfile.ApiKey", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("KeyHash")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("key_hash");
-
-                    b.Property<string>("KeyPrefix")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("key_prefix");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_used_at");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("name");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_api_key");
-
-                    b.HasIndex("KeyHash")
-                        .IsUnique()
-                        .HasDatabaseName("ix_api_key_key_hash");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_api_key_user_id");
-
-                    b.ToTable("api_key", null, t =>
-                        {
-                            t.HasCheckConstraint("api_key_name_length", "char_length(name) BETWEEN 1 AND 100");
-                        });
-                });
-
             modelBuilder.Entity("TlmcPlayerBackend.Models.UserProfile.UserProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1438,18 +1390,6 @@ namespace TlmcPlayerBackend.Migrations
                         .HasConstraintName("fk_queue_item_user_profile_user_id");
 
                     b.Navigation("Track");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("TlmcPlayerBackend.Models.UserProfile.ApiKey", b =>
-                {
-                    b.HasOne("TlmcPlayerBackend.Models.UserProfile.UserProfile", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_api_key_user_profile_user_id");
 
                     b.Navigation("User");
                 });
