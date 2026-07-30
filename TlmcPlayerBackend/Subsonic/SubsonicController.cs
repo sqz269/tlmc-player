@@ -27,6 +27,7 @@ public class SubsonicController(
     SubsonicQueries queries,
     IReleaseRepo releaseRepo,
     ITrackRepo trackRepo,
+    ISimilarityRepo similarityRepo,
     ISearchIndexService search,
     StorageRootResolver resolver,
     IOptions<SubsonicOptions> options) : ControllerBase
@@ -37,6 +38,7 @@ public class SubsonicController(
     private readonly SubsonicQueries _queries = queries;
     private readonly IReleaseRepo _releaseRepo = releaseRepo;
     private readonly ITrackRepo _trackRepo = trackRepo;
+    private readonly ISimilarityRepo _similarityRepo = similarityRepo;
     private readonly ISearchIndexService _search = search;
     private readonly StorageRootResolver _resolver = resolver;
     private readonly SubsonicOptions _options = options.Value;
@@ -432,6 +434,267 @@ public class SubsonicController(
     [AcceptVerbs("GET", "POST", Route = "getInternetRadioStations.view")]
     public IActionResult GetInternetRadioStations()
         => SubsonicResult.Ok(e => e.InternetRadioStations = new InternetRadioStationsDto());
+
+    // -- Similarity and discovery (Docs/SUBSONIC.md section 10) ----------------
+
+    [AcceptVerbs("GET", "POST", Route = "getSimilarSongs2")]
+    [AcceptVerbs("GET", "POST", Route = "getSimilarSongs2.view")]
+    public async Task<IActionResult> GetSimilarSongs2(string? id, int count = 50)
+    {
+        var songs = await SimilarSongsFor(id, count);
+        return songs == null
+            ? NotFoundError()
+            : SubsonicResult.Ok(e => e.SimilarSongs2 = new SimilarSongsDto { Song = songs });
+    }
+
+    [AcceptVerbs("GET", "POST", Route = "getSimilarSongs")]
+    [AcceptVerbs("GET", "POST", Route = "getSimilarSongs.view")]
+    public async Task<IActionResult> GetSimilarSongs(string? id, int count = 50)
+    {
+        var songs = await SimilarSongsFor(id, count);
+        return songs == null
+            ? NotFoundError()
+            : SubsonicResult.Ok(e => e.SimilarSongs = new SimilarSongsDto { Song = songs });
+    }
+
+    [AcceptVerbs("GET", "POST", Route = "getArtistInfo2")]
+    [AcceptVerbs("GET", "POST", Route = "getArtistInfo2.view")]
+    public async Task<IActionResult> GetArtistInfo2(string? id, int count = 20)
+    {
+        if (!CircleId.TryParse(id, null, out var circleId)
+            || !await _context.Circles.AsNoTracking().AnyAsync(c => c.Id == circleId))
+        {
+            return NotFoundError();
+        }
+
+        // similar_circle in style order — the offline materialization SUBSONIC.md
+        // section 10 reserved; no aggregation over similar_track at query time.
+        var rows = await _context.SimilarCircles.AsNoTracking()
+            .Where(s => s.AnchorCircleId == circleId && s.RankStyle != null)
+            .OrderBy(s => s.RankStyle)
+            .Take(Math.Clamp(count, 1, 100))
+            .Select(s => new ArtistRow
+            {
+                Id = s.NeighborCircleId.Value,
+                Name = s.NeighborCircle.Name,
+                AlbumCount = s.NeighborCircle.Releases.Count,
+            })
+            .ToListAsync();
+
+        return SubsonicResult.Ok(e => e.ArtistInfo2 = new ArtistInfo2Dto
+        {
+            SimilarArtist = rows.Select(SubsonicMapper.ToArtist).ToList(),
+        });
+    }
+
+    /// <summary>
+    /// Songs similar to a track, release or circle. Null means the anchor does not
+    /// exist (protocol NotFound); an empty list means it exists but similarity has
+    /// nothing to say (no embedded media) — clients treat that as routine.
+    /// </summary>
+    private async Task<List<ChildDto>?> SimilarSongsFor(string? id, int count)
+    {
+        count = Math.Clamp(count, 1, 100);
+        if (TrackId.TryParse(id, null, out var trackId))
+        {
+            return await SimilarToTrack(trackId, count);
+        }
+
+        if (ReleaseId.TryParse(id, null, out var releaseId))
+        {
+            return await SimilarToRelease(releaseId, count);
+        }
+
+        if (CircleId.TryParse(id, null, out var circleId))
+        {
+            return await SimilarToCircle(circleId, count);
+        }
+
+        return null;
+    }
+
+    /// <summary>Native /similar verbatim: precomputed ranks, ANN fallback, diversified.</summary>
+    private async Task<List<ChildDto>?> SimilarToTrack(TrackId trackId, int count)
+    {
+        var overFetch = Math.Min(100, count * 3);
+        var candidates = await _similarityRepo.GetPrecomputed(trackId, overFetch);
+        if (candidates.Count == 0)
+        {
+            if (await _trackRepo.GetTrack(trackId) == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                candidates = await _similarityRepo.GetApproximate(trackId, overFetch);
+            }
+            catch (EmbeddingNotFoundException)
+            {
+                return [];
+            }
+        }
+
+        // >= ~0.999 chamfer is the same recording on another release (SCHEMA-V6.md's
+        // duplicate band): an instant mix must not open with a bit-identical copy of
+        // its anchor. Copies of *each other* deeper in the list can still slip
+        // through — there are no candidate-to-candidate scores to catch them with.
+        candidates = candidates.Where(c => c.Score < 0.9985f).ToList();
+
+        var reranked = DiversityReranker.Rerank(
+            candidates.Select(c => new DiversityReranker.Candidate(
+                c.Context.Track.Id,
+                c.Score,
+                c.Context.Release.Id,
+                c.Context.Circles.Select(x => x.Id).ToList())).ToList(),
+            count);
+
+        var byId = candidates.ToDictionary(c => c.Context.Track.Id);
+        return reranked
+            .Select(r => SubsonicMapper.ToSong(byId[r.Candidate.TrackId].Context, _options.ServeLossless))
+            .ToList();
+    }
+
+    /// <summary>
+    /// similar_release in style order (shared recordings already demoted), then
+    /// songs drawn round-robin across the neighbor releases — diversity across
+    /// releases is structural, so no reranker pass.
+    /// </summary>
+    private async Task<List<ChildDto>?> SimilarToRelease(ReleaseId releaseId, int count)
+    {
+        var neighbors = await _context.SimilarReleases.AsNoTracking()
+            .Where(s => s.AnchorReleaseId == releaseId && s.RankStyle != null)
+            .OrderBy(s => s.RankStyle)
+            .Take(count)
+            .Select(s => s.NeighborReleaseId)
+            .ToListAsync();
+
+        if (neighbors.Count == 0)
+        {
+            return await _context.Releases.AsNoTracking().AnyAsync(r => r.Id == releaseId)
+                ? []
+                : null;
+        }
+
+        return await RoundRobinSongs(neighbors, count);
+    }
+
+    /// <summary>
+    /// similar_circle in style order; each neighbor circle contributes releases in
+    /// date order, interleaved circle-by-circle, minus collabs with the anchor
+    /// (its own tracks must not come back as "similar").
+    /// </summary>
+    private async Task<List<ChildDto>?> SimilarToCircle(CircleId circleId, int count)
+    {
+        var neighbors = await _context.SimilarCircles.AsNoTracking()
+            .Where(s => s.AnchorCircleId == circleId && s.RankStyle != null)
+            .OrderBy(s => s.RankStyle)
+            .Take(count)
+            .Select(s => s.NeighborCircleId)
+            .ToListAsync();
+
+        if (neighbors.Count == 0)
+        {
+            return await _context.Circles.AsNoTracking().AnyAsync(c => c.Id == circleId)
+                ? []
+                : null;
+        }
+
+        var releaseRows = await _context.ReleaseCircles.AsNoTracking()
+            .Where(rc => neighbors.Contains(rc.CircleId)
+                         && !rc.Release.Circles.Any(other => other.CircleId == circleId))
+            .Select(rc => new { rc.CircleId, rc.ReleaseId, rc.Release.ReleaseDate })
+            .ToListAsync();
+
+        var byCircle = releaseRows
+            .GroupBy(r => r.CircleId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.ReleaseDate ?? DateOnly.MinValue)
+                    .Select(r => r.ReleaseId)
+                    .ToList());
+
+        var releases = new List<ReleaseId>();
+        for (var pass = 0; releases.Count < count; pass++)
+        {
+            var advanced = false;
+            foreach (var circle in neighbors)
+            {
+                if (byCircle.TryGetValue(circle, out var list) && pass < list.Count)
+                {
+                    releases.Add(list[pass]);
+                    advanced = true;
+                    if (releases.Count >= count)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (!advanced)
+            {
+                break;
+            }
+        }
+
+        return await RoundRobinSongs(releases, count);
+    }
+
+    /// <summary>
+    /// One song per release per pass, releases kept in similarity-rank order,
+    /// tracks within a release in disc/track order, unstreamable tracks skipped.
+    /// </summary>
+    private async Task<List<ChildDto>> RoundRobinSongs(List<ReleaseId> releasesInRankOrder, int count)
+    {
+        var trackRows = await _context.Tracks.AsNoTracking()
+            .Where(t => releasesInRankOrder.Contains(t.Disc.ReleaseId) && t.MediaKey != null)
+            .Select(t => new
+            {
+                t.Id,
+                t.Disc.ReleaseId,
+                t.Disc.DiscNumber,
+                t.TrackNumber,
+            })
+            .ToListAsync();
+
+        var byRelease = trackRows
+            .GroupBy(t => t.ReleaseId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(t => t.DiscNumber).ThenBy(t => t.TrackNumber)
+                    .Select(t => t.Id)
+                    .ToList());
+
+        var picked = new List<TrackId>();
+        for (var pass = 0; picked.Count < count; pass++)
+        {
+            var advanced = false;
+            foreach (var release in releasesInRankOrder)
+            {
+                if (byRelease.TryGetValue(release, out var list) && pass < list.Count)
+                {
+                    picked.Add(list[pass]);
+                    advanced = true;
+                    if (picked.Count >= count)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (!advanced)
+            {
+                break;
+            }
+        }
+
+        var contexts = await _trackRepo.GetWithContext(picked);
+        var byId = contexts.ToDictionary(c => c.Track.Id);
+        return picked
+            .Where(byId.ContainsKey)
+            .Select(p => SubsonicMapper.ToSong(byId[p], _options.ServeLossless))
+            .ToList();
+    }
 
     // -- Everything else -------------------------------------------------------
 

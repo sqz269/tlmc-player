@@ -250,10 +250,10 @@ endpoints; this one doesn't have to.
 | Subsonic | Mapping |
 | --- | --- |
 | `getSimilarSongs2?id=trk_…&count=` | `SimilarityRepo` verbatim: precomputed neighbors in rank order, ANN fallback for tracks without rows. Diversification **on**: clients call this to build instant mixes and radio, which is exactly what the reranker's same-release/same-circle penalty exists for |
-| `getSimilarSongs2?id=rel_…` | union of the release's tracks' neighbor lists, best score first, minus the release's own tracks, then diversified |
-| `getSimilarSongs2?id=cir_…` | same, anchored on a sample of the circle's tracks (cap the anchor set, ~50), minus the circle's own tracks |
+| `getSimilarSongs2?id=rel_…` | `similar_release` in style order (the duplicate-suppressed chamfer — a re-release does not come back as "similar"), songs drawn round-robin across the neighbor releases in disc/track order. Diversity across releases is structural, so no reranker pass |
+| `getSimilarSongs2?id=cir_…` | `similar_circle` in style order; each neighbor circle contributes releases newest-first, interleaved circle-by-circle, minus collab releases with the anchor (its own tracks must not come back), then the same round-robin |
 | `getSimilarSongs` | alias of the above (folder/ID3 distinction doesn't affect the result shape) |
-| `getArtistInfo2` → `similarArtist` | derived from the neighbor graph without circle-level embeddings: the anchors' neighbors grouped by *their* circle, weighted by score and rank, top N. One aggregate query over `similar_track`; materialize offline if profiles say so |
+| `getArtistInfo2` → `similarArtist` | `similar_circle` top N in style order, verbatim — the materialized form of the neighbor-graph aggregation this row used to describe. The group tables exist precisely so this is one index scan |
 | `getTopSongs?artist=` | not similarity but adjacent: `play_event` counts per track within the named circle, disc/track order as the cold-start fallback |
 
 Two impedance mismatches dissolve at the protocol boundary rather than

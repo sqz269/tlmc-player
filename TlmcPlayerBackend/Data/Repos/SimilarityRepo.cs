@@ -1,11 +1,51 @@
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
+using TlmcPlayerBackend.Dtos.MusicData;
 using TlmcPlayerBackend.Ids;
+using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Utils;
 
 namespace TlmcPlayerBackend.Data.Repos;
 
 public record SimilarCandidate(TrackWithContext Context, float Score);
+
+/// <summary>Which precomputed ordering a group-similarity read follows.</summary>
+public enum GroupSimilarityFlavor
+{
+    /// <summary>Duplicate-suppressed chamfer — "sounds like", shared recordings demoted.</summary>
+    Style,
+
+    /// <summary>Kernel mean embedding cosine — mass-weighted, display-friendly scale.</summary>
+    Kde,
+}
+
+public static class SimilarityFlavor
+{
+    /// <summary>Query-string form: 'style' (default) or 'kde'. 'raw' is deliberately
+    /// not an option — shared recordings are the other-releases feature.</summary>
+    public static bool TryParse(string? value, out GroupSimilarityFlavor flavor)
+    {
+        switch (value?.ToLowerInvariant())
+        {
+            case null or "" or "style":
+                flavor = GroupSimilarityFlavor.Style;
+                return true;
+            case "kde":
+                flavor = GroupSimilarityFlavor.Kde;
+                return true;
+            default:
+                flavor = GroupSimilarityFlavor.Style;
+                return false;
+        }
+    }
+}
+
+public record SimilarReleaseCandidate(
+    ReleaseSlimDto Release, ArtworkId? ArtworkId, List<CircleSlimDto> Circles,
+    float ScoreStyle, float ScoreRaw, float ScoreKde);
+
+public record SimilarCircleCandidate(
+    CircleSlimDto Circle, float ScoreStyle, float ScoreRaw, float ScoreKde);
 
 public interface ISimilarityRepo
 {
@@ -17,6 +57,25 @@ public interface ISimilarityRepo
     /// Throws EmbeddingNotFoundException when the track has no embedding either.
     /// </summary>
     Task<List<SimilarCandidate>> GetApproximate(TrackId trackId, int take);
+
+    /// <summary>
+    /// Precomputed release neighbours in the flavor's rank order. No ANN fallback:
+    /// releases outside the precompute legitimately have nothing to say.
+    /// </summary>
+    Task<List<SimilarReleaseCandidate>> GetSimilarReleases(
+        ReleaseId releaseId, GroupSimilarityFlavor flavor, int take);
+
+    /// <summary>
+    /// Releases sharing recordings with this one (raw ordering, score floor at
+    /// minRawScore) — re-releases, compilations, duplicate rips. A versions
+    /// feature, deliberately separate from similarity.
+    /// </summary>
+    Task<List<SimilarReleaseCandidate>> GetOtherReleases(
+        ReleaseId releaseId, float minRawScore, int take);
+
+    /// <summary>Precomputed circle neighbours in the flavor's rank order.</summary>
+    Task<List<SimilarCircleCandidate>> GetSimilarCircles(
+        CircleId circleId, GroupSimilarityFlavor flavor, int take);
 
     /// <summary>The embedding_config stamp — which basis produced these neighbours.</summary>
     Task<string?> GetModel();
@@ -125,6 +184,61 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
             .Where(p => byId.ContainsKey(p.TrackId))
             .Select(p => new SimilarCandidate(byId[p.TrackId], (float)(1.0 - p.Distance)))
             .ToList();
+    }
+
+    public async Task<List<SimilarReleaseCandidate>> GetSimilarReleases(
+        ReleaseId releaseId, GroupSimilarityFlavor flavor, int take)
+    {
+        var rows = _context.SimilarReleases
+            .AsNoTracking()
+            .Where(s => s.AnchorReleaseId == releaseId);
+        rows = flavor == GroupSimilarityFlavor.Kde
+            ? rows.Where(s => s.RankKde != null).OrderBy(s => s.RankKde)
+            : rows.Where(s => s.RankStyle != null).OrderBy(s => s.RankStyle);
+        return await ProjectReleases(rows.Take(take));
+    }
+
+    public async Task<List<SimilarReleaseCandidate>> GetOtherReleases(
+        ReleaseId releaseId, float minRawScore, int take)
+    {
+        var rows = _context.SimilarReleases
+            .AsNoTracking()
+            .Where(s => s.AnchorReleaseId == releaseId
+                        && s.RankRaw != null && s.ScoreRaw >= minRawScore)
+            .OrderBy(s => s.RankRaw);
+        return await ProjectReleases(rows.Take(take));
+    }
+
+    public async Task<List<SimilarCircleCandidate>> GetSimilarCircles(
+        CircleId circleId, GroupSimilarityFlavor flavor, int take)
+    {
+        var rows = _context.SimilarCircles
+            .AsNoTracking()
+            .Where(s => s.AnchorCircleId == circleId);
+        rows = flavor == GroupSimilarityFlavor.Kde
+            ? rows.Where(s => s.RankKde != null).OrderBy(s => s.RankKde)
+            : rows.Where(s => s.RankStyle != null).OrderBy(s => s.RankStyle);
+        return await rows
+            .Take(take)
+            .Select(s => new SimilarCircleCandidate(
+                new CircleSlimDto { Id = s.NeighborCircle.Id, Name = s.NeighborCircle.Name },
+                s.ScoreStyle, s.ScoreRaw, s.ScoreKde))
+            .ToListAsync();
+    }
+
+    private static Task<List<SimilarReleaseCandidate>> ProjectReleases(
+        IQueryable<SimilarRelease> rows)
+    {
+        return rows
+            .Select(s => new SimilarReleaseCandidate(
+                new ReleaseSlimDto { Id = s.NeighborRelease.Id, Name = s.NeighborRelease.Name },
+                s.NeighborRelease.ArtworkId,
+                s.NeighborRelease.Circles
+                    .OrderBy(rc => rc.Ordinal)
+                    .Select(rc => new CircleSlimDto { Id = rc.CircleId, Name = rc.Circle.Name })
+                    .ToList(),
+                s.ScoreStyle, s.ScoreRaw, s.ScoreKde))
+            .ToListAsync();
     }
 
     public Task<string?> GetModel()

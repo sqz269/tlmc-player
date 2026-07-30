@@ -42,6 +42,8 @@ public class AppDbContext : DbContext
 
     public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
     public DbSet<SimilarTrack> SimilarTracks { get; set; }
+    public DbSet<SimilarRelease> SimilarReleases { get; set; }
+    public DbSet<SimilarCircle> SimilarCircles { get; set; }
     public DbSet<EmbeddingConfig> EmbeddingConfigs { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> opt) : base(opt)
@@ -346,6 +348,59 @@ public class AppDbContext : DbContext
         similarTrack.HasOne(s => s.NeighborTrack)
             .WithMany()
             .HasForeignKey(s => s.NeighborTrackId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // The group tables are flavor unions: one row per (anchor, neighbor) with a
+        // nullable rank per ordering. PK is the pair; each flavor gets a partial
+        // unique index so a rank-ordered scan is as cheap as similar_track's.
+        var similarRelease = modelBuilder.Entity<SimilarRelease>();
+        similarRelease.ToTable("similar_release", t =>
+        {
+            t.HasCheckConstraint("similar_release_no_self",
+                "anchor_release_id <> neighbor_release_id");
+            t.HasCheckConstraint("similar_release_some_rank",
+                "rank_style IS NOT NULL OR rank_raw IS NOT NULL OR rank_kde IS NOT NULL");
+        });
+        similarRelease.HasKey(s => new { s.AnchorReleaseId, s.NeighborReleaseId });
+        similarRelease.HasIndex(s => new { s.AnchorReleaseId, s.RankStyle })
+            .IsUnique().HasFilter("rank_style IS NOT NULL");
+        similarRelease.HasIndex(s => new { s.AnchorReleaseId, s.RankRaw })
+            .IsUnique().HasFilter("rank_raw IS NOT NULL");
+        similarRelease.HasIndex(s => new { s.AnchorReleaseId, s.RankKde })
+            .IsUnique().HasFilter("rank_kde IS NOT NULL");
+        similarRelease.HasIndex(s => s.NeighborReleaseId);
+        similarRelease.HasOne(s => s.AnchorRelease)
+            .WithMany()
+            .HasForeignKey(s => s.AnchorReleaseId)
+            .OnDelete(DeleteBehavior.Cascade);
+        similarRelease.HasOne(s => s.NeighborRelease)
+            .WithMany()
+            .HasForeignKey(s => s.NeighborReleaseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var similarCircle = modelBuilder.Entity<SimilarCircle>();
+        similarCircle.ToTable("similar_circle", t =>
+        {
+            t.HasCheckConstraint("similar_circle_no_self",
+                "anchor_circle_id <> neighbor_circle_id");
+            t.HasCheckConstraint("similar_circle_some_rank",
+                "rank_style IS NOT NULL OR rank_raw IS NOT NULL OR rank_kde IS NOT NULL");
+        });
+        similarCircle.HasKey(s => new { s.AnchorCircleId, s.NeighborCircleId });
+        similarCircle.HasIndex(s => new { s.AnchorCircleId, s.RankStyle })
+            .IsUnique().HasFilter("rank_style IS NOT NULL");
+        similarCircle.HasIndex(s => new { s.AnchorCircleId, s.RankRaw })
+            .IsUnique().HasFilter("rank_raw IS NOT NULL");
+        similarCircle.HasIndex(s => new { s.AnchorCircleId, s.RankKde })
+            .IsUnique().HasFilter("rank_kde IS NOT NULL");
+        similarCircle.HasIndex(s => s.NeighborCircleId);
+        similarCircle.HasOne(s => s.AnchorCircle)
+            .WithMany()
+            .HasForeignKey(s => s.AnchorCircleId)
+            .OnDelete(DeleteBehavior.Cascade);
+        similarCircle.HasOne(s => s.NeighborCircle)
+            .WithMany()
+            .HasForeignKey(s => s.NeighborCircleId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var embeddingConfig = modelBuilder.Entity<EmbeddingConfig>();
