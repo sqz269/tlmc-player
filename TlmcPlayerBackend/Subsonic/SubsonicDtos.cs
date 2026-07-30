@@ -31,6 +31,9 @@ public class SubsonicEnvelope
     [XmlElement("randomSongs")] public SongsDto? RandomSongs { get; set; }
     [XmlElement("searchResult3")] public SearchResult3Dto? SearchResult3 { get; set; }
     [XmlElement("searchResult2")] public SearchResult2Dto? SearchResult2 { get; set; }
+    [XmlElement("similarSongs")] public SimilarSongsDto? SimilarSongs { get; set; }
+    [XmlElement("similarSongs2")] public SimilarSongsDto? SimilarSongs2 { get; set; }
+    [XmlElement("artistInfo2")] public ArtistInfo2Dto? ArtistInfo2 { get; set; }
     [XmlElement("openSubsonicExtensions")] public List<OpenSubsonicExtensionDto>? OpenSubsonicExtensions { get; set; }
 }
 
@@ -148,6 +151,17 @@ public class AlbumList2Dto
 public class SongsDto
 {
     [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
+}
+
+public class SimilarSongsDto
+{
+    [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
+}
+
+/// <summary>Only similarArtist is served; biography and the Last.fm fields have no source.</summary>
+public class ArtistInfo2Dto
+{
+    [XmlElement("similarArtist")] public List<ArtistID3Dto> SimilarArtist { get; set; } = [];
 }
 
 public class SearchResult3Dto
