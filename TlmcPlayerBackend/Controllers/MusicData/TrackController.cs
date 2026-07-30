@@ -76,6 +76,26 @@ public class TrackController(ITrackRepo trackRepo, ISimilarityRepo similarityRep
         return await _trackRepo.GetTracksByCredit(name, role, cursor, limit);
     }
 
+    /// <summary>
+    /// The whole library as a precomputed 2D embedding map, parallel arrays with one
+    /// entry per playable track. Empty until the ETL layout load has run.
+    /// </summary>
+    /// <param name="v">Client cache token, unused server-side: vary it to step around
+    /// stale CDN entries (the shipped client sends the UTC date).</param>
+    [HttpGet("map")]
+    public async Task<ActionResult<TrackMapResponseDto>> GetMap([FromQuery] string? v = null)
+    {
+        var map = await _similarityRepo.GetTrackMap();
+
+        // The empty payload during an ETL wipe-reload window must never be edge-cached
+        // for hours — it once was, and the map stayed blank long after the load.
+        Response.Headers.CacheControl = map.Count == 0
+            ? "no-store"
+            : "public, max-age=86400";
+
+        return map;
+    }
+
     [HttpGet("{id}/similar")]
     public async Task<ActionResult<SimilarTracksResponseDto>> GetSimilar(
         TrackId id,

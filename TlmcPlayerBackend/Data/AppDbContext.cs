@@ -41,6 +41,7 @@ public class AppDbContext : DbContext
     public DbSet<PlayEvent> PlayEvents { get; set; }
 
     public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
+    public DbSet<TrackMapPoint> TrackMapPoints { get; set; }
     public DbSet<SimilarTrack> SimilarTracks { get; set; }
     public DbSet<SimilarRelease> SimilarReleases { get; set; }
     public DbSet<SimilarCircle> SimilarCircles { get; set; }
@@ -408,6 +409,18 @@ public class AppDbContext : DbContext
             t.HasCheckConstraint("embedding_config_single_row", "id"));
         embeddingConfig.HasKey(c => c.Id);
         embeddingConfig.Property(c => c.Id).HasDefaultValue(true).ValueGeneratedNever();
+
+        var trackMap = modelBuilder.Entity<TrackMapPoint>();
+        trackMap.ToTable("track_map");
+        trackMap.HasKey(p => p.TrackId);
+        trackMap.HasOne(p => p.Track)
+            .WithOne()
+            .HasForeignKey<TrackMapPoint>(p => p.TrackId)
+            .OnDelete(DeleteBehavior.Cascade);
+        trackMap.HasOne(p => p.Work)
+            .WithMany()
+            .HasForeignKey(p => p.WorkId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         base.OnModelCreating(modelBuilder);
     }

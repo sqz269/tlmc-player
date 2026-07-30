@@ -79,6 +79,9 @@ public interface ISimilarityRepo
 
     /// <summary>The embedding_config stamp — which basis produced these neighbours.</summary>
     Task<string?> GetModel();
+
+    /// <summary>The precomputed 2D embedding map; empty until the ETL load runs.</summary>
+    Task<TrackMapResponseDto> GetTrackMap();
 }
 
 public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
@@ -247,5 +250,49 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
             .AsNoTracking()
             .Select(c => (string?)c.Model)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<TrackMapResponseDto> GetTrackMap()
+    {
+        var points = await _context.TrackMapPoints
+            .AsNoTracking()
+            .OrderBy(p => p.TrackId)
+            .Select(p => new { p.TrackId, p.X, p.Y, p.Cluster, p.Year, p.WorkId })
+            .ToListAsync();
+
+        var workIds = points
+            .Where(p => p.WorkId != null)
+            .Select(p => p.WorkId!.Value)
+            .Distinct()
+            .ToList();
+        var works = await _context.OriginalWorks
+            .AsNoTracking()
+            .Where(w => workIds.Contains(w.Id))
+            .OrderBy(w => w.Id)
+            .Select(w => new TrackMapWorkDto { Id = w.Id, ShortName = w.ShortName })
+            .ToListAsync();
+        var workIndex = new Dictionary<OriginalWorkId, short>();
+        for (short i = 0; i < works.Count; i++)
+        {
+            workIndex[works[i].Id] = i;
+        }
+
+        var map = new TrackMapResponseDto
+        {
+            Count = points.Count,
+            Model = await GetModel(),
+            Works = works,
+        };
+        foreach (var p in points)
+        {
+            map.Ids.Add(p.TrackId);
+            map.X.Add(p.X);
+            map.Y.Add(p.Y);
+            map.Cluster.Add(p.Cluster);
+            map.Year.Add(p.Year ?? 0);
+            map.Work.Add(p.WorkId is { } workId ? workIndex[workId] : (short)-1);
+        }
+
+        return map;
     }
 }
