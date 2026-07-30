@@ -193,3 +193,18 @@ public readonly record struct UserId(Guid Value) : IEntityId<UserId>
         return ok;
     }
 }
+
+public readonly record struct ApiKeyId(Guid Value) : IEntityId<ApiKeyId>
+{
+    public static string Prefix => "key";
+    public static ApiKeyId FromGuid(Guid value) => new(value);
+    public static ApiKeyId New() => new(Guid.CreateVersion7());
+    public override string ToString() => TypeId.Format(Prefix, Value);
+    public static ApiKeyId Parse(string s) => new(TypeId.Parse(Prefix, s));
+    public static bool TryParse(string? s, IFormatProvider? _, out ApiKeyId result)
+    {
+        var ok = TypeId.TryParse(Prefix, s, out var g);
+        result = new ApiKeyId(g);
+        return ok;
+    }
+}

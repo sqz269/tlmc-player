@@ -19,6 +19,7 @@ public sealed class OriginalSongIdConverter() : ValueConverter<OriginalSongId, G
 public sealed class PlaylistIdConverter() : ValueConverter<PlaylistId, Guid>(id => id.Value, g => new PlaylistId(g));
 public sealed class LyricsIdConverter() : ValueConverter<LyricsId, Guid>(id => id.Value, g => new LyricsId(g));
 public sealed class UserIdConverter() : ValueConverter<UserId, Guid>(id => id.Value, g => new UserId(g));
+public sealed class ApiKeyIdConverter() : ValueConverter<ApiKeyId, Guid>(id => id.Value, g => new ApiKeyId(g));
 
 public static class EntityIdConventions
 {
@@ -37,5 +38,6 @@ public static class EntityIdConventions
         builder.Properties<PlaylistId>().HaveConversion<PlaylistIdConverter>();
         builder.Properties<LyricsId>().HaveConversion<LyricsIdConverter>();
         builder.Properties<UserId>().HaveConversion<UserIdConverter>();
+        builder.Properties<ApiKeyId>().HaveConversion<ApiKeyIdConverter>();
     }
 }

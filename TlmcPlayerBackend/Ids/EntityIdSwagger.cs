@@ -24,6 +24,7 @@ public static class EntityIdSwagger
         Map<PlaylistId>(options);
         Map<LyricsId>(options);
         Map<UserId>(options);
+        Map<ApiKeyId>(options);
     }
 
     private static void Map<TId>(SwaggerGenOptions options) where TId : struct, IEntityId<TId>

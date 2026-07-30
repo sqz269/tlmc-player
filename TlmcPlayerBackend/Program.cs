@@ -8,6 +8,7 @@ using TlmcPlayerBackend.Data;
 using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Search;
+using TlmcPlayerBackend.Subsonic;
 using TlmcPlayerBackend.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +62,12 @@ builder.Services.AddHttpClient<MeiliClient>((sp, http) =>
 });
 builder.Services.AddScoped<ISearchIndexService, SearchIndexService>();
 builder.Services.AddHostedService<SearchIndexBootstrap>();
+
+// The Subsonic facade (Docs/SUBSONIC.md). Off by default; when disabled the
+// auth filter answers 404 for every /rest route, same posture as Search.
+builder.Services.Configure<SubsonicOptions>(builder.Configuration.GetSection(SubsonicOptions.Section));
+builder.Services.AddScoped<SubsonicAuthFilter>();
+builder.Services.AddScoped<SubsonicQueries>();
 
 // Configure Jwt Authentication
 builder.Services.ConfigureJwt(builder.Configuration);

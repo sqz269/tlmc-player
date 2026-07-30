@@ -1,6 +1,7 @@
 # Subsonic-compatible API surface (proposal)
 
-Status: **proposed** — nothing in this document is implemented.
+Status: **phase 1 implemented** (`TlmcPlayerBackend/Subsonic/`, sections 1–8 and
+the section 13 phase-1 row); phases 2–3 remain proposed.
 
 This proposes an optional OpenSubsonic-compatible facade under `/rest/*`, so that
 existing Subsonic ecosystem clients (Symfonium, Kopuz, Castafiore, Tempus,

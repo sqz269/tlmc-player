@@ -79,3 +79,12 @@ spec:
                 name: backend-api-clusterip
                 port:
                   number: 80
+
+          # Subsonic facade (Docs/SUBSONIC.md; answers 404 unless Subsonic:Enabled)
+          - pathType: Prefix
+            path: "/rest"
+            backend:
+              service:
+                name: backend-api-clusterip
+                port:
+                  number: 80

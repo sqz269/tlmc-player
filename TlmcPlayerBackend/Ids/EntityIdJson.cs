@@ -59,5 +59,6 @@ public static class EntityIdJson
         settings.Converters.Add(new EntityIdJsonConverter<PlaylistId>());
         settings.Converters.Add(new EntityIdJsonConverter<LyricsId>());
         settings.Converters.Add(new EntityIdJsonConverter<UserId>());
+        settings.Converters.Add(new EntityIdJsonConverter<ApiKeyId>());
     }
 }

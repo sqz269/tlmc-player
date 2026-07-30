@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<Lyrics> Lyrics { get; set; }
 
     public DbSet<UserProfile> UserProfiles { get; set; }
+    public DbSet<ApiKey> ApiKeys { get; set; }
 
     public DbSet<Playlist> Playlists { get; set; }
     public DbSet<PlaylistItem> PlaylistItems { get; set; }
@@ -234,6 +235,18 @@ public class AppDbContext : DbContext
         // -- Users, playlists, queue, plays ---------------------------------------
 
         modelBuilder.Entity<UserProfile>().ToTable("user_profile");
+
+        var apiKey = modelBuilder.Entity<ApiKey>();
+        apiKey.ToTable("api_key", t =>
+            t.HasCheckConstraint("api_key_name_length", "char_length(name) BETWEEN 1 AND 100"));
+        apiKey.Property(k => k.CreatedAt).HasDefaultValueSql("now()");
+        // The auth lookup: one indexed probe by hash, no user join needed first.
+        apiKey.HasIndex(k => k.KeyHash).IsUnique();
+        apiKey.HasIndex(k => k.UserId);
+        apiKey.HasOne(k => k.User)
+            .WithMany()
+            .HasForeignKey(k => k.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         var playlist = modelBuilder.Entity<Playlist>();
         playlist.ToTable("playlist", t =>
