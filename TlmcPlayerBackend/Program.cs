@@ -130,6 +130,19 @@ app.UseCors();
 // publicly. Development still gets it by default; anywhere else has to ask for it.
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
+    // No Cache-Control means Cloudflare edge-caches the UI's .js/.css by
+    // extension for a day, so after a deploy the served config can lag the
+    // served documents — which looks exactly like a missing feature. The docs
+    // are dev tooling; never let anything cache them.
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/swagger"))
+        {
+            context.Response.Headers.CacheControl = "no-store";
+        }
+
+        await next();
+    });
     app.UseSwagger();
     app.UseSwaggerUI(ui =>
     {
