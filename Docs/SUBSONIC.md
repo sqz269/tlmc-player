@@ -143,7 +143,7 @@ path a strict demuxer somewhere in the ecosystem has no fallback. The
 hardening step is therefore pre-planned rather than hypothetical: a lazy
 `ffmpeg -c copy` remux to a moov-up-front `.m4a`, cached under the `Generated`
 storage root keyed by track + rung (FFMpegCore is already a dependency; a
-stream copy is I/O-bound and cheap). If the client smoke pass (§12) shows any
+stream copy is I/O-bound and cheap). If the client smoke pass (§13) shows any
 target client failing on fMP4, the remux ships in phase 1 instead of phase 3.
 
 `download?id=trk_…` serves the same highest-rung file with a
@@ -229,22 +229,53 @@ Sort keys use existing indexes (`name_sort` is a generated, indexed column);
 | `getStarred2` | Favorite playlist items as starred songs |
 | `scrobble?id=&submission=` | `submission=true` → `PlayEventRepo` insert with `source = unknown` and `ms_played` = track duration (the protocol carries no played-time); `submission=false` (now-playing) is a no-op success |
 | `getLyricsBySongId` (songLyrics ext.) | project the native lyrics document (`TrackRepo.GetLyrics`): pick the default variant, one `line` per native line with its timestamp, ruby annotations dropped, one `structuredLyrics` entry per language block. The lossy projection is acceptable here — full fidelity stays native-only |
-| `getSimilarSongs2` | `SimilarityRepo` — precomputed neighbors, a genuine differentiator most Subsonic servers fake with genre matching |
 
 `getUser` returns a synthetic read-only user (no admin/settings roles);
 `changePassword`/user management answer 30 — identity lives in Keycloak.
 
-## 10. Explicitly out of scope
+## 10. Similarity and discovery
+
+The embedding stack (MERT track embeddings, precomputed chamfer neighbors in
+`similar_track`, pgvector ANN fallback, `Utils/DiversityReranker.cs`) backs the
+protocol's discovery endpoints with actual audio similarity, where the
+ecosystem convention is Last.fm genre adjacency — most servers fake these
+endpoints; this one doesn't have to.
+
+| Subsonic | Mapping |
+| --- | --- |
+| `getSimilarSongs2?id=trk_…&count=` | `SimilarityRepo` verbatim: precomputed neighbors in rank order, ANN fallback for tracks without rows. Diversification **on**: clients call this to build instant mixes and radio, which is exactly what the reranker's same-release/same-circle penalty exists for |
+| `getSimilarSongs2?id=rel_…` | union of the release's tracks' neighbor lists, best score first, minus the release's own tracks, then diversified |
+| `getSimilarSongs2?id=cir_…` | same, anchored on a sample of the circle's tracks (cap the anchor set, ~50), minus the circle's own tracks |
+| `getSimilarSongs` | alias of the above (folder/ID3 distinction doesn't affect the result shape) |
+| `getArtistInfo2` → `similarArtist` | derived from the neighbor graph without circle-level embeddings: the anchors' neighbors grouped by *their* circle, weighted by score and rank, top N. One aggregate query over `similar_track`; materialize offline if profiles say so |
+| `getTopSongs?artist=` | not similarity but adjacent: `play_event` counts per track within the named circle, disc/track order as the cold-start fallback |
+
+Two impedance mismatches dissolve at the protocol boundary rather than
+needing translation:
+
+- Subsonic responses carry **no similarity scores** — an ordered song list is
+  the whole contract. The compressed 0.986–0.994 score range the native UI
+  must rescale (SCHEMA-V6.md) simply does not cross; only rank order survives.
+- The native `source: precomputed|approximate` and `model` provenance fields
+  have no protocol slot either. Clients cannot tell the ANN fallback from the
+  precomputed graph, so index staleness degrades quality, never correctness.
+
+`count` clamps to the native similarity limit. Tracks, releases or circles
+with no embedded media answer an empty list, not an error — clients treat
+empty similar-song lists as routine.
+
+## 11. Explicitly out of scope
 
 Podcasts, internet radio, jukebox, shares, chat, bookmarks, video (`getVideos`,
 `hls.m3u8` — ironically), ratings (`setRating` answers 30; only the boolean
-star maps to anything real), `getArtistInfo2` biographies (could later serve
-circle websites/aliases), music folder browsing by *actual* folders
+star maps to anything real), `getArtistInfo2` biography text (the
+`similarArtist` part is covered in §10; the biography could later serve circle
+websites/aliases), music folder browsing by *actual* folders
 (`getIndexes`/`getMusicDirectory` are implemented as thin aliases of the ID3
 views in phase 3 only if a wanted client requires them — modern clients browse
 by ID3).
 
-## 11. Project layout, config, deployment
+## 12. Project layout, config, deployment
 
 ```
 TlmcPlayerBackend/Subsonic/
@@ -265,13 +296,13 @@ Controllers/UserProfile/ApiKeyController.cs   native key management (§4)
 - Swagger: exclude `/rest` from the OpenAPI doc (`DocInclusionPredicate`) — the
   contract is the Subsonic spec, and generated clients must not bind to it.
 
-## 12. Phasing and estimate
+## 13. Phasing and estimate
 
 | Phase | Endpoints | Outcome | Estimate |
 | --- | --- | --- | --- |
 | 1 — browse & play | `ping`, `getLicense`, `getOpenSubsonicExtensions`, `getMusicFolders`, `getArtists`, `getArtist`, `getAlbum`, `getSong`, `getAlbumList2` (4 types), `getRandomSongs`, `getCoverArt`, `stream`, `download`, `search3`/`search2` + API-key table & native management endpoints | any Subsonic client browses, searches, and plays | ~3–4 focused days, half of which is envelope/XML plumbing and the auth filter |
-| 2 — user features | playlist CRUD, `star`/`unstar`/`getStarred2`, `scrobble`, `getLyricsBySongId`, `getGenres`/`getSongsByGenre` (tags) | daily-driver parity | ~2–3 days |
-| 3 — polish | `getSimilarSongs2`, `getTopSongs`, `recent`/`frequent` album lists, `getIndexes`/`getMusicDirectory` aliases, fMP4→m4a remux cache if needed | discovery features, legacy-client coverage | as needed |
+| 2 — user features | playlist CRUD, `star`/`unstar`/`getStarred2`, `scrobble`, `getLyricsBySongId`, `getSimilarSongs2` for track ids (a straight `SimilarityRepo` call), `getGenres`/`getSongsByGenre` (tags) | daily-driver parity incl. instant mix | ~2–3 days |
+| 3 — polish | `getSimilarSongs2` release/circle anchors, `similarArtist` in `getArtistInfo2`, `getTopSongs`, `recent`/`frequent` album lists, `getIndexes`/`getMusicDirectory` aliases, fMP4→m4a remux cache if needed | discovery features, legacy-client coverage | as needed |
 
 Verification: golden-file tests for the envelope (one XML + one JSON per
 endpoint shape — the wrapper, not the data, is where Subsonic compatibility
