@@ -220,6 +220,10 @@ public class AppDbContext : DbContext
 
         var circleWebsite = modelBuilder.Entity<CircleWebsite>();
         circleWebsite.ToTable("circle_website");
+        // The only plain-Guid PK in the model; ids are always client-set. Without
+        // this, EF's convention marks the key generated and the graph heuristic
+        // turns navigation-added rows into 0-row UPDATEs (concurrency crash).
+        circleWebsite.Property(w => w.Id).ValueGeneratedNever();
         circleWebsite.HasOne(w => w.Circle)
             .WithMany(c => c.Website)
             .HasForeignKey(w => w.CircleId)
