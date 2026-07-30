@@ -4,7 +4,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using TlmcPlayerBackend.Data;
+using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Ids;
+using TlmcPlayerBackend.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,13 +23,24 @@ var pgConnectionString = builder.Configuration.GetConnectionString("PostgreSql")
 var dataSource = AppDbOptions.BuildDataSource(pgConnectionString);
 builder.Services.AddDbContext<AppDbContext>(opt => AppDbOptions.Configure(opt, dataSource));
 
-// Repositories are re-registered here as the v6 port brings them back.
+builder.Services.AddScoped<IReleaseRepo, ReleaseRepo>();
+builder.Services.AddScoped<ITrackRepo, TrackRepo>();
+builder.Services.AddScoped<ICircleRepo, CircleRepo>();
+builder.Services.AddScoped<IOriginalRepo, OriginalRepo>();
+builder.Services.AddScoped<ISimilarityRepo, SimilarityRepo>();
+
+builder.Services.AddScoped<IUserProfileRepo, UserProfileRepo>();
+
+builder.Services.AddScoped<IPlaylistRepo, PlaylistRepo>();
+builder.Services.AddScoped<IQueueRepo, QueueRepo>();
+builder.Services.AddScoped<IPlayEventRepo, PlayEventRepo>();
+
+// Rows hold storage keys; the roots they resolve against are configuration.
+builder.Services.AddSingleton<StorageRootResolver>();
 
 // Configure Jwt Authentication
 builder.Services.ConfigureJwt(builder.Configuration);
 builder.Services.AddTransient<IClaimsTransformation>(_ => new KeycloakClaimTransformer());
-
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddHttpContextAccessor();
 
