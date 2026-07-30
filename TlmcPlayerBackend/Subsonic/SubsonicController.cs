@@ -334,13 +334,15 @@ public class SubsonicController(
 
         var artwork = await _context.Artworks.AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == artworkId);
-        if (artwork == null || artwork.Variants.Count == 0)
+        if (artwork == null)
         {
             return NotFoundError();
         }
 
         // Variant ladder: 0 is the unresized original. Requested size → smallest
         // variant at least that big, else the original; no size → the original.
+        // No variants at all (the resize stage hasn't run) → the source image:
+        // oversized beats a broken cover, and clients downscale anyway.
         var original = artwork.Variants.FirstOrDefault(v => v.SizePx == 0);
         var chosen = size > 0
             ? artwork.Variants
@@ -348,9 +350,9 @@ public class SubsonicController(
                   .OrderBy(v => v.SizePx)
                   .FirstOrDefault() ?? original
             : original;
-        chosen ??= artwork.Variants.OrderByDescending(v => v.SizePx).First();
+        chosen ??= artwork.Variants.OrderByDescending(v => v.SizePx).FirstOrDefault();
 
-        return await ServeAsset(chosen.AssetId, "image/jpeg");
+        return await ServeAsset(chosen?.AssetId ?? artwork.SourceAssetId, "image/jpeg");
     }
 
     [AcceptVerbs("GET", "POST", Route = "stream")]
