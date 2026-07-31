@@ -1,8 +1,11 @@
 # Recommendation & feedback-loop machinery (proposal)
 
-Status: **proposed**. Nothing in this document is implemented; it plans the
-work that begins where the Subsonic phase-2 surface (scrobble → `play_event`,
-per-user `recent`/`frequent`, OIDC → API keys) left off.
+Status: **phase 0 implemented** (enum vocabulary, `rec_impression` +
+`rec_attribution`, API-key auth on `/api/user/history`, native reporting from
+the fork at every track transition). Known phase-0 gap: a tab closed mid-song
+loses that track's partial play — transitions and in-app navigation are
+covered via `keepalive` fetch; a pagehide beacon was deliberately deferred to
+avoid double-counting resumed bfcache sessions. Phases 1–5 remain proposed.
 
 This proposes personal recommendation surfaces and the feedback machinery that
 makes them measurable. It is written for *this* deployment's shape: a
