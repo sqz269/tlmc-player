@@ -16,10 +16,23 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": [
+        "https://music.marisad.me/*",
+        "https://aonsoku.sqz269.workers.dev/*",
+        "https://tlmc.marisad.me/*",
+        "http://localhost:5173/*",
+        "http://100.113.67.50:5173/*"
+      ],
+      "webOrigins": [
+        "https://music.marisad.me",
+        "https://aonsoku.sqz269.workers.dev",
+        "https://tlmc.marisad.me",
+        "http://localhost:5173",
+        "http://100.113.67.50:5173"
+      ],
       "attributes": {
-        "post.logout.redirect.uris": "*"
+        "post.logout.redirect.uris": "+",
+        "pkce.code.challenge.method": "S256"
       }
     }
   ],
