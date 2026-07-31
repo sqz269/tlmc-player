@@ -11,6 +11,8 @@ public enum AlbumListType
     Newest,
     ByYear,
     Random,
+    Recent,
+    Frequent,
 }
 
 /// <summary>Row shape for the facade's album lists; ids stay raw Guids until mapping.</summary>
@@ -112,6 +114,42 @@ public class SubsonicQueries(AppDbContext context)
             AlbumListType.Random => _context.Database
                 .SqlQueryRaw<AlbumRow>(
                     AlbumSelect + " ORDER BY random() LIMIT {0}", size)
+                .ToListAsync(),
+
+            // recent/frequent are play_event aggregates (Docs/SUBSONIC.md
+            // section 9): empty until scrobbling records plays, but the shape
+            // is right from day one so home-screen sections resolve instead of
+            // erroring.
+            AlbumListType.Recent => _context.Database
+                .SqlQueryRaw<AlbumRow>(
+                    AlbumSelect + """
+                     WHERE EXISTS (SELECT 1 FROM play_event pe
+                                   JOIN track t ON t.id = pe.track_id
+                                   JOIN disc d ON d.id = t.disc_id
+                                   WHERE d.release_id = r.id)
+                     ORDER BY (SELECT max(pe.played_at) FROM play_event pe
+                               JOIN track t ON t.id = pe.track_id
+                               JOIN disc d ON d.id = t.disc_id
+                               WHERE d.release_id = r.id) DESC
+                     OFFSET {0} LIMIT {1}
+                    """,
+                    offset, size)
+                .ToListAsync(),
+
+            AlbumListType.Frequent => _context.Database
+                .SqlQueryRaw<AlbumRow>(
+                    AlbumSelect + """
+                     WHERE EXISTS (SELECT 1 FROM play_event pe
+                                   JOIN track t ON t.id = pe.track_id
+                                   JOIN disc d ON d.id = t.disc_id
+                                   WHERE d.release_id = r.id)
+                     ORDER BY (SELECT count(*) FROM play_event pe
+                               JOIN track t ON t.id = pe.track_id
+                               JOIN disc d ON d.id = t.disc_id
+                               WHERE d.release_id = r.id) DESC
+                     OFFSET {0} LIMIT {1}
+                    """,
+                    offset, size)
                 .ToListAsync(),
 
             _ => throw new ArgumentOutOfRangeException(nameof(type)),

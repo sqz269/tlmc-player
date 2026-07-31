@@ -174,12 +174,22 @@ public class SubsonicController(
                 "Required parameter is missing: type");
         }
 
+        // starred/highest have no data source yet (no stars, no ratings): a
+        // valid empty list lets client home sections resolve and hide instead
+        // of skeleton-looping through error retries.
+        if (type is "starred" or "highest")
+        {
+            return SubsonicResult.Ok(e => e.AlbumList2 = new AlbumList2Dto());
+        }
+
         AlbumListType? listType = type switch
         {
             "alphabeticalByName" => AlbumListType.AlphabeticalByName,
             "newest" => AlbumListType.Newest,
             "byYear" => AlbumListType.ByYear,
             "random" => AlbumListType.Random,
+            "recent" => AlbumListType.Recent,
+            "frequent" => AlbumListType.Frequent,
             _ => null,
         };
         if (listType == null)
