@@ -18,6 +18,12 @@ public class TrackMapCircleDto
     public int Count { get; set; }
 }
 
+public class TrackMapClusterDto
+{
+    public short Id { get; set; }
+    public string Name { get; set; } = null!;
+}
+
 /// <summary>
 /// The whole library as one payload of parallel arrays — entry i of every array
 /// describes the same point. Arrays instead of an object per track because the map
@@ -36,6 +42,10 @@ public class TrackMapResponseDto
     /// <summary>Legend for the circle array, largest circle first — an index
     /// threshold is all a client needs for top-N coloring.</summary>
     public List<TrackMapCircleDto> Circles { get; set; } = [];
+
+    /// <summary>Curated names for the cluster labels; empty until a naming pass
+    /// has been reviewed and loaded.</summary>
+    public List<TrackMapClusterDto> Clusters { get; set; } = [];
 
     public List<TrackId> Ids { get; set; } = [];
     public List<float> X { get; set; } = [];

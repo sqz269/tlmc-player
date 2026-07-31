@@ -42,6 +42,7 @@ public class AppDbContext : DbContext
 
     public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
     public DbSet<TrackMapPoint> TrackMapPoints { get; set; }
+    public DbSet<TrackMapCluster> TrackMapClusters { get; set; }
     public DbSet<SimilarTrack> SimilarTracks { get; set; }
     public DbSet<SimilarRelease> SimilarReleases { get; set; }
     public DbSet<SimilarCircle> SimilarCircles { get; set; }
@@ -409,6 +410,11 @@ public class AppDbContext : DbContext
             t.HasCheckConstraint("embedding_config_single_row", "id"));
         embeddingConfig.HasKey(c => c.Id);
         embeddingConfig.Property(c => c.Id).HasDefaultValue(true).ValueGeneratedNever();
+
+        var trackMapCluster = modelBuilder.Entity<TrackMapCluster>();
+        trackMapCluster.ToTable("track_map_cluster");
+        trackMapCluster.HasKey(c => c.Cluster);
+        trackMapCluster.Property(c => c.Cluster).ValueGeneratedNever();
 
         var trackMap = modelBuilder.Entity<TrackMapPoint>();
         trackMap.ToTable("track_map");

@@ -303,12 +303,19 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
             circleIndex[circles[i].Id] = i;
         }
 
+        var clusterNames = await _context.TrackMapClusters
+            .AsNoTracking()
+            .OrderBy(c => c.Cluster)
+            .Select(c => new TrackMapClusterDto { Id = c.Cluster, Name = c.Name })
+            .ToListAsync();
+
         var map = new TrackMapResponseDto
         {
             Count = points.Count,
             Model = await GetModel(),
             Works = works,
             Circles = circles,
+            Clusters = clusterNames,
         };
         foreach (var p in points)
         {
