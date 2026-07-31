@@ -19,6 +19,7 @@ namespace TlmcPlayerBackend.Controllers.Playlist;
 // the first-party client reports plays continuously with its device key, and
 // phase 4 reads history with it for the territory overlay.
 [Authorize(AuthenticationSchemes = $"Bearer,{ApiKeyAuthenticationHandler.SchemeName}")]
+[ResponseCache(Location = ResponseCacheLocation.None, NoStore = true)]
 public class HistoryController(IPlayEventRepo playEventRepo) : ControllerBase
 {
     private readonly IPlayEventRepo _playEventRepo = playEventRepo;

@@ -32,6 +32,7 @@ builder.Services.AddScoped<ITrackRepo, TrackRepo>();
 builder.Services.AddScoped<ICircleRepo, CircleRepo>();
 builder.Services.AddScoped<IOriginalRepo, OriginalRepo>();
 builder.Services.AddScoped<ISimilarityRepo, SimilarityRepo>();
+builder.Services.AddScoped<IRecommendationRepo, RecommendationRepo>();
 
 builder.Services.AddScoped<IUserProfileRepo, UserProfileRepo>();
 

@@ -19,6 +19,7 @@ namespace TlmcPlayerBackend.Controllers.UserProfile;
 [ApiController]
 [Route("api/user/api-keys")]
 [Authorize]
+[ResponseCache(Location = ResponseCacheLocation.None, NoStore = true)]
 public class ApiKeyController(AppDbContext context) : ControllerBase
 {
     private readonly AppDbContext _context = context;

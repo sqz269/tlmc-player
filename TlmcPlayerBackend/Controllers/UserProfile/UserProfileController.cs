@@ -9,6 +9,7 @@ namespace TlmcPlayerBackend.Controllers.UserProfile;
 
 [ApiController]
 [Route("api/user/profile")]
+[ResponseCache(Location = ResponseCacheLocation.None, NoStore = true)]
 public class UserProfileController(IUserProfileRepo userProfileRepo) : ControllerBase
 {
     private readonly IUserProfileRepo _userProfileRepo = userProfileRepo;

@@ -1,11 +1,11 @@
 # Recommendation & feedback-loop machinery (proposal)
 
-Status: **phase 0 implemented** (enum vocabulary, `rec_impression` +
+Status: **phases 0–1 implemented** (enum vocabulary, `rec_impression` +
 `rec_attribution`, API-key auth on `/api/user/history`, native reporting from
 the fork at every track transition). Known phase-0 gap: a tab closed mid-song
 loses that track's partial play — transitions and in-app navigation are
 covered via `keepalive` fetch; a pagehide beacon was deliberately deferred to
-avoid double-counting resumed bfcache sessions. Phases 1–5 remain proposed.
+avoid double-counting resumed bfcache sessions. Phase 1 notes: centroids/affinity are computed per request (no cache yet); the territory row is pure taste-kNN because the whole library shares one import date; k is a stepwise heuristic, not silhouette. The zone's cache-everything rule overrides origin no-store, so per-user endpoints are guarded by client nonces until a bypass cache rule for /api/user/* and /api/music/recommendations/* exists. Phases 2–5 remain proposed.
 
 This proposes personal recommendation surfaces and the feedback machinery that
 makes them measurable. It is written for *this* deployment's shape: a
