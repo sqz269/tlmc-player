@@ -459,6 +459,56 @@ public class SubsonicController(
             : SubsonicResult.Ok(e => e.SimilarSongs = new SimilarSongsDto { Song = songs });
     }
 
+    /// <summary>
+    /// Docs/SUBSONIC.md section 10: play_event counts per track within the named
+    /// circle decide "top"; while nothing has been scrobbled the counts are all
+    /// zero and the tiebreak — release date, then disc/track order — carries the
+    /// list, so the shape is stable from day one. The spec addresses artists by
+    /// name, so the lookup is name (case-insensitive) or exact alias; an unknown
+    /// name yields an empty list, which clients render as a routine empty section.
+    /// </summary>
+    [AcceptVerbs("GET", "POST", Route = "getTopSongs")]
+    [AcceptVerbs("GET", "POST", Route = "getTopSongs.view")]
+    public async Task<IActionResult> GetTopSongs(string? artist, int count = 50)
+    {
+        count = Math.Clamp(count, 1, 100);
+        var name = artist?.Trim() ?? "";
+
+        var matches = await _context.Circles.AsNoTracking()
+            .Where(c => c.Name.ToLower() == name.ToLower() || c.Alias.Contains(name))
+            .OrderBy(c => c.Id)
+            .Take(1)
+            .Select(c => c.Id)
+            .ToListAsync();
+        if (matches.Count == 0)
+        {
+            return SubsonicResult.Ok(e => e.TopSongs = new TopSongsDto());
+        }
+
+        var circleId = matches[0];
+        var picked = await _context.Tracks.AsNoTracking()
+            .Where(t => t.MediaKey != null
+                        && t.Disc.Release.Circles.Any(rc => rc.CircleId == circleId))
+            .OrderByDescending(t => _context.PlayEvents.Count(p => p.TrackId == t.Id))
+            .ThenBy(t => t.Disc.Release.ReleaseDate ?? DateOnly.MaxValue)
+            .ThenBy(t => t.Disc.DiscNumber)
+            .ThenBy(t => t.TrackNumber)
+            .ThenBy(t => t.Id)
+            .Take(count)
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        var contexts = await _trackRepo.GetWithContext(picked);
+        var byId = contexts.ToDictionary(c => c.Track.Id);
+        return SubsonicResult.Ok(e => e.TopSongs = new TopSongsDto
+        {
+            Song = picked
+                .Where(byId.ContainsKey)
+                .Select(p => SubsonicMapper.ToSong(byId[p], _options.ServeLossless))
+                .ToList(),
+        });
+    }
+
     [AcceptVerbs("GET", "POST", Route = "getArtistInfo2")]
     [AcceptVerbs("GET", "POST", Route = "getArtistInfo2.view")]
     public async Task<IActionResult> GetArtistInfo2(string? id, int count = 20)

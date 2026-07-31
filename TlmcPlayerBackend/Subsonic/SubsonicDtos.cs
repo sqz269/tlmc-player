@@ -33,6 +33,7 @@ public class SubsonicEnvelope
     [XmlElement("searchResult2")] public SearchResult2Dto? SearchResult2 { get; set; }
     [XmlElement("similarSongs")] public SimilarSongsDto? SimilarSongs { get; set; }
     [XmlElement("similarSongs2")] public SimilarSongsDto? SimilarSongs2 { get; set; }
+    [XmlElement("topSongs")] public TopSongsDto? TopSongs { get; set; }
     [XmlElement("artistInfo2")] public ArtistInfo2Dto? ArtistInfo2 { get; set; }
     [XmlElement("openSubsonicExtensions")] public List<OpenSubsonicExtensionDto>? OpenSubsonicExtensions { get; set; }
     [XmlElement("playlists")] public PlaylistsDto? Playlists { get; set; }
@@ -205,6 +206,11 @@ public class SongsDto
 }
 
 public class SimilarSongsDto
+{
+    [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
+}
+
+public class TopSongsDto
 {
     [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
 }
