@@ -6,6 +6,7 @@ using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Dtos.MusicData;
 using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Models.MusicData;
+using TlmcPlayerBackend.Models.Playlist;
 using TlmcPlayerBackend.Search;
 using TlmcPlayerBackend.Utils;
 
@@ -29,6 +30,7 @@ public class SubsonicController(
     IReleaseRepo releaseRepo,
     ITrackRepo trackRepo,
     ISimilarityRepo similarityRepo,
+    IPlayEventRepo playEventRepo,
     ISearchIndexService search,
     StorageRootResolver resolver,
     IOptions<SubsonicOptions> options) : ControllerBase
@@ -40,9 +42,13 @@ public class SubsonicController(
     private readonly IReleaseRepo _releaseRepo = releaseRepo;
     private readonly ITrackRepo _trackRepo = trackRepo;
     private readonly ISimilarityRepo _similarityRepo = similarityRepo;
+    private readonly IPlayEventRepo _playEventRepo = playEventRepo;
     private readonly ISearchIndexService _search = search;
     private readonly StorageRootResolver _resolver = resolver;
     private readonly SubsonicOptions _options = options.Value;
+
+    /// <summary>The identity the auth filter resolved, or null on anonymous requests.</summary>
+    private UserId? SubsonicUser => HttpContext.Items[SubsonicAuthFilter.UserItem] as UserId?;
 
     // -- System ----------------------------------------------------------------
 
@@ -182,6 +188,14 @@ public class SubsonicController(
             return SubsonicResult.Ok(e => e.AlbumList2 = new AlbumList2Dto());
         }
 
+        // recent/frequent are per-user by Subsonic semantics; an anonymous
+        // session has no history, and other listeners' plays are not its
+        // business, so the answer is an empty list rather than a global feed.
+        if (type is "recent" or "frequent" && SubsonicUser == null)
+        {
+            return SubsonicResult.Ok(e => e.AlbumList2 = new AlbumList2Dto());
+        }
+
         AlbumListType? listType = type switch
         {
             "alphabeticalByName" => AlbumListType.AlphabeticalByName,
@@ -205,7 +219,8 @@ public class SubsonicController(
         }
 
         var rows = await _queries.GetAlbumList(
-            listType.Value, Math.Clamp(size, 1, MaxPageSize), Math.Max(offset, 0), fromYear, toYear);
+            listType.Value, Math.Clamp(size, 1, MaxPageSize), Math.Max(offset, 0),
+            fromYear, toYear, SubsonicUser);
 
         return SubsonicResult.Ok(e => e.AlbumList2 = new AlbumList2Dto
         {
@@ -426,6 +441,50 @@ public class SubsonicController(
         return download
             ? PhysicalFile(path, "audio/mp4", $"{SafeFileName(track.Name.Default)}.m4a", enableRangeProcessing: true)
             : PhysicalFile(path, "audio/mp4", enableRangeProcessing: true);
+    }
+
+    /// <summary>
+    /// Docs/SUBSONIC.md section 9: submission=true inserts a play_event with
+    /// source=unknown and ms_played = track duration (the protocol carries no
+    /// played-time); submission=false (now-playing) is a no-op success. Writing
+    /// history requires an identity, so anonymous sessions answer 50 — clients
+    /// treat scrobble failures as non-fatal.
+    /// </summary>
+    [AcceptVerbs("GET", "POST", Route = "scrobble")]
+    [AcceptVerbs("GET", "POST", Route = "scrobble.view")]
+    public async Task<IActionResult> Scrobble(string[]? id, bool submission = true)
+    {
+        if (!submission)
+        {
+            return SubsonicResult.Ok();
+        }
+
+        if (SubsonicUser is not { } user)
+        {
+            return SubsonicResult.Error(SubsonicErrorCodes.NotAuthorized,
+                "Scrobbling requires an authenticated user (apiKey)");
+        }
+
+        var recorded = 0;
+        foreach (var raw in id ?? [])
+        {
+            if (!TrackId.TryParse(raw, null, out var trackId))
+            {
+                continue;
+            }
+
+            var duration = await _context.Tracks.AsNoTracking()
+                .Where(t => t.Id == trackId)
+                .Select(t => t.Duration)
+                .FirstOrDefaultAsync();
+            if (await _playEventRepo.Record(user, trackId, PlaySource.Unknown,
+                    duration is { } d ? (int)d.TotalMilliseconds : null))
+            {
+                recorded++;
+            }
+        }
+
+        return recorded == 0 && id is { Length: > 0 } ? NotFoundError() : SubsonicResult.Ok();
     }
 
     // -- Phase-2 surfaces, stubbed empty ---------------------------------------

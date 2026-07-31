@@ -74,8 +74,12 @@ public class SubsonicQueries(AppDbContext context)
     private readonly AppDbContext _context = context;
 
     public Task<List<AlbumRow>> GetAlbumList(
-        AlbumListType type, int size, int offset, int fromYear, int toYear)
+        AlbumListType type, int size, int offset, int fromYear, int toYear, UserId? user = null)
     {
+        // Recent/Frequent are per-user aggregates; the controller guarantees an
+        // identity before asking for them.
+        var userId = user?.Value ?? Guid.Empty;
+
         return type switch
         {
             AlbumListType.AlphabeticalByName => _context.Database
@@ -126,14 +130,14 @@ public class SubsonicQueries(AppDbContext context)
                      WHERE EXISTS (SELECT 1 FROM play_event pe
                                    JOIN track t ON t.id = pe.track_id
                                    JOIN disc d ON d.id = t.disc_id
-                                   WHERE d.release_id = r.id)
+                                   WHERE d.release_id = r.id AND pe.user_id = {2})
                      ORDER BY (SELECT max(pe.played_at) FROM play_event pe
                                JOIN track t ON t.id = pe.track_id
                                JOIN disc d ON d.id = t.disc_id
-                               WHERE d.release_id = r.id) DESC
+                               WHERE d.release_id = r.id AND pe.user_id = {2}) DESC
                      OFFSET {0} LIMIT {1}
                     """,
-                    offset, size)
+                    offset, size, userId)
                 .ToListAsync(),
 
             AlbumListType.Frequent => _context.Database
@@ -142,14 +146,14 @@ public class SubsonicQueries(AppDbContext context)
                      WHERE EXISTS (SELECT 1 FROM play_event pe
                                    JOIN track t ON t.id = pe.track_id
                                    JOIN disc d ON d.id = t.disc_id
-                                   WHERE d.release_id = r.id)
+                                   WHERE d.release_id = r.id AND pe.user_id = {2})
                      ORDER BY (SELECT count(*) FROM play_event pe
                                JOIN track t ON t.id = pe.track_id
                                JOIN disc d ON d.id = t.disc_id
-                               WHERE d.release_id = r.id) DESC
+                               WHERE d.release_id = r.id AND pe.user_id = {2}) DESC
                      OFFSET {0} LIMIT {1}
                     """,
-                    offset, size)
+                    offset, size, userId)
                 .ToListAsync(),
 
             _ => throw new ArgumentOutOfRangeException(nameof(type)),
