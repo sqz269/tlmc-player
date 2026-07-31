@@ -1,6 +1,7 @@
 using KeycloakAuthProvider.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TlmcPlayerBackend.Auth;
 using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Dtos.Common;
 using TlmcPlayerBackend.Dtos.Playlist;
@@ -14,7 +15,10 @@ namespace TlmcPlayerBackend.Controllers.Playlist;
 /// </summary>
 [ApiController]
 [Route("api/user/history")]
-[Authorize]
+// API keys are accepted alongside Keycloak (Docs/RECOMMENDER.md section 3a):
+// the first-party client reports plays continuously with its device key, and
+// phase 4 reads history with it for the territory overlay.
+[Authorize(AuthenticationSchemes = $"Bearer,{ApiKeyAuthenticationHandler.SchemeName}")]
 public class HistoryController(IPlayEventRepo playEventRepo) : ControllerBase
 {
     private readonly IPlayEventRepo _playEventRepo = playEventRepo;

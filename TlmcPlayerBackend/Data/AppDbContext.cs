@@ -39,6 +39,7 @@ public class AppDbContext : DbContext
     public DbSet<PlaylistItem> PlaylistItems { get; set; }
     public DbSet<QueueItem> QueueItems { get; set; }
     public DbSet<PlayEvent> PlayEvents { get; set; }
+    public DbSet<RecImpression> RecImpressions { get; set; }
 
     public DbSet<TrackEmbedding> TrackEmbeddings { get; set; }
     public DbSet<TrackMapPoint> TrackMapPoints { get; set; }
@@ -314,6 +315,24 @@ public class AppDbContext : DbContext
             .HasForeignKey(e => e.UserId)
             .OnDelete(DeleteBehavior.Cascade);
         playEvent.HasOne(e => e.Track)
+            .WithMany()
+            .HasForeignKey(e => e.TrackId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var recImpression = modelBuilder.Entity<RecImpression>();
+        recImpression.ToTable("rec_impression");
+        recImpression.Property(e => e.Id).UseIdentityAlwaysColumn();
+        recImpression.Property(e => e.ServedAt).HasDefaultValueSql("now()");
+        recImpression.Property(e => e.Surface).HasMaxLength(64);
+        // Per-surface funnels.
+        recImpression.HasIndex(e => new { e.UserId, e.ServedAt }).IsDescending(false, true);
+        // The attribution join probe.
+        recImpression.HasIndex(e => new { e.UserId, e.TrackId, e.ServedAt });
+        recImpression.HasOne(e => e.User)
+            .WithMany()
+            .HasForeignKey(e => e.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        recImpression.HasOne(e => e.Track)
             .WithMany()
             .HasForeignKey(e => e.TrackId)
             .OnDelete(DeleteBehavior.Cascade);

@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using TlmcPlayerBackend.Data;
+using TlmcPlayerBackend.Auth;
 using TlmcPlayerBackend.Data.Repos;
 using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Search;
@@ -71,6 +72,13 @@ builder.Services.AddScoped<SubsonicQueries>();
 
 // Configure Jwt Authentication
 builder.Services.ConfigureJwt(builder.Configuration);
+
+// Secondary scheme for endpoints that per-device API keys may also reach
+// (opt-in via [Authorize(AuthenticationSchemes = ...)]); the default policy
+// stays Keycloak-only.
+builder.Services.AddAuthentication()
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationHandler.SchemeName, null);
 builder.Services.AddTransient<IClaimsTransformation>(_ => new KeycloakClaimTransformer());
 
 builder.Services.AddHttpContextAccessor();

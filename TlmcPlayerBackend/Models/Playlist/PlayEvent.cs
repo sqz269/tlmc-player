@@ -13,6 +13,12 @@ public enum PlaySource
     Similar,
     Search,
     Unknown,
+    // Docs/RECOMMENDER.md section 3b: attribution vocabulary for the
+    // recommendation surfaces. Postgres enum values are append-only.
+    Radio,
+    Recommended,
+    Map,
+    Queue,
 }
 
 /// <summary>
