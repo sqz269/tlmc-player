@@ -421,6 +421,10 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(p => p.WorkId)
             .OnDelete(DeleteBehavior.SetNull);
+        trackMap.HasOne(p => p.Circle)
+            .WithMany()
+            .HasForeignKey(p => p.CircleId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         base.OnModelCreating(modelBuilder);
     }

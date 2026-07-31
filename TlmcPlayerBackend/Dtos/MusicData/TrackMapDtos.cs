@@ -9,6 +9,15 @@ public class TrackMapWorkDto
     public LocalizedField ShortName { get; set; } = null!;
 }
 
+public class TrackMapCircleDto
+{
+    public CircleId Id { get; set; }
+    public string Name { get; set; } = null!;
+
+    /// <summary>Points on the map credited to this circle.</summary>
+    public int Count { get; set; }
+}
+
 /// <summary>
 /// The whole library as one payload of parallel arrays — entry i of every array
 /// describes the same point. Arrays instead of an object per track because the map
@@ -24,6 +33,10 @@ public class TrackMapResponseDto
     /// <summary>Legend for the work array, in stable id order.</summary>
     public List<TrackMapWorkDto> Works { get; set; } = [];
 
+    /// <summary>Legend for the circle array, largest circle first — an index
+    /// threshold is all a client needs for top-N coloring.</summary>
+    public List<TrackMapCircleDto> Circles { get; set; } = [];
+
     public List<TrackId> Ids { get; set; } = [];
     public List<float> X { get; set; } = [];
     public List<float> Y { get; set; } = [];
@@ -36,4 +49,7 @@ public class TrackMapResponseDto
 
     /// <summary>Index into works; -1 when the track arranges no known work.</summary>
     public List<short> Work { get; set; } = [];
+
+    /// <summary>Index into circles; -1 when uncredited.</summary>
+    public List<short> Circle { get; set; } = [];
 }

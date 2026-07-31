@@ -257,7 +257,7 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
         var points = await _context.TrackMapPoints
             .AsNoTracking()
             .OrderBy(p => p.TrackId)
-            .Select(p => new { p.TrackId, p.X, p.Y, p.Cluster, p.Year, p.WorkId })
+            .Select(p => new { p.TrackId, p.X, p.Y, p.Cluster, p.Year, p.WorkId, p.CircleId })
             .ToListAsync();
 
         var workIds = points
@@ -277,11 +277,38 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
             workIndex[works[i].Id] = i;
         }
 
+        var circleCounts = points
+            .Where(p => p.CircleId != null)
+            .GroupBy(p => p.CircleId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var circleIds = circleCounts.Keys.ToList();
+        var circleNames = await _context.Circles
+            .AsNoTracking()
+            .Where(c => circleIds.Contains(c.Id))
+            .Select(c => new { c.Id, c.Name })
+            .ToDictionaryAsync(c => c.Id, c => c.Name);
+        var circles = circleCounts
+            .Select(kv => new TrackMapCircleDto
+            {
+                Id = kv.Key,
+                Name = circleNames.GetValueOrDefault(kv.Key) ?? string.Empty,
+                Count = kv.Value,
+            })
+            .OrderByDescending(c => c.Count)
+            .ThenBy(c => c.Name)
+            .ToList();
+        var circleIndex = new Dictionary<CircleId, short>();
+        for (short i = 0; i < circles.Count; i++)
+        {
+            circleIndex[circles[i].Id] = i;
+        }
+
         var map = new TrackMapResponseDto
         {
             Count = points.Count,
             Model = await GetModel(),
             Works = works,
+            Circles = circles,
         };
         foreach (var p in points)
         {
@@ -291,6 +318,7 @@ public class SimilarityRepo(AppDbContext context) : ISimilarityRepo
             map.Cluster.Add(p.Cluster);
             map.Year.Add(p.Year ?? 0);
             map.Work.Add(p.WorkId is { } workId ? workIndex[workId] : (short)-1);
+            map.Circle.Add(p.CircleId is { } circleId ? circleIndex[circleId] : (short)-1);
         }
 
         return map;

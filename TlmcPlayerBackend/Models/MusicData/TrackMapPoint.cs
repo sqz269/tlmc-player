@@ -29,4 +29,9 @@ public class TrackMapPoint
     public OriginalWorkId? WorkId { get; set; }
 
     public OriginalWork? Work { get; set; }
+
+    /// <summary>Primary circle — lowest ordinal on the release; null when uncredited.</summary>
+    public CircleId? CircleId { get; set; }
+
+    public Circle? Circle { get; set; }
 }
