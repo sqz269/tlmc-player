@@ -34,6 +34,8 @@ public class SubsonicEnvelope
     [XmlElement("similarSongs")] public SimilarSongsDto? SimilarSongs { get; set; }
     [XmlElement("similarSongs2")] public SimilarSongsDto? SimilarSongs2 { get; set; }
     [XmlElement("topSongs")] public TopSongsDto? TopSongs { get; set; }
+    [XmlElement("lyrics")] public LyricsDto? Lyrics { get; set; }
+    [XmlElement("lyricsList")] public LyricsListDto? LyricsList { get; set; }
     [XmlElement("artistInfo2")] public ArtistInfo2Dto? ArtistInfo2 { get; set; }
     [XmlElement("openSubsonicExtensions")] public List<OpenSubsonicExtensionDto>? OpenSubsonicExtensions { get; set; }
     [XmlElement("playlists")] public PlaylistsDto? Playlists { get; set; }
@@ -213,6 +215,39 @@ public class SimilarSongsDto
 public class TopSongsDto
 {
     [XmlElement("song")] public List<ChildDto> Song { get; set; } = [];
+}
+
+/// <summary>Legacy getLyrics: one plain-text blob in the element body.</summary>
+public class LyricsDto
+{
+    [XmlAttribute("artist")] public string? Artist { get; set; }
+    [XmlAttribute("title")] public string? Title { get; set; }
+    [XmlText] public string Value { get; set; } = "";
+}
+
+public class LyricsListDto
+{
+    [XmlElement("structuredLyrics")] public List<StructuredLyricsDto> StructuredLyrics { get; set; } = [];
+}
+
+public class StructuredLyricsDto
+{
+    [XmlAttribute("displayArtist")] public string? DisplayArtist { get; set; }
+    [XmlAttribute("displayTitle")] public string? DisplayTitle { get; set; }
+    [XmlAttribute("lang")] public string Lang { get; set; } = "und";
+    [XmlAttribute("synced")] public bool Synced { get; set; }
+    [XmlElement("line")] public List<StructuredLyricsLineDto> Line { get; set; } = [];
+}
+
+public class StructuredLyricsLineDto
+{
+    // Milliseconds; omitted entirely on unsynced lines so clients fall back to
+    // plain rendering instead of stacking everything at 0:00.
+    [XmlAttribute("start")] public long Start { get; set; }
+    [XmlIgnore, JsonIgnore] public bool StartSpecified { get; set; }
+    public bool ShouldSerializeStart() => StartSpecified;
+
+    [XmlText] public string Value { get; set; } = "";
 }
 
 /// <summary>Only similarArtist is served; biography and the Last.fm fields have no source.</summary>

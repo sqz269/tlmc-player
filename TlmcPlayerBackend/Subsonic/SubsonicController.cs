@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TlmcPlayerBackend.Data;
 using TlmcPlayerBackend.Data.Repos;
+using TlmcPlayerBackend.Dtos.MusicData;
 using TlmcPlayerBackend.Ids;
 using TlmcPlayerBackend.Models.MusicData;
 using TlmcPlayerBackend.Search;
@@ -61,6 +62,7 @@ public class SubsonicController(
         [
             new OpenSubsonicExtensionDto { Name = "apiKeyAuthentication", Versions = [1] },
             new OpenSubsonicExtensionDto { Name = "formPost", Versions = [1] },
+            new OpenSubsonicExtensionDto { Name = "songLyrics", Versions = [1] },
         ]);
 
     [AcceptVerbs("GET", "POST", Route = "getMusicFolders")]
@@ -507,6 +509,124 @@ public class SubsonicController(
                 .Select(p => SubsonicMapper.ToSong(byId[p], _options.ServeLossless))
                 .ToList(),
         });
+    }
+
+    /// <summary>
+    /// Docs/SUBSONIC.md section 9 (songLyrics ext.): the native lyrics document
+    /// projected lossily — default (first) variant only, one structuredLyrics
+    /// entry per language block, ruby annotations dropped. Full fidelity stays
+    /// native-only. A track without lyrics answers an empty list, not an error.
+    /// </summary>
+    [AcceptVerbs("GET", "POST", Route = "getLyricsBySongId")]
+    [AcceptVerbs("GET", "POST", Route = "getLyricsBySongId.view")]
+    public async Task<IActionResult> GetLyricsBySongId(string? id)
+    {
+        if (!TrackId.TryParse(id, null, out var trackId))
+        {
+            return NotFoundError();
+        }
+
+        var contexts = await _trackRepo.GetWithContext([trackId]);
+        if (contexts.Count == 0)
+        {
+            return NotFoundError();
+        }
+
+        var song = SubsonicMapper.ToSong(contexts[0], _options.ServeLossless);
+        var doc = await _trackRepo.GetLyrics(trackId);
+        return SubsonicResult.Ok(e => e.LyricsList = new LyricsListDto
+        {
+            StructuredLyrics = doc == null ? [] : ProjectLyrics(doc, song),
+        });
+    }
+
+    /// <summary>
+    /// Legacy getLyrics addresses tracks by artist/title strings, so the lookup
+    /// is exact title (default name) narrowed by circle name when one is given,
+    /// first match wins. Unknown pairs answer an empty element — the spec's
+    /// "no lyrics", which clients treat as routine.
+    /// </summary>
+    [AcceptVerbs("GET", "POST", Route = "getLyrics")]
+    [AcceptVerbs("GET", "POST", Route = "getLyrics.view")]
+    public async Task<IActionResult> GetLyrics(string? artist, string? title)
+    {
+        var t = title?.Trim() ?? "";
+        var a = artist?.Trim() ?? "";
+        if (t.Length == 0)
+        {
+            return SubsonicResult.Ok(e => e.Lyrics = new LyricsDto());
+        }
+
+        var ids = await _context.Database.SqlQueryRaw<Guid>("""
+            SELECT t.id AS "Value"
+            FROM track t
+            WHERE t.lyrics_id IS NOT NULL
+              AND t.name->>'default' = {0}
+              AND ({1} = '' OR EXISTS (
+                  SELECT 1
+                  FROM disc d
+                  JOIN release_circle rc ON rc.release_id = d.release_id
+                  JOIN circle c ON c.id = rc.circle_id
+                  WHERE d.id = t.disc_id AND lower(c.name) = lower({1})))
+            ORDER BY t.id
+            LIMIT 1
+            """, t, a)
+            .ToListAsync();
+        if (ids.Count == 0)
+        {
+            return SubsonicResult.Ok(e => e.Lyrics = new LyricsDto());
+        }
+
+        var doc = await _trackRepo.GetLyrics(new TrackId(ids[0]));
+        var variant = doc?.Variants.FirstOrDefault();
+        var text = variant == null
+            ? ""
+            : string.Join("\n", variant.Lines
+                .OrderBy(l => l.Index)
+                .Select(l => l.Blocks.FirstOrDefault()?.Text)
+                .OfType<string>());
+
+        return SubsonicResult.Ok(e => e.Lyrics = new LyricsDto
+        {
+            Artist = a.Length > 0 ? a : null,
+            Title = t,
+            Value = text,
+        });
+    }
+
+    private static List<StructuredLyricsDto> ProjectLyrics(LyricsReadDto doc, ChildDto song)
+    {
+        var variant = doc.Variants.FirstOrDefault();
+        if (variant == null)
+        {
+            return [];
+        }
+
+        var synced = variant.Lines.Any(l => l.Time != null);
+        var langs = variant.Lines
+            .SelectMany(l => l.Blocks)
+            .Select(b => b.Lang)
+            .Distinct()
+            .ToList();
+
+        return langs.Select(lang => new StructuredLyricsDto
+        {
+            DisplayArtist = song.Artist,
+            DisplayTitle = song.Title,
+            Lang = lang,
+            Synced = synced,
+            Line = variant.Lines
+                .OrderBy(l => l.Index)
+                .Select(l => new { l.Time, Block = l.Blocks.FirstOrDefault(b => b.Lang == lang) })
+                .Where(x => x.Block != null)
+                .Select(x => new StructuredLyricsLineDto
+                {
+                    Start = (long)(x.Time?.TotalMilliseconds ?? 0),
+                    StartSpecified = synced && x.Time != null,
+                    Value = x.Block!.Text,
+                })
+                .ToList(),
+        }).ToList();
     }
 
     [AcceptVerbs("GET", "POST", Route = "getArtistInfo2")]
