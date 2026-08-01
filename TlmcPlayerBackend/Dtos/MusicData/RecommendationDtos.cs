@@ -22,3 +22,8 @@ public class RecommendationHomeDto
 {
     public List<HomeRowDto> Rows { get; set; } = [];
 }
+
+public class RadioNextDto
+{
+    public List<TrackId> TrackIds { get; set; } = [];
+}

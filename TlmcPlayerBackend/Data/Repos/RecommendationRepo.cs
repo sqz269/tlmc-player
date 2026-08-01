@@ -12,6 +12,10 @@ namespace TlmcPlayerBackend.Data.Repos;
 public interface IRecommendationRepo
 {
     Task<RecommendationHomeDto> GetHomeRows(UserId user);
+
+    Task<RadioNextDto?> GetRadioNext(
+        UserId user, TrackId? anchor, List<TrackId> completed,
+        List<TrackId> skipped, List<TrackId> exclude, int count);
 }
 
 /// <summary>
@@ -494,6 +498,147 @@ public class RecommendationRepo(
         }
 
         return rows;
+    }
+
+    // -- Adaptive radio (Docs/RECOMMENDER.md section 5) ------------------------
+
+    private const float RocchioAlpha = 0.6f;
+    private const float RocchioBeta = 0.3f;
+    private const float RocchioGamma = 0.1f;
+
+    /// <summary>
+    /// Stateless Rocchio relevance feedback: the client sends the session so
+    /// far, the query vector moves toward what was completed and away from
+    /// what was skipped, and the same inputs always produce the same batch —
+    /// which is also what makes the algorithm replayable in tests.
+    /// </summary>
+    public async Task<RadioNextDto?> GetRadioNext(
+        UserId user, TrackId? anchor, List<TrackId> completed,
+        List<TrackId> skipped, List<TrackId> exclude, int count)
+    {
+        var wanted = new List<TrackId>();
+        if (anchor is { } a)
+        {
+            wanted.Add(a);
+        }
+
+        wanted.AddRange(completed);
+        wanted.AddRange(skipped);
+        wanted = wanted.Distinct().ToList();
+        if (wanted.Count == 0)
+        {
+            return null;
+        }
+
+        var embeddings = await _context.TrackEmbeddings.AsNoTracking()
+            .Where(e => wanted.Contains(e.TrackId))
+            .Select(e => new { e.TrackId, e.EmbeddingMeanMax })
+            .ToListAsync();
+        var byId = embeddings.ToDictionary(e => e.TrackId, e => ToUnitFloats(e.EmbeddingMeanMax));
+
+        var completedVecs = completed.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+        var q0 = anchor is { } anchorId && byId.TryGetValue(anchorId, out var av)
+            ? av
+            : completedVecs.Count > 0 ? MeanOf(completedVecs) : null;
+        if (q0 == null)
+        {
+            return null;
+        }
+
+        var skippedVecs = skipped.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+
+        var q = new float[q0.Length];
+        for (var i = 0; i < q.Length; i++)
+        {
+            q[i] = RocchioAlpha * q0[i];
+        }
+
+        AddScaled(q, completedVecs, RocchioBeta);
+        AddScaled(q, skippedVecs, -RocchioGamma);
+        var query = new HalfVector(Normalize(q).Select(v => (Half)v).ToArray());
+
+        var excluded = exclude.Concat(wanted).ToHashSet();
+        // Session tracks sit near the query by construction, so over-fetch by
+        // the exclusion count to keep the post-filter pool full.
+        var pool = Math.Clamp(count * 3, count, 100) + excluded.Count;
+
+        var rows = await _context.TrackEmbeddings.AsNoTracking()
+            .OrderBy(e => e.EmbeddingMeanMax.CosineDistance(query))
+            .Where(e => e.Track.MediaKey != null)
+            .Take(Math.Min(pool, 250))
+            .Select(e => new
+            {
+                e.TrackId,
+                Distance = e.EmbeddingMeanMax.CosineDistance(query),
+                ReleaseId = (ReleaseId?)e.Track.Disc.ReleaseId,
+                Circles = e.Track.Disc.Release.Circles.Select(rc => rc.CircleId).ToList(),
+            })
+            .ToListAsync();
+
+        var picked = DiversityReranker.Rerank(
+                rows.Where(r => !excluded.Contains(r.TrackId))
+                    .Select(r => new DiversityReranker.Candidate(
+                        r.TrackId, 1f - (float)r.Distance, r.ReleaseId, r.Circles))
+                    .ToList(),
+                count)
+            .Select(r => r.Candidate.TrackId)
+            .ToList();
+
+        var dto = new RadioNextDto { TrackIds = picked };
+        var context = JsonConvert.SerializeObject(new
+        {
+            anchor = anchor?.ToString(),
+            completed = completed.Count,
+            skipped = skipped.Count,
+        });
+        var now = DateTime.UtcNow;
+        foreach (var trackId in picked)
+        {
+            _context.RecImpressions.Add(new RecImpression
+            {
+                UserId = user,
+                TrackId = trackId,
+                Surface = "radio",
+                Context = context,
+                ServedAt = now,
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        return dto;
+    }
+
+    private static float[] MeanOf(List<float[]> vecs)
+    {
+        var mean = new float[vecs[0].Length];
+        foreach (var vec in vecs)
+        {
+            for (var i = 0; i < mean.Length; i++)
+            {
+                mean[i] += vec[i];
+            }
+        }
+
+        for (var i = 0; i < mean.Length; i++)
+        {
+            mean[i] /= vecs.Count;
+        }
+
+        return Normalize(mean);
+    }
+
+    private static void AddScaled(float[] target, List<float[]> vecs, float scale)
+    {
+        if (vecs.Count == 0)
+        {
+            return;
+        }
+
+        var mean = MeanOf(vecs);
+        for (var i = 0; i < target.Length; i++)
+        {
+            target[i] += scale * mean[i];
+        }
     }
 
     private async Task LogImpressions(UserId user, RecommendationHomeDto dto)

@@ -30,4 +30,37 @@ public class RecommendationsController(IRecommendationRepo recommendationRepo) :
     {
         return await _recommendationRepo.GetHomeRows(CurrentUser);
     }
+
+    /// <summary>
+    /// Stateless session-adaptive radio (Docs/RECOMMENDER.md section 5): the
+    /// client carries the session, so identical inputs replay identically and
+    /// the server holds nothing between calls.
+    /// </summary>
+    [HttpGet("~/api/music/radio/next")]
+    public async Task<ActionResult<RadioNextDto>> GetRadioNext(
+        string? anchor,
+        [FromQuery] string[]? completed,
+        [FromQuery] string[]? skipped,
+        [FromQuery] string[]? exclude,
+        int count = 20)
+    {
+        TrackId? anchorId = TrackId.TryParse(anchor, null, out var parsed) ? parsed : null;
+        var result = await _recommendationRepo.GetRadioNext(
+            CurrentUser,
+            anchorId,
+            ParseIds(completed, 50),
+            ParseIds(skipped, 50),
+            ParseIds(exclude, 300),
+            Math.Clamp(count, 1, 50));
+        return result == null
+            ? BadRequest("anchor or completed track ids are required")
+            : result;
+    }
+
+    private static List<TrackId> ParseIds(string[]? raw, int cap)
+        => (raw ?? [])
+            .Select(x => TrackId.TryParse(x, null, out var id) ? (TrackId?)id : null)
+            .OfType<TrackId>()
+            .Take(cap)
+            .ToList();
 }
