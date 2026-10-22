@@ -17,21 +17,21 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:21.0.2
+          image: quay.io/keycloak/keycloak:26.8.1
           args: ["start"]
           env:
-            - name: KEYCLOAK_ADMIN
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
                   key: KEYCLOAK_ADMIN
                   name: keycloak-secrets
-            - name: KEYCLOAK_ADMIN_PASSWORD
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: KEYCLOAK_ADMIN_PASSWORD
                   name: keycloak-secrets
-            - name: KC_PROXY
-              value: "edge"
+            - name: KC_PROXY_HEADERS
+              value: "xforwarded"
             - name: KC_HEALTH_ENABLED
               value: "true"
             - name: KC_METRICS_ENABLED
@@ -60,30 +60,29 @@ spec:
                 secretKeyRef:
                   name: keycloak-postgres-credentials
                   key: POSTGRES_PASSWORD
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KC_HOSTNAME_STRICT_BACKCHANNEL
-              value: "false"
+            # Hostname v2 (Keycloak 25+): a full URL replaces the old
+            # hostname/strict-https/strict-backchannel trio.
             - name: KC_HOSTNAME
-              value: "sso.marisad.me"
+              value: "https://sso.marisad.me"
             - name: KC_HOSTNAME_ADMIN
-              value: "sso.marisad.me"
-            - name: KC_HOSTNAME_STRICT_HTTPS
-              value: "true"
+              value: "https://sso.marisad.me"
           ports:
             - name: http
               containerPort: 8080
+            # Health and metrics moved here in Keycloak 25.
+            - name: management
+              containerPort: 9000
           readinessProbe:
             httpGet:
               path: /health/ready
-              port: 8080
+              port: management
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health/live
-              port: 8080
+              port: management
             initialDelaySeconds: 10
             periodSeconds: 10
