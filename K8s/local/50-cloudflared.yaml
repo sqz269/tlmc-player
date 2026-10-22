@@ -23,6 +23,14 @@ data:
     ingress:
       - hostname: tlmc.marisad.me
         service: http://backend-api-clusterip.tlmc-player.svc.cluster.local
+      # Rules match top-down, so this must precede the catch-all for the
+      # host. Nothing public needs the admin console or admin REST API (the
+      # backend only validates tokens); admins use the NodePort over
+      # tailscale. metrics/health are on the unexposed management port since
+      # Keycloak 25 -- listed anyway in case that ever regresses.
+      - hostname: sso.marisad.me
+        path: ^/(admin|metrics|health)(/|$)
+        service: http_status:404
       - hostname: sso.marisad.me
         service: http://keycloak-server-clusterip.tlmc-player.svc.cluster.local:8080
       - service: http_status:404

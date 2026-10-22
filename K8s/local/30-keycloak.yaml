@@ -18,15 +18,17 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:21.0.2
+          image: quay.io/keycloak/keycloak:26.8.1
           args: ["start", "--import-realm"]
           env:
-            - name: KEYCLOAK_ADMIN
+            # Only consulted when the master realm has no admin yet; an
+            # existing database keeps the admin it already has.
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: keycloak-admin-credentials
                   key: KEYCLOAK_ADMIN
-            - name: KEYCLOAK_ADMIN_PASSWORD
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: keycloak-admin-credentials
@@ -51,29 +53,34 @@ spec:
                   name: keycloak-pgsql-credentials
                   key: POSTGRES_PASSWORD
             # Keycloak always serves plain HTTP here; TLS, when there is any,
-            # is terminated upstream. "none" for a direct NodePort, "edge"
-            # behind the Cloudflare tunnel -- without "edge" Keycloak would
-            # emit http:// links on an https:// origin.
+            # is terminated upstream. Behind the Cloudflare tunnel deploy.sh
+            # sets "xforwarded" so Keycloak trusts cloudflared's
+            # X-Forwarded-* headers; for a direct NodePort there is no proxy
+            # and deploy.sh deletes this entry (an empty value is rejected).
             - name: KC_HTTP_ENABLED
               value: "true"
-            - name: KC_PROXY
-              value: "__KC_PROXY_MODE__"
-            - name: KC_HOSTNAME_STRICT
-              value: "false"
-            - name: KC_HOSTNAME_STRICT_HTTPS
-              value: "false"
+            - name: KC_PROXY_HEADERS
+              value: "__KC_PROXY_HEADERS__"
             # The issuer baked into tokens. Must be byte-identical to the
             # backend's Keycloak__RealmUrl minus the /realms/... suffix, and
             # must be reachable from both inside the cluster and wherever
             # clients live -- hence a node IP or the public tunnel hostname,
-            # never a service DNS name.
-            - name: KC_HOSTNAME_URL
+            # never a service DNS name. A full URL pins scheme, host and port,
+            # so forwarded headers can't change it.
+            - name: KC_HOSTNAME
               value: __KC_ISSUER_BASE__
-            - name: KC_HOSTNAME_ADMIN_URL
-              value: __KC_ISSUER_BASE__
+            # The admin console lives on its own URL so it can stay off the
+            # tunnel: cloudflared 404s /admin on the public hostname, and the
+            # console is reached over tailscale through the NodePort instead.
+            - name: KC_HOSTNAME_ADMIN
+              value: __KC_ADMIN_URL__
           ports:
             - name: http
               containerPort: 8080
+            # Health and metrics live here since Keycloak 25, not on 8080 --
+            # which keeps them off the tunnel, since no Service exposes 9000.
+            - name: management
+              containerPort: 9000
           volumeMounts:
             - name: realm-import
               mountPath: /opt/keycloak/data/import
@@ -81,18 +88,19 @@ spec:
           startupProbe:
             httpGet:
               path: /health/ready
-              port: 8080
+              port: management
             periodSeconds: 5
-            failureThreshold: 60
+            # 21 -> 26 runs every intervening schema migration on first boot.
+            failureThreshold: 120
           readinessProbe:
             httpGet:
               path: /health/ready
-              port: 8080
+              port: management
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /health/live
-              port: 8080
+              port: management
             periodSeconds: 15
             failureThreshold: 6
           resources:

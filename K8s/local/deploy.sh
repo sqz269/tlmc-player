@@ -36,6 +36,9 @@ MEILI_NODEPORT="${MEILI_NODEPORT:-30700}"
 # shortcut would report the public issuer and fail the byte-for-byte compare.
 KC_PUBLIC_URL="${KC_PUBLIC_URL:-}"
 
+# Prefer the tailscale address: the host pins NodePorts to it
+# (kube-proxy nodeport-addresses), so the LAN InternalIP no longer answers.
+NODE_IP="${NODE_IP:-$(tailscale ip -4 2>/dev/null | head -n1)}"
 NODE_IP="${NODE_IP:-$(kubectl get node -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')}"
 if [[ -z "$NODE_IP" ]]; then
   echo "could not determine node InternalIP; set NODE_IP=..." >&2
@@ -43,17 +46,22 @@ if [[ -z "$NODE_IP" ]]; then
 fi
 echo "==> node ip: $NODE_IP"
 
+# The admin console always goes through the NodePort, never the tunnel
+# (cloudflared 404s /admin on the public hostname; see 50-cloudflared.yaml).
+KC_ADMIN_URL="${KC_ADMIN_URL:-http://$NODE_IP:$KC_NODEPORT}"
+
 if [[ -n "$KC_PUBLIC_URL" ]]; then
   KC_ISSUER_BASE="${KC_PUBLIC_URL%/}"
-  KC_PROXY_MODE=edge
+  KC_PROXY_HEADERS=xforwarded
   KC_REQUIRE_HTTPS=true
   echo "==> keycloak issuer: $KC_ISSUER_BASE (public, via tunnel)"
 else
   KC_ISSUER_BASE="http://$NODE_IP:$KC_NODEPORT"
-  KC_PROXY_MODE=none
+  KC_PROXY_HEADERS=
   KC_REQUIRE_HTTPS=false
   echo "==> keycloak issuer: $KC_ISSUER_BASE (direct nodeport)"
 fi
+echo "==> keycloak admin console: $KC_ADMIN_URL/admin"
 
 # No openssl dependency: the input to base64 is a fixed 48 bytes, so every
 # stage of the pipe terminates on its own rather than on SIGPIPE (which
@@ -151,11 +159,17 @@ kubectl -n "$NS" create configmap keycloak-realm-import \
   --from-file=realm-MusicPlayer.json="$RENDERED_REALM" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
+# With no proxy, drop the KC_PROXY_HEADERS entry (name + value lines) rather
+# than substitute an empty value, which Keycloak refuses to start with.
 apply() {
-  sed -e "s|__NODE_IP__|$NODE_IP|g" \
+  local drop_proxy=()
+  [[ -z "$KC_PROXY_HEADERS" ]] && drop_proxy=(-e '/name: KC_PROXY_HEADERS$/,+1d')
+  sed "${drop_proxy[@]}" \
+      -e "s|__NODE_IP__|$NODE_IP|g" \
       -e "s|__KC_NODEPORT__|$KC_NODEPORT|g" \
       -e "s|__KC_ISSUER_BASE__|$KC_ISSUER_BASE|g" \
-      -e "s|__KC_PROXY_MODE__|$KC_PROXY_MODE|g" \
+      -e "s|__KC_ADMIN_URL__|$KC_ADMIN_URL|g" \
+      -e "s|__KC_PROXY_HEADERS__|$KC_PROXY_HEADERS|g" \
       -e "s|__KC_REQUIRE_HTTPS__|$KC_REQUIRE_HTTPS|g" \
       "$1" | kubectl apply -f - >/dev/null
 }
@@ -184,7 +198,7 @@ kubectl -n "$NS" get pods -o wide
 cat <<EOF
 
   API          http://$NODE_IP:$API_NODEPORT   (health: /healthz, docs: /swagger)
-  Keycloak     $KC_ISSUER_BASE   (admin console: /admin)
+  Keycloak     $KC_ISSUER_BASE   (admin console: $KC_ADMIN_URL/admin)
   Postgres     $NODE_IP:$PG_NODEPORT        (db/user: tlmcplayer)
   Meilisearch  http://$NODE_IP:$MEILI_NODEPORT   (auth: MEILI_MASTER_KEY as bearer)
 

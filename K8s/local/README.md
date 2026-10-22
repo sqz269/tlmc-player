@@ -73,10 +73,16 @@ KC_PUBLIC_URL=https://sso.marisad.me ./deploy.sh
 ```
 
 That switches three things together, because they have to agree: Keycloak
-advertises the public URL as its token issuer, `KC_PROXY` becomes `edge` so it
-emits `https://` links despite serving plain HTTP internally, and the backend
+advertises the public URL as its token issuer, `KC_PROXY_HEADERS` becomes
+`xforwarded` so it trusts cloudflared's forwarded headers, and the backend
 sets `Keycloak__RequireHttpsMetadata` back to `true` (the local HTTP relaxation
 is no longer needed once TLS terminates at Cloudflare's edge).
+
+The admin console is **not** published: cloudflared answers `/admin` (and
+`/metrics`, `/health`) on `sso.marisad.me` with a 404, and `KC_HOSTNAME_ADMIN`
+points at the NodePort instead (`KC_ADMIN_URL`, default
+`http://<node-ip>:30880`). Reach it over tailscale. The backend only validates
+tokens and never calls the admin REST API, so nothing public needs it.
 
 The API keeps reaching Keycloak at the public hostname rather than taking an
 in-cluster shortcut. That looks wasteful, but the token's `iss` claim is the
@@ -96,11 +102,13 @@ could create an account. Turn that off in the realm (or in
 ## Keycloak port is load-bearing
 
 `KC_NODEPORT` (default 30880 — 30080 is taken by headlamp) appears in three
-places that must agree exactly: the NodePort, Keycloak's `KC_HOSTNAME_URL`
+places that must agree exactly: the NodePort, Keycloak's `KC_HOSTNAME`
 (which becomes the `iss` claim), and the backend's `Keycloak__RealmUrl` (which
 `ValidIssuers` compares byte-for-byte). `deploy.sh` substitutes all three from
 that one variable. It is deliberately the node IP rather than a service DNS
-name, so the same issuer resolves both inside the cluster and from the LAN.
+name, so the same issuer resolves both inside the cluster and from clients.
+`<node-ip>` defaults to the host's tailscale address: the host pins NodePorts
+to it (kube-proxy `nodeport-addresses`), so the LAN address doesn't answer.
 
 ## Backend code changes this required
 

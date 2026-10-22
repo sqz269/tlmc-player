@@ -32,7 +32,9 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:15.4-bullseye
+          # Minor releases within 15 share the on-disk format, so this runs on
+          # the existing data directory; a major bump would need pg_upgrade.
+          image: postgres:15.19-bookworm
           ports:
             - name: postgres
               containerPort: 5432
